@@ -1,0 +1,84 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+
+/* Remove any background image since they won't be printed anyway unless user changes browser setting. */
+.sch-print-header-wrap *
+{
+    background:transparent none !important;
+}
+
+.sch-print-body .x-panel 
+{
+    overflow:visible !important;
+}
+
+.sch-print-ct .x-grid-inner-locked
+{
+     border-right-color:#99BCE8;
+}
+
+.sch-print-headerbg
+{
+	position:absolute;
+	left:0;
+	width:0;
+	border-left:1px solid #eee;
+}
+
+.sch-print-normalheader
+{
+    position:absolute;
+    top:0;
+}
+
+.sch-print-locked-rows-ct
+{
+    float:left;
+}
+
+.x-ie .sch-print-locked-rows-ct
+{
+    position:absolute;
+}
+
+div.sch-print-normal-rows-ct
+{
+    position:relative !important;
+}
+
+.x-ie div.sch-print-normal-rows-ct
+{
+    position:absolute !important;
+    overflow:visible !important;
+}
+
+/* Use border-width to achieve background color*/
+.sch-print-fake-background .sch-event
+{
+    overflow:visible !important;
+    background:none;
+    width:0 !important;
+    border-right-style:solid;
+}
+
+/* Make sure the inner content is "above" the border */
+.sch-print-fake-background .sch-event-inner
+{
+    overflow:visible !important;
+    z-index:10000;
+	position:absolute;
+	left:0;
+}
+
+@media print {
+	body { 
+		margin:0 !important; 
+		padding:0 !important;
+	}
+}

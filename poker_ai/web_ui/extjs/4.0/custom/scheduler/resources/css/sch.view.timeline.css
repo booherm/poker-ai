@@ -1,0 +1,68 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+.x-ie .sch-timelineview .sch-timetd .x-grid-cell-inner
+{
+    padding-left:0;
+}
+
+.x-ie7 .sch-timelineview .sch-timetd .x-grid-cell-inner
+{
+    padding:0 6px 0 0;
+}
+
+.sch-timelineview td.sch-timetd
+{
+	overflow:visible;
+	background-color:transparent;
+	border-top-color:transparent;
+}   
+
+/* Makes sure column lines are not 'reachable' in IE */
+.x-ie .sch-timelineview td.sch-timetd
+{
+    position:relative;
+}    
+
+.sch-timelineview td.sch-singletimetd {
+    overflow: hidden;
+}
+
+td.sch-timetd .x-grid-cell-inner
+{
+	overflow:visible !important;
+    position:relative;
+    text-align:left !important;    /* reset the text-align to left, since time columns are aligned center (for the header)*/
+}
+
+/* Make sure zones are always below the TRs/TDs */
+.sch-timelineview table
+{
+    position:relative;
+}
+
+.sch-animations-enabled .sch-resourcezone,
+.sch-animations-enabled .sch-timeline,
+.sch-animations-enabled .sch-zone
+{
+    -moz-transition-property: width, left, top, height;
+    -moz-transition-duration: 0.4s;
+    -webkit-transition-property: width, left, top, height;
+    -webkit-transition-duration: 0.4s;
+    -ms-transition-property: width, left, top, height;
+    -ms-transition-duration: 0.4s;
+    transition-property: width, left, top, height;
+    transition-duration: 0.4s;
+}
+
+
+/* Force horizontal scrollbar to be shown to keep spacerEl magic working when scrolling to bottom */
+.sch-timeline-horizontal-scroll
+{
+    overflow-x:scroll !important;
+}

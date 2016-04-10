@@ -1,0 +1,85 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+.sch-resizable-handle
+{
+    position:absolute;
+    visibility:hidden;
+    overflow:hidden;
+}
+
+.sch-horizontal .sch-resizable-handle
+{
+	background: transparent url(../images/resize-handle-hor.gif) no-repeat center center;
+}
+
+.sch-vertical .sch-resizable-handle
+{
+	background: transparent url(../images/resize-handle-ver.gif) no-repeat center center;
+}
+
+.sch-horizontal .sch-resizable-handle-start,
+.sch-horizontal .sch-resizable-handle-end
+{
+    width:7px;
+    height:100%;
+    top:0;
+}
+
+.sch-horizontal .sch-resizable-handle-start
+{
+    cursor:w-resize;
+    left : 0;
+}
+
+.sch-horizontal .sch-resizable-handle-end
+{
+    cursor:e-resize;
+    right : 0;
+    padding-right:2px;
+}
+
+.sch-vertical .sch-resizable-handle
+{
+    width:100%;
+    cursor:n-resize;
+    height:6px;
+    background-position:center 3px;
+    left:0;
+}
+
+.sch-vertical .sch-resizable-handle-start{
+    background-position:center 2px;
+    top:0px;
+}
+
+.sch-vertical .sch-resizable-handle-end{
+    background-position:center 1px;
+    bottom:0;
+}
+
+.sch-event-endsoutside .sch-resizable-handle-end,
+.sch-event-startsoutside .sch-resizable-handle-start,
+.sch-schedulerview-readonly .sch-resizable-handle
+{
+	display:none !important;
+}
+
+.sch-event .x-resizable-handle
+{
+    background:none;
+}
+
+.sch-event-hover .sch-resizable-handle
+{
+    visibility:visible;
+}
+
+
+
+

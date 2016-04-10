@@ -1,0 +1,18 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+.sch-ruler
+{
+  width:1px;
+  height:100%;
+  position:absolute;
+  left:0;
+  top:0;
+  border-left:1px dotted #aaa;
+  z-index:101;
+}

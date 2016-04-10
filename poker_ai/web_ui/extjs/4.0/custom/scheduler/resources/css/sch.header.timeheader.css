@@ -1,0 +1,116 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+.sch-nested-hdr-tbl
+{
+	width:100%;
+	table-layout: fixed;
+}
+
+.sch-nested-hdr-tbl td
+{
+    white-space:nowrap;
+    border-left: 1px solid #DCDCDC;
+    border-right: 1px solid #C0C0C0;
+    text-align:center;
+    font: 11px tahoma,arial,helvetica,sans-serif;
+}
+
+
+.sch-header-row .x-column-header-inner, 
+.sch-timeheader
+{
+    padding-top:3px !important;
+    padding-bottom:3px !important;
+}
+
+.sch-nested-hdr-nopad
+{
+    padding:0 !important;
+}
+
+.sch-nested-hdr-nopad td
+{
+	text-align:center;
+	height:21px;
+}
+
+.sch-nested-hdr-pad td {
+    text-align:left;
+	border:0 none;
+}
+
+.sch-nested-hdr-pad .x-grid-hd-inner
+{
+	padding-left:2px !important;
+	padding-right:2px !important;
+}
+
+.sch-nested-hdr-pad td {
+    text-align:left;
+	border:0 none;
+}
+
+.sch-hdr-startend .sch-hdr-start
+{
+    float:left;
+}
+
+.sch-hdr-startend .sch-hdr-end
+{
+    float:right;
+}
+
+td.sch-nested-hdr-cell-first
+{
+    border-left:0 none;
+}
+
+td.sch-nested-hdr-cell-last 
+{
+    border-right:0 none;
+}
+
+
+
+/* SIMPLE TIMEHEADER */
+
+.sch-simple-timeaxis .x-column-header-inner
+{
+    padding:0;
+}
+
+.sch-simple-timeaxis .sch-column-header {
+	padding : 0;
+	height:22px;
+}
+
+.sch-simple-timeaxis .sch-simple-timeheader {
+    white-space: nowrap;
+    overflow:hidden;
+	padding : 0 6px;
+}
+
+/* Adjust font size and padding for very narrow cells */
+.sch-simple-timeaxis .sch-header-row-compact .sch-simple-timeheader
+{
+    padding:0 1px;
+    font-size:80%;
+    height:22px;
+}
+
+.x-chrome .sch-simple-timeaxis .sch-header-row-compact .sch-simple-timeheader
+{
+    line-height:24px;
+}
+
+
+.x-safari .sch-simple-timeaxis .sch-header-row-compact .sch-simple-timeheader
+{
+    padding:0;
+}

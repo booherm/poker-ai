@@ -1,0 +1,65 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+
+.sch-timeaxiscolumn .x-column-header-inner {
+	padding : 0;
+}
+
+
+.sch-header-row .sch-column-header,
+.sch-timeaxiscolumn .sch-timeheader {
+	padding : 0 6px;
+}
+
+.sch-header-row td {
+	font-size      : 11px;
+	line-height    : 22px !important;
+}
+
+.sch-header-row {
+	table-layout   : fixed;
+	
+	border-top     : 1px solid #C5C5C5
+}
+
+.x-ie .sch-header-row {
+    margin-left : -1px;
+}
+
+
+.x-strict .x-ie6 .sch-header-row,
+.x-strict .x-ie7 .sch-header-row,
+.x-border-box .sch-header-row {
+    margin-left : 0;
+}
+
+.x-quirks .sch-header-row {
+    border-right       : 1px solid;
+}
+
+.x-border-box .x-ie9 .x-grid-header-ct {
+	padding-left       : 0px;
+}
+
+.sch-header-single-row .x-group-sub-header {
+	border-top-width         : 0 !important;
+}
+
+.x-webkit .sch-column-header .x-column-header-inner
+{
+    height:22px;
+    white-space:normal;
+}
+
+/* Prevent header row cells from overflowing in IE */
+.x-ie .sch-column-header .x-column-header-inner
+{
+    position:static;
+    overflow:hidden;
+}

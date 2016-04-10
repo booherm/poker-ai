@@ -1,0 +1,59 @@
+.x-tool-selectall
+{
+	background-image: url(../images/selectall.png) !important;
+}
+
+.x-tool-selectall-over
+{
+	background-image: url(../images/selectall.png) !important;
+}
+
+.x-tool-deselectall
+{
+	background-image: url(../images/deselectall.png) !important;
+}
+
+.x-tool-deselectall-over
+{
+	background-image: url(../images/deselectall.png) !important;
+}
+
+.x-tool-back
+{
+	background-image: url(../images/back.gif) !important;
+}
+
+.x-tool-back-over
+{
+	background-image: url(../images/back.gif) !important;
+}
+
+.x-tool-pdf
+{
+	background-image: url(../images/pdf.gif) !important;
+}
+
+.x-tool-pdf-over
+{
+	background-image: url(../images/pdf.gif) !important;
+}
+
+.x-tool-pdfgeneration
+{
+	background-image: url(../images/pdf-waiting.gif) !important;
+}
+
+.x-tool-excel
+{
+	background-image: url(../images/excel_export.png) !important;
+}
+
+.x-tool-excel-over
+{
+	background-image: url(../images/excel_export.png) !important;
+}
+
+.x-tool-excelgeneration
+{
+	background-image: url(../images/excel_export_waiting.png) !important;
+}

@@ -1,0 +1,37 @@
+/**
+ * GridFilters Styles
+ */
+.ux-filtered-column {
+    font-style:  italic;
+    font-weight: bold;
+}
+
+.ux-gridfilter-text-icon {
+    background-image: url(../images/find.png) !important;
+}
+
+.ux-gridfilter-text-field {
+	margin-top: 3px;
+}
+
+/**
+ * RangeMenu Styles
+ */
+.ux-rangemenu-icon {
+	display:    block;
+	height:     16px;
+	background: no-repeat 5px center;
+	margin-top: 3px;
+}
+
+.ux-rangemenu-gt {
+    background-image: url(../images/greater_than.png) !important;
+}
+
+.ux-rangemenu-lt {
+    background-image: url(../images/less_than.png) !important;
+}
+
+.ux-rangemenu-eq {
+    background-image: url(../images/equals.png) !important;
+}

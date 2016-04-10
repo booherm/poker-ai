@@ -1,0 +1,22 @@
+/* 
+    Document   : MultiSelect
+    Created on : Jan 19, 2012, 9:07:31 AM
+    Author     : e5u2r0m
+    Description:
+        Purpose of the stylesheet follows.
+*/
+
+/* 
+   TODO customize this sample style
+   Syntax recommendation http://www.w3.org/TR/REC-CSS2/
+*/
+
+.x-boundlist-selected-multiselect{
+	background:#d4d4d4;
+	border-width:0px;
+}
+
+.x-boundlist-over-multiselect{
+	background:#e1e1e1;
+	border-width:0px;
+}

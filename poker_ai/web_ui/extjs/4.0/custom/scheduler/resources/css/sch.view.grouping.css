@@ -1,0 +1,90 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+/* Collapsed group summary feature */
+.sch-groupingsummary .x-grid-group-collapsed
+{
+	position:relative;
+	border-bottom:2px solid #99BBE8;
+	min-height:22px;
+}
+
+
+/* Min-height for Internet Explorer, by CSS Play */
+/*\*/
+* html .sch-groupingsummary .x-grid-group-collapsed {
+	height: 22px;
+}
+
+.sch-groupingsummary .x-grid-group-collapsed .x-grid-row
+{
+	height:4px !important;
+	background-color:transparent !important;
+	background-image:none !important;
+	border-color:transparent !important;
+}
+
+.sch-groupingsummary .x-grid-group-collapsed .x-grid-row .sch-event
+{
+	height:2px !important;
+	-webkit-box-shadow: none;
+    -moz-box-shadow: none;
+    -moz-border-radius:0;
+    -webkit-border-radius: 0;
+    border-bottom:0 !important;
+	border-top:0 !important;
+    top:0px;
+    padding:0 !important;
+}
+
+.sch-groupingsummary .x-grid-group-collapsed .x-grid-group-body {
+	display:block;
+	padding-top:2px;
+}
+
+.sch-schedulerpanel .x-grid-group-hd
+{
+    white-space:nowrap;    
+}
+
+.sch-groupingsummary .x-grid-group-hd
+{
+	padding-top:0 !important;
+}
+
+.sch-groupingsummary .x-grid-group-collapsed .x-grid-group-hd
+{
+	position:absolute;
+	border-bottom:0 none;
+	z-index:200;
+	top:0;
+	left:0;
+	height:100%;
+}
+
+.sch-groupingsummary .x-grid-group-collapsed td.x-grid-col {
+	height:2px !important;
+	border-bottom:0 !important;
+	border-top:0 !important;
+	text-indent:-10000px;
+    border-right: 1px none !important;
+}
+
+.sch-groupingsummary .x-grid-group-collapsed .x-grid-cell-inner
+{
+	height:2px !important;
+	padding:0 !important;
+}
+
+/* -- End Collapsed group summary feature */
+
+/* Hide title in locking+grouping view */
+.sch-schedulerview .x-grid-group-title
+{
+    visibility:hidden;
+}

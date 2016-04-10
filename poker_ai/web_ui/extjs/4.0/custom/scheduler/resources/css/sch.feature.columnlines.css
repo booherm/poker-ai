@@ -1,0 +1,38 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+.sch-column-line
+{
+    border-left: 1px solid #EEE;
+    height: 100%;
+    position: absolute;
+    overflow: hidden;
+    margin-left: -1px;
+    z-index:0;
+}
+
+.x-webkit .sch-column-line {
+	margin-left: 0px;
+}
+
+.x-ie .sch-column-line
+{
+    z-index:-1;
+    margin-left: 0;
+}
+
+.x-safari .sch-column-line
+{
+    margin-left:1px;
+}
+
+/* For immediate hiding on orientation switch */
+.sch-vertical .sch-column-line
+{
+    visibility:hidden;
+}

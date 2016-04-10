@@ -1,0 +1,68 @@
+.kpi_main_header {
+	border-top:   1px solid black;
+	border-right: 1px solid black;
+	border-left:  1px solid black;
+	color:        #1F497D;
+	font-size:    10pt;
+	font-weight:  bold;
+	text-align:   center;
+}
+
+.kpi_row_category {
+	border-bottom: 2px solid black;
+	color:         #1F497D;
+	font-size:     9pt;
+	font-weight:   bold;
+	text-align:    center;
+}
+
+.kpi_cell_ir {
+	font-size: 8pt;
+}
+
+.kpi_cell_bg_blue {
+	background-color: #DBEFF1;
+}
+
+.kpi_cell_bg_gray {
+	background-color: #EFEFEF;
+}
+
+.kpi_cell_border_left {
+	border-left: 1px solid black;
+}
+
+.kpi_cell_border_right {
+	border-right: 1px solid black;
+}
+
+.kpi_cell_data {
+	font-size:  8pt;
+	text-align: right;
+}
+
+.kpi_cell_red {
+	color:       red;
+	font-weight: bold;
+}
+
+.kpi_cell_green {
+	color:       green;
+	font-weight: bold;
+}
+
+.kpi_cell_yellow {
+	color:       yellow;
+	font-weight: bold;
+}
+
+.kpi_cell_black {
+	color: black;
+}
+
+.kpi_tab {
+	border-right:  1px solid black;
+	border-bottom: 1px solid black;
+	border-left:   1px solid black;
+	display:       none;
+}

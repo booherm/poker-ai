@@ -1,0 +1,174 @@
+/*
+
+Ext Scheduler 2.1.9
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+/* Styles for Exporting. */
+
+.sch-none
+{
+    display:none;
+}
+
+.sch-export-header
+{
+    background: #99BCE8;
+    border: 1px solid #C5C5C5;
+    height: 40px;
+    padding-top: 7px;
+    text-align: center;
+}
+
+.sch-export-header h2
+{
+    margin:0;
+    padding:0;
+    color:white;
+    font-size:16px;
+}
+
+.sch-export-mask
+{
+    opacity: 0.95;
+    background: #f8f8f8;
+}
+
+.sch-exportdialog
+{
+	background: #f8f8f8;
+	border-color: #C1C1C1;
+}
+
+.sch-exportdialog .x-window-body
+{
+	background: #f8f8f8;
+	border-color: #C1C1C1;
+}
+
+.sch-exportdialog-header
+{
+	background: #f8f8f8 url(../images/pdf-icon.png) no-repeat scroll 9px 8px;
+    border-bottom: 1px solid #C1C1C1;
+    margin: 0;
+    padding: 5px 5px 5px 50px;
+}
+
+.sch-exportdialog .x-toolbar-footer
+{
+	margin-top:1px;
+}
+
+.sch-exportdialog-header .x-window-header-text-container
+{
+    padding-top: 5px;
+    padding-left: 5px;
+}
+
+.sch-exportdialog-header .x-window-header-text
+{
+    font-size: 15px;
+    color: #555;
+}
+
+.sch-exportdialog-header .x-tool
+{
+    height: 22px !important;
+   	top: 0 !important;
+    width: 22px !important;
+}
+
+.sch-exportdialog .x-tool img
+{
+	background: transparent url(../images/close-icon.png) no-repeat scroll -2px -5px;
+	height: 22px;
+	width: 22px;
+}
+
+.sch-exportdialog-form
+{
+	color:inherit;
+}
+
+.sch-exportdialog-msg
+{
+	padding: 10px;
+	color: black;
+	font-size: 13px;
+	background-color: white;
+	min-height:100px;
+}
+
+.sch-exportdialog-form label
+{
+	font-weight: bold;
+}
+
+.sch-exportdialogform-orientation label
+{
+	font-weight: normal;
+}
+
+.sch-exportdialogform-orientation .x-form-trigger-wrap
+{
+	width:150px !important;
+	float:left;
+}
+
+#sch-exportdialog-imagePortrait
+{
+	background: transparent url(../images/page-vertical-icon.png) no-repeat scroll 0 -1px;
+	width: 32px;
+	height: 32px;	
+	float: right;
+	position: relative;
+	top: -3px;
+}
+
+#sch-exportdialog-imageLandscape
+{
+	background: transparent url(../images/page-horizontal-icon.png) no-repeat scroll 0 -3px;
+	width: 32px;
+	height: 32px;	
+	float: right;
+	position: relative;
+	top: -1px;	
+}
+
+.sch-ux-range-picker
+{
+	position: relative;
+}
+
+.sch-ux-range-picker .x-panel-body
+{
+    background: #aaa url(../images/pattern.png) repeat scroll 0 0;
+}
+
+.sch-ux-range-value
+{
+    height:16px;
+    width:16px;
+    background:lightseagreen;
+    border:2px solid #fff;
+    border-radius:100%;
+    -webkit-box-shadow: 1px 1px 5px rgba(45, 45, 45, 0.7);
+    -moz-box-shadow: 1px 1px 5px rgba(45, 45, 45, 0.7); 
+    -ms-box-shadow: 1px 1px 5px rgba(45, 45, 45, 0.7); 
+    box-shadow: 1px 1px 5px rgba(45, 45, 45, 0.7); 
+    cursor:pointer;
+    position:absolute;
+    overflow:visible;
+}
+
+.sch-ux-range-value span
+{
+    font-size:9px;
+    color:#fff;
+    display:block;
+    left:-25px;
+    top:-18px;
+    position:absolute;
+}

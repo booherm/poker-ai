@@ -1,0 +1,88 @@
+body{font-size: 9pt; font-family: Arial,Helvetica,sans-serif;}
+table{font-size: 9pt;}
+h1{font-size: 15pt;}
+h2{font-size: 13pt;}
+h3{font-size: 12pt;}
+input{font-size: 9pt;}
+select{font-size: 9pt;}
+textarea{font-size:9pt; font-family:Arial,Helvetica,sans-serif;}
+a:visited{color: blue;}
+a:active{color: blue;}
+a:hover{color: purple;}
+
+/* table header row with primary color background: */
+.table_header {font-weight: bold; text-align: left; background-color: #1F497D; vertical-align: bottom; color: white;}
+.table_header_alternate {font-weight: bold; text-align: left; background-color: #BFBFBF; vertical-align: bottom; color: white;}
+.table_header_top_align {font-weight: bold; background-color: #1F497D; vertical-align: top; color: white;}
+.table_sub_header{font-weight:bold; text-align:left; background-color:#FFFFFF; vertical-align:bottom; color:black;}
+.table_sub_sub_header{font-weight:bold; text-align:left; background-color:#BFBFBF; vertical-align:bottom; color:black;}
+.table_data_row{text-align:left; vertical-align:top;}
+
+/* table data row backgrounds */
+.table_data_row_group{background-color:#00CCCC;}
+.table_data_row_gray{background-color:#EFEFEF;}
+.table_data_row_white{background-color:white;}
+.table_data_highlighted{background-color:#BFBFBF;}
+
+/* right-align field labels for screens with updateable fields (line up the colons): */
+.label_right{font-weight:bold;text-align:right;}
+
+/* left-align field labels for display-only screens (printable versions, reports, etc.): */
+.label_left{font-weight:bold;text-align:left;}
+.label_center{font-weight:bold;text-align:center;}
+
+.nowrap{white-space: nowrap;}
+.hand_cursor{cursor:pointer;}
+.instructions{color:darkgreen;}
+.inverted_instructions{color:white;}
+.section_header {font-size:15pt;font-weight:bold;color:#1F497D;}
+.section_header_italic {font-style:italic;font-size:15pt;font-weight:bold;color:#1F497D;}
+.section_sub_header {font-size:11pt;font-weight:bold;color:#1F497D;}
+.field_error{font-style:italic; color:red !important;}
+.application_error{font-size:13pt; color:red;}
+.field_disabled{color:#808080;}
+.variance {color:red;}
+.tal{text-align:left;}
+.tac{text-align:center;}
+.tar{text-align:right;}
+.pseudo_link{color:#1F497D;text-decoration:underline;cursor:pointer;font-weight:bold;}
+
+.report_title{font-size:15pt;font-weight:bold;color:#1F497D;}
+.report_sub_title{font-size:13pt;font-weight:bold;color:#1F497D;}
+.report_table_title {
+	font-size: 11pt;
+	font-weight: bold;
+	color: #1F497D;
+}
+.report_table_subtitle {
+	font-size: 8pt;
+	font-weight: bold;
+	color: #1F497D;
+	white-space: nowrap;
+}
+
+.report_group_header{font-size:11pt; font-weight:bold; text-align:left}
+.filter_popup{background-color:#EFEFEF;}
+
+.red{color:red;}
+.blue{color:blue;}
+
+.hidden {display:none;}
+.visible {visibility: visible;}
+
+/* border rules */
+.border_top {border-top: 1px solid black;}
+.border_bottom {border-bottom: 1px solid black;}
+.border_left {border-left: 1px solid black;}
+.border_right {border-right: 1px solid black;}
+.border_top_bottom {border-top: 1px solid black; border-bottom: 1px solid black;}
+.border_top_left {border-top: 1px solid black; border-left: 1px solid black;}
+.border_top_right {border-top: 1px solid black; border-right: 1px solid black;}
+.border_bottom_left {border-bottom: 1px solid black; border-left: 1px solid black;}
+.border_bottom_right {border-bottom: 1px solid black; border-right: 1px solid black;}
+.border_left_right {border-left: 1px solid black; border-right: 1px solid black;}
+.border_top_bottom_left {border-top: 1px solid black; border-bottom: 1px solid black; border-left: 1px solid black;}
+.border_top_bottom_right {border-top: 1px solid black; border-bottom: 1px solid black; border-right: 1px solid black;}
+.border_top_left_right {border-top: 1px solid black; border-left: 1px solid black; border-right: 1px solid black;}
+.border_bottom_left_right {border-bottom: 1px solid black; border-left: 1px solid black; border-right: 1px solid black;}
+.border_top_bottom_left_right {border-top: 1px solid black; border-bottom: 1px solid black; border-left: 1px solid black; border-right: 1px solid black;}

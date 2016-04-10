@@ -1,0 +1,35 @@
+/*
+
+Ext Scheduler 2.1.3
+Copyright(c) 2009-2012 Bryntum AB
+http://bryntum.com/contact
+http://bryntum.com/license
+
+*/
+.sch-zone
+{
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: url(../images/zonebg.png) repeat;
+    overflow: hidden;
+}
+
+/* IE z-index bug fix */
+.x-ie .sch-schedulerpanel .x-grid-body
+{
+    position: relative;
+    z-index: 2;
+}
+
+
+.x-safari .sch-zone
+{
+    margin-left:1px;
+}
+
+.x-gecko .sch-zone
+{
+    margin-left:-1px;    
+}
