@@ -9,14 +9,11 @@ class PokerAiUiWindow : public AwesomiumUiWindow
 
 public:
 	PokerAiUiWindow(DbInterface* dbInterface);
-	void onWindowDestroy();
 
 private:
 	void initTournament(WebView* caller, const JSArray& args);
-	void initGame(WebView* caller, const JSArray& args);
-	void refreshRenderWindowState(WebView* caller, const JSArray& args);
-	void setModuleConfigValue(WebView* caller, const JSArray& args);
-	void sendRenderWindowCommand(WebView* caller, const JSArray& args);
+	void stepPlay(WebView* caller, const JSArray& args);
+	void refreshUi();
 	void bindJsFunctions();
 
 	DbInterface* dbInterface;

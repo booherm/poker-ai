@@ -183,6 +183,8 @@
     <None Include="player.sql" />
     <None Include="player_state.sql" />
     <None Include="pot.sql" />
+    <None Include="pot_contribution.sql" />
+    <None Include="preflop_odds.sql" />
     <None Include="sequences.sql" />
     <None Include="test.sql" />
     <None Include="tournament_state.sql" />

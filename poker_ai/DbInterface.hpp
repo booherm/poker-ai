@@ -10,12 +10,13 @@ public:
 	~DbInterface();
 	void test();
 	void initTournament(unsigned int playerCount, unsigned int buyInAmount);
-	void initGame(unsigned int smallBlindSeatNumber, unsigned int smallBlindAmount, unsigned int bigBlindAmount);
-	void getPlayerState(Json::Value& playerState);
+	void stepPlay(unsigned int smallBlindAmount, unsigned int bigBlindAmount);
+	void getUiState(Json::Value& uiData);
 
 private:
 
 	ocilib::Connection con;
+	unsigned int lastLogRecordNumber;
 
 };
 

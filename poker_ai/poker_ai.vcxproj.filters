@@ -133,5 +133,11 @@
     <None Include="t_tbl_hand.sql">
       <Filter>db\type</Filter>
     </None>
+    <None Include="pot_contribution.sql">
+      <Filter>db\table</Filter>
+    </None>
+    <None Include="preflop_odds.sql">
+      <Filter>db\table</Filter>
+    </None>
   </ItemGroup>
 </Project>
