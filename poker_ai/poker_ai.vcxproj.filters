@@ -13,27 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="db">
-      <UniqueIdentifier>{007ee6b1-bdcb-4cd6-803f-c4b007f8c2e5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="db\table">
-      <UniqueIdentifier>{78e671c7-fca1-43d3-b3a1-8f1453f7d486}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="db\package_header">
-      <UniqueIdentifier>{a469bfdf-3b4b-43d9-9c46-d088fdf190b3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="db\package_body">
-      <UniqueIdentifier>{a5f744f5-4783-49b2-83bd-e67237ab711c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="db\project">
-      <UniqueIdentifier>{0384b7ac-6810-486e-8fdd-7a5495241ddb}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="db\sequence">
-      <UniqueIdentifier>{bfe99ae5-a42d-485b-90aa-0e5ed60abe8e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="db\type">
-      <UniqueIdentifier>{a1439eb2-4c80-4e21-871c-41e698648a61}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
@@ -86,58 +65,5 @@
     <ClInclude Include="json.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="player.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="pkg_poker_ai.sql">
-      <Filter>db\package_body</Filter>
-    </None>
-    <None Include="pkgh_poker_ai.sql">
-      <Filter>db\package_header</Filter>
-    </None>
-    <None Include="install.sql">
-      <Filter>db\project</Filter>
-    </None>
-    <None Include="test.sql">
-      <Filter>db\project</Filter>
-    </None>
-    <None Include="sequences.sql">
-      <Filter>db\sequence</Filter>
-    </None>
-    <None Include="deck.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="game_state.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="hand_compare_test.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="log.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="player_state.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="pot.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="tournament_state.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="t_row_hand.sql">
-      <Filter>db\type</Filter>
-    </None>
-    <None Include="t_tbl_hand.sql">
-      <Filter>db\type</Filter>
-    </None>
-    <None Include="pot_contribution.sql">
-      <Filter>db\table</Filter>
-    </None>
-    <None Include="preflop_odds.sql">
-      <Filter>db\table</Filter>
-    </None>
   </ItemGroup>
 </Project>

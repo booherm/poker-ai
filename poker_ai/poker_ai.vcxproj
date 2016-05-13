@@ -172,25 +172,6 @@
     <ClInclude Include="PokerAiController.hpp" />
     <ClInclude Include="PokerAiUiWindow.hpp" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="deck.sql" />
-    <None Include="game_state.sql" />
-    <None Include="hand_compare_test.sql" />
-    <None Include="install.sql" />
-    <None Include="log.sql" />
-    <None Include="pkgh_poker_ai.sql" />
-    <None Include="pkg_poker_ai.sql" />
-    <None Include="player.sql" />
-    <None Include="player_state.sql" />
-    <None Include="pot.sql" />
-    <None Include="pot_contribution.sql" />
-    <None Include="preflop_odds.sql" />
-    <None Include="sequences.sql" />
-    <None Include="test.sql" />
-    <None Include="tournament_state.sql" />
-    <None Include="t_row_hand.sql" />
-    <None Include="t_tbl_hand.sql" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -8,9 +8,8 @@ class DbInterface {
 public:
 	DbInterface();
 	~DbInterface();
-	void test();
-	void initTournament(unsigned int playerCount, unsigned int buyInAmount);
-	void stepPlay(unsigned int smallBlindAmount, unsigned int bigBlindAmount);
+	void initTournament(unsigned int playerCount, unsigned int buyInAmount, unsigned int smallBlindAmount, unsigned int bigBlindAmount);
+	void stepPlay(unsigned int smallBlindAmount, unsigned int bigBlindAmount, unsigned int playerMove, unsigned int playerMoveAmount);
 	void getUiState(Json::Value& uiData);
 
 private:

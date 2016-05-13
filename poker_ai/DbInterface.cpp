@@ -14,31 +14,22 @@ DbInterface::~DbInterface() {
 	ocilib::Environment::Cleanup();
 }
 
-void DbInterface::test() {
+void DbInterface::initTournament(unsigned int playerCount, unsigned int buyInAmount, unsigned int smallBlindAmount, unsigned int bigBlindAmount) {
 	try
 	{
-		ocilib::Statement st(con);
-		st.Execute("SELECT ROWNUM intcol, 'Hello ' || ROWNUM strcol FROM DUAL CONNECT BY ROWNUM <= 10");
-		ocilib::Resultset rs = st.GetResultset();
-		while (rs.Next())
-		{
-			std::cout << rs.Get<int>(1) << " - " << rs.Get<ocilib::ostring>(2) << std::endl;
-		}
-	}
-	catch (std::exception &ex)
-	{
-		std::string exceptionString(ex.what());
-		std::cout << "exception: " << exceptionString << std::endl;
-	}
-}
+		std::string procCall = "BEGIN pkg_poker_ai.initialize_tournament(";
+		procCall.append("p_player_count      => :playerCount, ");
+		procCall.append("p_buy_in_amount     => :buyInAmount, ");
+		procCall.append("p_small_blind_value => :smallBlindAmount, ");
+		procCall.append("p_big_blind_value   => :bigBlindAmount");
+		procCall.append("); END; ");
 
-void DbInterface::initTournament(unsigned int playerCount, unsigned int buyInAmount) {
-	try
-	{
 		ocilib::Statement st(con);
-		st.Prepare("BEGIN pkg_poker_ai.initialize_tournament(p_player_count => :playerCount, p_buy_in_amount => :buyInAmount); END;");
+		st.Prepare(procCall);
 		st.Bind("playerCount", playerCount, ocilib::BindInfo::In);
 		st.Bind("buyInAmount", buyInAmount, ocilib::BindInfo::In);
+		st.Bind("smallBlindAmount", smallBlindAmount, ocilib::BindInfo::In);
+		st.Bind("bigBlindAmount", bigBlindAmount, ocilib::BindInfo::In);
 		st.ExecutePrepared();
 		con.Commit();
 	}
@@ -49,18 +40,22 @@ void DbInterface::initTournament(unsigned int playerCount, unsigned int buyInAmo
 	}
 }
 
-void DbInterface::stepPlay(unsigned int smallBlindAmount, unsigned int bigBlindAmount) {
+void DbInterface::stepPlay(unsigned int smallBlindAmount, unsigned int bigBlindAmount, unsigned int playerMove, unsigned int playerMoveAmount) {
 	try
 	{
 		std::string procCall = "BEGIN pkg_poker_ai.step_play(";
-		procCall.append("p_small_blind_value => :smallBlindAmount, ");
-		procCall.append("p_big_blind_value   => :bigBlindAmount");
+		procCall.append("p_small_blind_value  => :smallBlindAmount, ");
+		procCall.append("p_big_blind_value    => :bigBlindAmount, ");
+		procCall.append("p_player_move        => :playerMove, ");
+		procCall.append("p_player_move_amount => :playerMoveAmount");
 		procCall.append("); END;");
 
 		ocilib::Statement st(con);
 		st.Prepare(procCall);
 		st.Bind("smallBlindAmount", smallBlindAmount, ocilib::BindInfo::In);
 		st.Bind("bigBlindAmount", bigBlindAmount, ocilib::BindInfo::In);
+		st.Bind("playerMove", playerMove, ocilib::BindInfo::In);
+		st.Bind("playerMoveAmount", playerMoveAmount, ocilib::BindInfo::In);
 		st.ExecutePrepared();
 		con.Commit();
 	}
@@ -146,12 +141,26 @@ void DbInterface::getUiState(Json::Value& uiData) {
 			playerStateData["best_hand_card_3"] = playerStateRs.IsColumnNull("best_hand_card_3") ? Json::Value::null : playerStateRs.Get<unsigned int>("best_hand_card_3");
 			playerStateData["best_hand_card_4"] = playerStateRs.IsColumnNull("best_hand_card_4") ? Json::Value::null : playerStateRs.Get<unsigned int>("best_hand_card_4");
 			playerStateData["best_hand_card_5"] = playerStateRs.IsColumnNull("best_hand_card_5") ? Json::Value::null : playerStateRs.Get<unsigned int>("best_hand_card_5");
+			playerStateData["best_hand_card_1_is_hole_card"] = playerStateRs.IsColumnNull("best_hand_card_1_is_hole_card") ? Json::Value::null : playerStateRs.Get<std::string>("best_hand_card_1_is_hole_card");
+			playerStateData["best_hand_card_2_is_hole_card"] = playerStateRs.IsColumnNull("best_hand_card_2_is_hole_card") ? Json::Value::null : playerStateRs.Get<std::string>("best_hand_card_2_is_hole_card");
+			playerStateData["best_hand_card_3_is_hole_card"] = playerStateRs.IsColumnNull("best_hand_card_3_is_hole_card") ? Json::Value::null : playerStateRs.Get<std::string>("best_hand_card_3_is_hole_card");
+			playerStateData["best_hand_card_4_is_hole_card"] = playerStateRs.IsColumnNull("best_hand_card_4_is_hole_card") ? Json::Value::null : playerStateRs.Get<std::string>("best_hand_card_4_is_hole_card");
+			playerStateData["best_hand_card_5_is_hole_card"] = playerStateRs.IsColumnNull("best_hand_card_5_is_hole_card") ? Json::Value::null : playerStateRs.Get<std::string>("best_hand_card_5_is_hole_card");
 			playerStateData["hand_showing"] = playerStateRs.IsColumnNull("hand_showing") ? Json::Value::null : playerStateRs.Get<std::string>("hand_showing");
 			playerStateData["money"] = playerStateRs.IsColumnNull("money") ? Json::Value::null : playerStateRs.Get<unsigned int>("money");
 			playerStateData["state"] = playerStateRs.IsColumnNull("state") ? Json::Value::null : playerStateRs.Get<std::string>("state");
 			playerStateData["game_rank"] = playerStateRs.IsColumnNull("game_rank") ? Json::Value::null : playerStateRs.Get<unsigned int>("game_rank");
 			playerStateData["tournament_rank"] = playerStateRs.IsColumnNull("tournament_rank") ? Json::Value::null : playerStateRs.Get<unsigned int>("tournament_rank");
 			playerStateData["total_pot_contribution"] = playerStateRs.IsColumnNull("total_pot_contribution") ? Json::Value::null : playerStateRs.Get<unsigned int>("total_pot_contribution");
+			playerStateData["can_fold"] = playerStateRs.IsColumnNull("can_fold") ? Json::Value::null : playerStateRs.Get<std::string>("can_fold");
+			playerStateData["can_check"] = playerStateRs.IsColumnNull("can_check") ? Json::Value::null : playerStateRs.Get<std::string>("can_check");
+			playerStateData["can_call"] = playerStateRs.IsColumnNull("can_call") ? Json::Value::null : playerStateRs.Get<std::string>("can_call");
+			playerStateData["can_bet"] = playerStateRs.IsColumnNull("can_bet") ? Json::Value::null : playerStateRs.Get<std::string>("can_bet");
+			playerStateData["min_bet_amount"] = playerStateRs.IsColumnNull("min_bet_amount") ? Json::Value::null : playerStateRs.Get<unsigned int>("min_bet_amount");
+			playerStateData["max_bet_amount"] = playerStateRs.IsColumnNull("max_bet_amount") ? Json::Value::null : playerStateRs.Get<unsigned int>("max_bet_amount");
+			playerStateData["can_raise"] = playerStateRs.IsColumnNull("can_raise") ? Json::Value::null : playerStateRs.Get<std::string>("can_raise");
+			playerStateData["min_raise_amount"] = playerStateRs.IsColumnNull("min_raise_amount") ? Json::Value::null : playerStateRs.Get<unsigned int>("min_raise_amount");
+			playerStateData["max_raise_amount"] = playerStateRs.IsColumnNull("max_raise_amount") ? Json::Value::null : playerStateRs.Get<unsigned int>("max_raise_amount");
 
 			playerArray.append(playerStateData);
 		}
@@ -165,6 +174,10 @@ void DbInterface::getUiState(Json::Value& uiData) {
 			Json::Value potData(Json::objectValue);
 			potData["pot_number"] = potsRs.IsColumnNull("pot_number") ? Json::Value::null : potsRs.Get<unsigned int>("pot_number");
 			potData["pot_value"] = potsRs.IsColumnNull("pot_value") ? Json::Value::null : potsRs.Get<unsigned int>("pot_value");
+			potData["betting_round_1_bet_value"] = potsRs.IsColumnNull("betting_round_1_bet_value") ? Json::Value::null : potsRs.Get<unsigned int>("betting_round_1_bet_value");
+			potData["betting_round_2_bet_value"] = potsRs.IsColumnNull("betting_round_2_bet_value") ? Json::Value::null : potsRs.Get<unsigned int>("betting_round_2_bet_value");
+			potData["betting_round_3_bet_value"] = potsRs.IsColumnNull("betting_round_3_bet_value") ? Json::Value::null : potsRs.Get<unsigned int>("betting_round_3_bet_value");
+			potData["betting_round_4_bet_value"] = potsRs.IsColumnNull("betting_round_4_bet_value") ? Json::Value::null : potsRs.Get<unsigned int>("betting_round_4_bet_value");
 			potData["pot_members"] = potsRs.IsColumnNull("pot_members") ? Json::Value::null : potsRs.Get<std::string>("pot_members");
 
 			potsArray.append(potData);

@@ -8,13 +8,17 @@ PROCEDURE log (
 
 PROCEDURE initialize_tournament
 (
-	p_player_count  tournament_state.player_count%TYPE,
-    p_buy_in_amount tournament_state.buy_in_amount%TYPE
+	p_player_count      tournament_state.player_count%TYPE,
+    p_buy_in_amount     tournament_state.buy_in_amount%TYPE,
+	p_small_blind_value game_state.small_blind_value%TYPE,
+	p_big_blind_value   game_state.big_blind_value%TYPE
 );
 
 PROCEDURE step_play( 
-	p_small_blind_value IN game_state.small_blind_value%TYPE,
-	p_big_blind_value   IN game_state.big_blind_value%TYPE
+	p_small_blind_value  game_state.small_blind_value%TYPE,
+	p_big_blind_value    game_state.big_blind_value%TYPE,
+	p_player_move        NUMBER,
+	p_player_move_amount NUMBER
 );
 
 --PROCEDURE play_tournament;
@@ -34,7 +38,8 @@ PROCEDURE initialize_game
 
 FUNCTION get_next_active_seat_number
 (
-	p_current_player_seat_number player_state.seat_number%TYPE
+	p_current_player_seat_number player_state.seat_number%TYPE,
+	p_include_folded_players     VARCHAR2
 ) RETURN player_state.seat_number%TYPE;
 
 FUNCTION draw_deck_card RETURN deck.card_id%TYPE;
@@ -43,7 +48,9 @@ PROCEDURE post_blinds;
 
 PROCEDURE perform_player_move
 (
-	p_seat_number player_state.seat_number%TYPE
+	p_seat_number        player_state.seat_number%TYPE,
+	p_player_move        NUMBER,
+	p_player_move_amount NUMBER
 );
 
 FUNCTION get_player_showdown_muck(
@@ -97,5 +104,50 @@ PROCEDURE select_ui_state (
 PROCEDURE calculate_best_hands;
 
 PROCEDURE sort_hands;
+
+FUNCTION get_pot_deficit (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN pot_contribution.pot_contribution%TYPE;
+
+FUNCTION get_can_fold (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN VARCHAR2;
+
+FUNCTION get_can_check (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN VARCHAR2;
+
+FUNCTION get_can_call (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN VARCHAR2;
+
+FUNCTION get_can_bet (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN VARCHAR2;
+
+FUNCTION get_can_raise (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN VARCHAR2;
+
+FUNCTION get_min_bet_amount (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN game_state.min_raise_amount%TYPE;
+
+FUNCTION get_max_bet_amount (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN player_state.money%TYPE;
+
+FUNCTION get_min_raise_amount (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN game_state.min_raise_amount%TYPE;
+
+FUNCTION get_max_raise_amount (
+	p_seat_number player_state.seat_number%TYPE
+) RETURN game_state.min_raise_amount%TYPE;
+
+PROCEDURE contribute_to_pot (
+	p_player_seat_number pot_contribution.player_seat_number%TYPE,
+	p_pot_contribution   pot_contribution.pot_contribution%TYPE
+);
 
 END pkg_poker_ai;

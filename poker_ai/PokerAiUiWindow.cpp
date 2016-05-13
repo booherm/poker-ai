@@ -10,8 +10,10 @@ void PokerAiUiWindow::initTournament(WebView* caller, const JSArray& args) {
 	
 	unsigned int playerCount = args.At(0).ToInteger();
 	unsigned int buyInAmount = args.At(1).ToInteger();
+	unsigned int smallBlindAmount = args.At(2).ToInteger();
+	unsigned int bigBlindAmount = args.At(3).ToInteger();
 
-	dbInterface->initTournament(playerCount, buyInAmount);
+	dbInterface->initTournament(playerCount, buyInAmount, smallBlindAmount, bigBlindAmount);
 	refreshUi();
 }
 
@@ -19,8 +21,10 @@ void PokerAiUiWindow::stepPlay(WebView* caller, const JSArray& args) {
 	
 	unsigned int smallBlindAmount = args.At(0).ToInteger();
 	unsigned int bigBlindAmount = args.At(1).ToInteger();
+	unsigned int playerMove = args.At(2).ToInteger();
+	unsigned int playerMoveAmount = args.At(3).ToInteger();
 
-	dbInterface->stepPlay(smallBlindAmount, bigBlindAmount);
+	dbInterface->stepPlay(smallBlindAmount, bigBlindAmount, playerMove, playerMoveAmount);
 	refreshUi();
 }
 

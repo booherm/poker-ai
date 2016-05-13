@@ -4,12 +4,15 @@ PokerAiUi.maxPlayerCount = 10;
 PokerAiUi.maxPotCount = 5;
 PokerAiUi.smallBlindSeatNumber = 1;
 PokerAiUi.bigBlindSeatNumber = 2;
+PokerAiUi.holeCardBorderStyle = "2px solid orange";
+PokerAiUi.nonHoleCardBorderStyle = "1px solid black";
 	
-PokerAiUi.getCardArrayHtml = function(id, cardCount){
-	
+PokerAiUi.getCardArrayHtml = function(id, cardCount, holeCardStyle){
+
+	var borderStyle = holeCardStyle ? PokerAiUi.holeCardBorderStyle : PokerAiUi.nonHoleCardBorderStyle;
 	var html = "<table><tr>";
 	for(var i = 1; i <= cardCount; i++){
-		html += "<td style='padding: 0 2 0 2;'><img id='" + id + "_" + i + "' style='width: 60px; height: 87px; border: 1px solid black;'/></td>";
+		html += "<td style='padding: 0 2 0 2;'><img id='" + id + "_" + i + "' style='width: 60px; height: 87px; border: " + borderStyle + ";'/></td>";
 	}
 	html += "</tr></table>";
 
@@ -18,11 +21,25 @@ PokerAiUi.getCardArrayHtml = function(id, cardCount){
 
 PokerAiUi.getPotArrayHtml = function(potCount){
 	
-	var html = "<table><tr><td style='text-align: center;'>#</td><td style='text-align: center;'>Amt.</td><td style='text-align: center;'>Contributor Seats</td>";
+	var html = "<table><tr>"
+		+ "<th class='tableHeader'>#</th>"
+		+ "<th class='tableHeader'>Amt.</th>"
+		+ "<th class='tableHeader'>R1</th>"
+		+ "<th class='tableHeader'>R2</th>"
+		+ "<th class='tableHeader'>R3</th>"
+		+ "<th class='tableHeader'>R4</th>"
+		+ "<th class='tableHeader'>Contributor Seats</th>"
+		+ "</tr>";
 	for(var i = 1; i <= potCount; i++){
-		html += "<tr><td style='width: 10px;'>" + i + "</td>"
-			+ "<td id='pot_value_" + i + "' style='width: 60px; border: 1px solid black;'>&nbsp;</td>"
-			+ "<td id='pot_members_" + i + "' style='width: 175px; border: 1px solid black;'>&nbsp;</td></tr>";
+		html += "<tr>"
+			+ "<td class='potNumberColumn'>" + i + "</td>"
+			+ "<td id='pot_value_" + i + "' class='potAmountColumn'></td>"
+			+ "<td id='pot_betting_round_1_value_" + i + "' class='potRoundNumberColumn'></td>"
+			+ "<td id='pot_betting_round_2_value_" + i + "' class='potRoundNumberColumn'></td>"
+			+ "<td id='pot_betting_round_3_value_" + i + "' class='potRoundNumberColumn'></td>"
+			+ "<td id='pot_betting_round_4_value_" + i + "' class='potRoundNumberColumn'></td>"
+			+ "<td id='pot_members_" + i + "' class='potContributorSeatsColumn'></td>"
+			+ "</tr>";
 	}
 	html += "</table>";
 
@@ -71,15 +88,71 @@ PokerAiUi.initSeat = function(seatNumber){
 	PokerAiUi["playerHoleCards_" + seatNumber] = Ext.create("Ext.form.field.Display", {
 		fieldLabel: "Hole Cards",
 		labelWidth: 100,
+		afterSubTpl: PokerAiUi.getCardArrayHtml("seat_" + seatNumber + "_hole_card", 2, true)
+	});
+	
+	PokerAiUi["playerButtonFold_" + seatNumber] = Ext.create("Ext.Button", {
+        text: "Fold",
+		margin: "5 20 5 10",
+        width: 50,
+		disabled: true,
+        handler: function() {PokerAiUi.playerFold(seatNumber);}
+    });
+
+	PokerAiUi["playerButtonCheck_" + seatNumber] = Ext.create("Ext.Button", {
+        text: "Check",
+		margin: "5 0 0 0",
+        width: 50,
+		disabled: true,
+        handler: function() {PokerAiUi.playerCheck(seatNumber);}
+    });
+	
+	PokerAiUi["playerButtonCall_" + seatNumber] = Ext.create("Ext.Button", {
+        text: "Call",
+		margin: "0 0 5 10",
 		colspan: "2",
-		afterSubTpl: PokerAiUi.getCardArrayHtml("seat_" + seatNumber + "_hole_card", 2)
+		disabled: true,
+        width: 50,
+        handler: function() {PokerAiUi.playerCall(seatNumber);}
+    });
+
+	PokerAiUi["playerButtonBet_" + seatNumber] = Ext.create("Ext.Button", {
+        text: "Bet",
+		margin: "0 0 0 10",
+		disabled: true,
+        width: 50,
+        handler: function() {PokerAiUi.playerBet(seatNumber);}
+    });
+	
+	PokerAiUi["playerBetAmount_" + seatNumber] = Ext.create("Ext.form.field.Number", {
+		allowBlank: false,
+		repeatTriggerClick: false,
+		width: 100,
+		minValue: 1,
+		maxValue: 5000,
+		value: 10,
+		disabled: true,
+		step: 1,
+		decimalPrecision: 0,
+		listeners: {validityChange: function(field, isValid) { PokerAiUi.betValueValidityChange(seatNumber, isValid); }}
+	});
+
+	var playerControlsContainer = Ext.create("Ext.container.Container", {
+		layout: { type: "table", columns: 2, tdAttrs: { style: { verticalAlign: "top", width: "50px" } } },
+		items: [
+			PokerAiUi["playerButtonFold_" + seatNumber],
+			PokerAiUi["playerButtonCheck_" + seatNumber],
+			PokerAiUi["playerButtonCall_" + seatNumber],
+			PokerAiUi["playerButtonBet_" + seatNumber],
+			PokerAiUi["playerBetAmount_" + seatNumber]
+		]
 	});
 	
 	PokerAiUi["playerBestHandCards_" + seatNumber] = Ext.create("Ext.form.field.Display", {
 		fieldLabel: "Best Hand",
 		labelWidth: 100,
 		colspan: "2",
-		afterSubTpl: PokerAiUi.getCardArrayHtml("seat_" + seatNumber + "_best_hand", 5)
+		afterSubTpl: PokerAiUi.getCardArrayHtml("seat_" + seatNumber + "_best_hand", 5, false)
 	});
 	
 	PokerAiUi["playerBestHandRank_" + seatNumber] = Ext.create("Ext.form.field.Display", {
@@ -108,6 +181,8 @@ PokerAiUi.initSeat = function(seatNumber){
 			PokerAiUi["playerHandShowingLabel_" + seatNumber],
 			
 			PokerAiUi["playerHoleCards_" + seatNumber],
+			playerControlsContainer,
+			
 			PokerAiUi["playerBestHandCards_" + seatNumber],
 			PokerAiUi["playerBestHandRank_" + seatNumber]
 		]
@@ -155,7 +230,7 @@ PokerAiUi.initCenter = function(){
 		labelWidth: 100,
 		fieldLabel: "Community Cards",
 		colspan: 2,
-		afterSubTpl: PokerAiUi.getCardArrayHtml("community_card", 5)
+		afterSubTpl: PokerAiUi.getCardArrayHtml("community_card", 5, false)
 	});
 	
 	PokerAiUi.pots = Ext.create("Ext.form.field.Display", {
@@ -216,11 +291,7 @@ PokerAiUi.initCenter = function(){
         border: false,
 		layout: { type: "table", columns: 1, tdAttrs: { style: { verticalAlign: "top" } } },
 		bodyStyle: {"background-color": "37F0A3"},
-		//width: 468,
-		//colspan: 2,
-		items: [
-			gameStateFieldSet
-		]
+		items: [gameStateFieldSet]
 	});
 	
 	return centerPanel;
@@ -236,13 +307,13 @@ PokerAiUi.initControlsPanel = function(){
 		width: 225,
 		minValue: 2,
 		maxValue: PokerAiUi.maxPlayerCount,
-		value: 8,
+		value: 4,
 		step: 1,
 		decimalPrecision: 0
 	});
 	
 	PokerAiUi.buyInAmountField = Ext.create("Ext.form.field.Number", {
-		fieldLabel: "Buy In Ammount",
+		fieldLabel: "Buy In Amount",
 		allowBlank: false,
 		repeatTriggerClick: false,
 		labelWidth: 150,
@@ -281,7 +352,7 @@ PokerAiUi.initControlsPanel = function(){
 	PokerAiUi.stepPlayButton = Ext.create("Ext.Button", {
         text: "Step Play",
         width: 150,
-        handler: PokerAiUi.stepPlay
+        handler: function() {PokerAiUi.stepPlay(0, 0);}
     });
 	
 	var tournamentFieldSet = Ext.create("Ext.form.FieldSet", {
@@ -301,17 +372,17 @@ PokerAiUi.initControlsPanel = function(){
     });
 	
 	PokerAiUi.statusTextArea = Ext.create("Ext.form.field.TextArea", {
-
-		width: 430
+		width: 455,
+		height: 85
 	});
 	
 	var statusFieldSet = Ext.create("Ext.form.FieldSet", {
 		title: "Status",
 		layout: { type: "table", columns: 1, tdAttrs: { style: { verticalAlign: "top" } } },
-		//margin: "0 0 0 10",
 		width: 468,
-//		height: 325,
+		height: 110,
 		style: {borderColor: "black"},
+		padding: "0 0 3 5",
 		items: [
 			PokerAiUi.statusTextArea
 		]
@@ -320,7 +391,6 @@ PokerAiUi.initControlsPanel = function(){
 	var controlsPanel = Ext.create("Sms.form.Panel", {
         layout: { type: "table", columns: 1, tdAttrs: { style: { verticalAlign: "top" } } },
 		border: false,
-//		width: 300,
 		bodyStyle: {"background-color": "37F0A3"},
 		items: [tournamentFieldSet, statusFieldSet]
     });
@@ -352,10 +422,7 @@ PokerAiUi.init = function()
 
 	PokerAiUi.viewport = Ext.create("Ext.container.Viewport", {
 		layout: "border",
-		items: [
-			PokerAiUi.tableLayoutContainer
-			//PokerAiUi.initControlsPanel()
-		]
+		items: [PokerAiUi.tableLayoutContainer]
 	});
 
 };
@@ -374,7 +441,12 @@ PokerAiUi.getCardImage = function(cardId){
 };
 
 PokerAiUi.initTournament = function(){
-	PokerAi.initTournament(PokerAiUi.playerCountField.getValue(), PokerAiUi.buyInAmountField.getValue());
+	PokerAi.initTournament(
+		PokerAiUi.playerCountField.getValue(),
+		PokerAiUi.buyInAmountField.getValue(),
+		PokerAiUi.smallBlindAmountField.getValue(),
+		PokerAiUi.bigBlindAmountField.getValue()
+	);
 };
 
 PokerAiUi.refreshUi = function(uiData){
@@ -402,9 +474,17 @@ PokerAiUi.refreshUi = function(uiData){
 	
 	// players state
 	for(var i = 0; i < uiData.playerState.length; i++){
+		
 		var playerData = uiData.playerState[i];
 		var seatNumber = playerData.seat_number;
 		
+		PokerAiUi["playerButtonFold_" + seatNumber].setDisabled(true);
+		PokerAiUi["playerButtonCheck_" + seatNumber].setDisabled(true);
+		PokerAiUi["playerButtonCall_" + seatNumber].setDisabled(true);
+		PokerAiUi["playerButtonBet_" + seatNumber].setDisabled(true);
+		PokerAiUi["playerBetAmount_" + seatNumber].setDisabled(true);
+		PokerAiUi["playerButtonBet_" + seatNumber].setText("Bet");
+			
 		PokerAiUi["playerIdLabel_" + seatNumber].setValue(playerData.player_id);
 		document.getElementById("seat_" + seatNumber + "_hole_card_1").src = PokerAiUi.getCardImage(playerData.hole_card_1);
 		document.getElementById("seat_" + seatNumber + "_hole_card_2").src = PokerAiUi.getCardImage(playerData.hole_card_2);
@@ -412,7 +492,9 @@ PokerAiUi.refreshUi = function(uiData){
 		PokerAiUi["playerBestHandRank_" + seatNumber].setValue(playerData.best_hand_rank);
 		
 		for(var c = 1; c <= 5; c++){
-			document.getElementById("seat_" + seatNumber + "_best_hand_" + c).src = PokerAiUi.getCardImage(playerData["best_hand_card_" + c]);
+			var cardSlot = document.getElementById("seat_" + seatNumber + "_best_hand_" + c);
+			cardSlot.src = PokerAiUi.getCardImage(playerData["best_hand_card_" + c]);
+			cardSlot.style.border = playerData["best_hand_card_" + c + "_is_hole_card"] == "Y" ? PokerAiUi.holeCardBorderStyle : PokerAiUi.nonHoleCardBorderStyle;
 		}
 		
 		PokerAiUi["playerHandShowingLabel_" + seatNumber].setValue(playerData.hand_showing);
@@ -421,7 +503,8 @@ PokerAiUi.refreshUi = function(uiData){
 		PokerAiUi["playerGameRank_" + seatNumber].setValue(playerData.game_rank);
 		PokerAiUi["playerTournamentRank_" + seatNumber].setValue(playerData.tournament_rank);
 		PokerAiUi["playerTotalPotContribution_" + seatNumber].setValue(playerData.total_pot_contribution);
-		
+
+		// player seat backround color
 		var playerColor = "lightgreen";
 		if(playerData.state == "No Player" || playerData.tournament_rank != null)
 			playerColor = "gray";
@@ -429,10 +512,31 @@ PokerAiUi.refreshUi = function(uiData){
 			playerColor = "CFD1D0";
 		else if(seatNumber == uiData.gameState.turn_seat_number)
 			playerColor = "DDF037";
-		
-		
 		PokerAiUi["seatPanel_" + seatNumber].setBodyStyle("background-color", playerColor);
 
+		// player control buttons
+		if(playerData.can_fold == "Y")
+			PokerAiUi["playerButtonFold_" + seatNumber].setDisabled(false);
+		if(playerData.can_check == "Y")
+			PokerAiUi["playerButtonCheck_" + seatNumber].setDisabled(false);
+		if(playerData.can_call == "Y")
+			PokerAiUi["playerButtonCall_" + seatNumber].setDisabled(false);
+		if(playerData.can_bet == "Y"){
+			PokerAiUi["playerButtonBet_" + seatNumber].setDisabled(false);
+			PokerAiUi["playerBetAmount_" + seatNumber].setDisabled(false);
+			PokerAiUi["playerBetAmount_" + seatNumber].setValue(playerData.min_bet_amount);
+			PokerAiUi["playerBetAmount_" + seatNumber].setMinValue(playerData.min_bet_amount);
+			PokerAiUi["playerBetAmount_" + seatNumber].setMaxValue(playerData.max_bet_amount);
+		}
+		if(playerData.can_raise == "Y"){
+			PokerAiUi["playerButtonBet_" + seatNumber].setText("Raise");
+			PokerAiUi["playerButtonBet_" + seatNumber].setDisabled(false);
+			PokerAiUi["playerBetAmount_" + seatNumber].setDisabled(false);
+			PokerAiUi["playerBetAmount_" + seatNumber].setValue(playerData.min_raise_amount);
+			PokerAiUi["playerBetAmount_" + seatNumber].setMinValue(playerData.min_raise_amount);
+			PokerAiUi["playerBetAmount_" + seatNumber].setMaxValue(playerData.max_raise_amount);
+		}
+		
 	}
 	
 	// pots state
@@ -445,6 +549,10 @@ PokerAiUi.refreshUi = function(uiData){
 		var potNumber = potData.pot_number;
 		
 		document.getElementById("pot_value_" + potNumber).innerHTML = potData.pot_value;
+		document.getElementById("pot_betting_round_1_value_" + potNumber).innerHTML = potData.betting_round_1_bet_value;
+		document.getElementById("pot_betting_round_2_value_" + potNumber).innerHTML = potData.betting_round_2_bet_value;
+		document.getElementById("pot_betting_round_3_value_" + potNumber).innerHTML = potData.betting_round_3_bet_value;
+		document.getElementById("pot_betting_round_4_value_" + potNumber).innerHTML = potData.betting_round_4_bet_value;
 		document.getElementById("pot_members_" + potNumber).innerHTML = potData.pot_members;
 	}
 
@@ -466,7 +574,35 @@ PokerAiUi.refreshUi = function(uiData){
 
 };
 
-PokerAiUi.stepPlay = function(){
+PokerAiUi.stepPlay = function(playerMove, playerMoveAmount){
 	PokerAiUi.stepPlayButton.setDisabled(true);
-	PokerAi.stepPlay(PokerAiUi.smallBlindAmountField.getValue(), PokerAiUi.bigBlindAmountField.getValue());
+	PokerAi.stepPlay(
+		PokerAiUi.smallBlindAmountField.getValue(),
+		PokerAiUi.bigBlindAmountField.getValue(),
+		playerMove,
+		playerMoveAmount
+	);
+};
+
+PokerAiUi.playerFold = function(seatNumber){
+	PokerAiUi.stepPlay(1, 0);
+};
+
+PokerAiUi.playerCheck = function(seatNumber){
+	PokerAiUi.stepPlay(2, 0);
+};
+
+PokerAiUi.playerBet = function(seatNumber){
+	if(PokerAiUi["playerButtonBet_" + seatNumber].getText() == "Bet")
+		PokerAiUi.stepPlay(4, PokerAiUi["playerBetAmount_" + seatNumber].getValue()); // bet
+	else
+		PokerAiUi.stepPlay(5, PokerAiUi["playerBetAmount_" + seatNumber].getValue()); // raise
+};
+
+PokerAiUi.playerCall = function(seatNumber){
+	PokerAiUi.stepPlay(3, 0);
+};
+
+PokerAiUi.betValueValidityChange = function(seatNumber, isValid){
+	PokerAiUi["playerButtonBet_" + seatNumber].setDisabled(!isValid);
 };
