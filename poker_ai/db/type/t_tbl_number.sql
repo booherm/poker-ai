@@ -1,0 +1,1 @@
+CREATE OR REPLACE TYPE t_tbl_number AS TABLE OF t_row_number;

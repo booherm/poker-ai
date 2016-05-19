@@ -1,202 +1,184 @@
-BEGIN
-	
-	pkg_poker_ai.initialize_tournament(
-		p_player_count  => 8,
-		p_buy_in_amount => 50);
-
-	pkg_poker_ai.play_tournament;
-
-END;
-
-BEGIN
-	
-	pkg_poker_ai.initialize_game(
-		p_small_blind_seat_number => 3,
-		p_small_blind_value       => 1,
-		p_big_blind_value         => 2);
-
-END;
-
-BEGIN
-	pkg_poker_ai.play_game;
-END;
-
-DECLARE
-	v_active_players INTEGER;
-BEGIN
-	
-	v_active_players := pkg_poker_ai.play_round;
-	DBMS_OUTPUT.PUT_LINE('v_active_players = ' || v_active_players);
-
-END;
-
-EXEC pkg_poker_ai.process_game_results;
-
--- setup random hands and compare
 DECLARE
 
-	v_h1_card_1 deck.card_id%TYPE;
-	v_h1_card_2 deck.card_id%TYPE;
-	v_h1_card_3 deck.card_id%TYPE;
-	v_h1_card_4 deck.card_id%TYPE;
-	v_h1_card_5 deck.card_id%TYPE;
-	v_h2_card_1 deck.card_id%TYPE;
-	v_h2_card_2 deck.card_id%TYPE;
-	v_h2_card_3 deck.card_id%TYPE;
-	v_h2_card_4 deck.card_id%TYPE;
-	v_h2_card_5 deck.card_id%TYPE;
-	v_h1_rank VARCHAR2(50);
-	v_h2_rank VARCHAR2(50);
-
+	v_tournament_play_count     INTEGER := 1;
+	v_player_count              tournament_state.player_count%TYPE := 3;
+	v_tournament_buy_in         tournament_state.buy_in_amount%TYPE := 500;
+	v_initial_small_blind_value game_state.small_blind_value%TYPE := 5;
+	v_double_blinds_interval    tournament_state.current_game_number%TYPE := 5;
+	
+	v_player_record         t_row_number := t_row_number(NULL);
+	v_player_ids            t_tbl_number := t_tbl_number();
+	v_current_game_number   tournament_state.current_game_number%TYPE;
+	v_money_imbalance       VARCHAR2(1);
+	
 BEGIN
 
-	EXECUTE IMMEDIATE 'TRUNCATE TABLE hand_compare_test';
-	FOR v_i IN 1 .. 1000 LOOP
-
-		-- reset deck
-		UPDATE deck
-		SET    dealt = 'N';
-
-		v_h1_card_1 := pkg_poker_ai.draw_deck_card;
-		v_h1_card_2 := pkg_poker_ai.draw_deck_card;
-		v_h1_card_3 := pkg_poker_ai.draw_deck_card;
-		v_h1_card_4 := pkg_poker_ai.draw_deck_card;
-		v_h1_card_5 := pkg_poker_ai.draw_deck_card;
-		v_h2_card_1 := pkg_poker_ai.draw_deck_card;
-		v_h2_card_2 := pkg_poker_ai.draw_deck_card;
-		v_h2_card_3 := pkg_poker_ai.draw_deck_card;
-		v_h2_card_4 := pkg_poker_ai.draw_deck_card;
-		v_h2_card_5 := pkg_poker_ai.draw_deck_card;
-
-		v_h1_rank := pkg_poker_ai.get_hand_rank(
-			p_card_1 => v_h1_card_1,
-			p_card_2 => v_h1_card_2,
-			p_card_3 => v_h1_card_3,
-			p_card_4 => v_h1_card_4,
-			p_card_5 => v_h1_card_5
-		);
-		v_h2_rank := pkg_poker_ai.get_hand_rank(
-			p_card_1 => v_h2_card_1,
-			p_card_2 => v_h2_card_2,
-			p_card_3 => v_h2_card_3,
-			p_card_4 => v_h2_card_4,
-			p_card_5 => v_h2_card_5
-		);
-
-		INSERT INTO hand_compare_test(
-			comparison_number,
-			h1_c1,
-			h1_c2,
-			h1_c3,
-			h1_c4,
-			h1_c5,
-			h2_c1,
-			h2_c2,
-			h2_c3,
-			h2_c4,
-			h2_c5,
-			hand_1_rank,
-			hand_1_display_value,
-			hand_2_rank,
-			hand_2_display_value,
-			better_hand
-		) VALUES (
-			pai_seq_generic.NEXTVAL,
-			v_h1_card_1,
-			v_h1_card_2,
-			v_h1_card_3,
-			v_h1_card_4,
-			v_h1_card_5,
-			v_h2_card_1,
-			v_h2_card_2,
-			v_h2_card_3,
-			v_h2_card_4,
-			v_h2_card_5,
-			v_h1_rank,
-			pkg_poker_ai.get_hand_display_value(
-				p_hand_rank => v_h1_rank,
-				p_card_1    => v_h1_card_1,
-				p_card_2    => v_h1_card_2,
-				p_card_3    => v_h1_card_3,
-				p_card_4    => v_h1_card_4,
-				p_card_5    => v_h1_card_5),
-			v_h2_rank,
-			pkg_poker_ai.get_hand_display_value(
-				p_hand_rank => v_h2_rank,
-				p_card_1    => v_h2_card_1,
-				p_card_2    => v_h2_card_2,
-				p_card_3    => v_h2_card_3,
-				p_card_4    => v_h2_card_4,
-				p_card_5    => v_h2_card_5),
-			CASE WHEN v_h1_rank > v_h2_rank THEN 1 WHEN v_h1_rank < v_h2_rank THEN 2 END
-		);
-
+	-- setup players
+	FOR v_rec IN (
+		SELECT ROWNUM seat_number,
+			   player_id
+		FROM   player
+		WHERE  player_id <= v_player_count
+	) LOOP
+	
+		v_player_record.value := v_rec.player_id;
+		v_player_ids.EXTEND;
+		v_player_ids(v_rec.seat_number) := v_player_record;
+		
 	END LOOP;
 
+	-- play tournaments
+	FOR v_tournament_rec IN (
+		SELECT ROWNUM tournament_number
+		FROM   DUAL
+		CONNECT BY ROWNUM <= v_tournament_play_count
+		ORDER BY tournament_number
+	) LOOP
+	
+		-- clear state logs
+		EXECUTE IMMEDIATE 'TRUNCATE TABLE poker_ai_log';
+		EXECUTE IMMEDIATE 'TRUNCATE TABLE pot_log';
+		EXECUTE IMMEDIATE 'TRUNCATE TABLE pot_contribution_log';
+		EXECUTE IMMEDIATE 'TRUNCATE TABLE player_state_log';
+		EXECUTE IMMEDIATE 'TRUNCATE TABLE game_state_log';
+		EXECUTE IMMEDIATE 'TRUNCATE TABLE tournament_state_log';
+
+		pkg_poker_ai.log(p_message => 'Begin test play of tournament number ' || v_tournament_rec.tournament_number);
+
+		-- play tournament
+		pkg_poker_ai.play_tournament(
+			p_player_ids                => v_player_ids,
+			p_buy_in_amount             => v_tournament_buy_in,
+			p_initial_small_blind_value => v_initial_small_blind_value,
+			p_double_blinds_interval    => v_double_blinds_interval
+		);
+
+		------------ check results of tournament play, abort on anomolies  -----------
+		
+		-- excessive number of games
+		SELECT current_game_number
+		INTO   v_current_game_number
+		FROM   tournament_state;
+		IF v_current_game_number >= 450 THEN
+			RAISE_APPLICATION_ERROR(-20000, 'Excessive number of games played in tournament');
+		END IF;
+		
+		-- money imbalance
+		WITH player_money AS (
+			SELECT state_id,
+				   SUM(money) total_player_money
+			FROM   player_state_log
+			GROUP BY state_id
+		),
+
+		pot_money AS (
+			SELECT state_id,
+				   SUM(pot_contribution) total_pot_money
+			FROM   pot_contribution_log
+			GROUP BY state_id
+		),
+
+		total_money AS (
+			SELECT NVL(plm.state_id, pom.state_id) state_id,
+				   plm.total_player_money,
+				   pom.total_pot_money,
+				   NVL(plm.total_player_money, 0) + NVL(pom.total_pot_money, 0) total_money
+			FROM   player_money plm
+				   FULL OUTER JOIN pot_money pom ON plm.state_id = pom.state_id
+		)
+
+		SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END money_imbalance
+		INTO   v_money_imbalance
+		FROM   total_money tm,
+			   tournament_state_log tsl
+		WHERE  tm.state_id = tsl.state_id
+		   AND tsl.game_in_progress = 'Y'
+		   AND tm.total_money != v_tournament_buy_in * v_player_count;
+		   
+		IF v_money_imbalance = 'Y' THEN
+			RAISE_APPLICATION_ERROR(-20000, 'Money imbalance detected in tournament');
+		END IF;
+
+		pkg_poker_ai.log(p_message => 'Successfully completed test play of tournament number ' || v_tournament_rec.tournament_number);
+
+	END LOOP;
+	
+	pkg_poker_ai.log(p_message => 'Successfully completed test play of all tournaments without anamoly');
+	
+	/*
+	SELECT log_record_number,
+		   TO_CHAR(mod_date, 'MM/DD/YYYY HH12:MI:SS AM') mod_date,
+		   message
+	FROM   poker_ai_log
+	WHERE  message LIKE '%test play%'
+	ORDER BY log_record_number DESC;
+	*/
+	
 END;
 
-SELECT *
-FROM   hand_comparison
-ORDER BY
-	hand_number,
-	card_index;
-
-SELECT pkg_poker_ai.get_hand_rank(p_hand_number => 1) hand_1_rank,
-	   pkg_poker_ai.get_hand_rank(p_hand_number => 2) hand_2_rank,
-	   pkg_poker_ai.get_better_hand better_hand_overall,
-	   pkg_poker_ai.get_better_hand_by_high_card better_hand_by_high_card
-FROM   DUAL;
-	
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- tournament state
+-- debugging
 SELECT * FROM tournament_state;
-
--- game state
 SELECT * FROM game_state;
+SELECT * FROM player_state;
 
--- player state
+SELECT log_record_number,
+	   TO_CHAR(mod_date, 'MM/DD/YYYY HH12:MI:SS AM') mod_date,
+	   state_id,
+	   message
+FROM   poker_ai_log
+ORDER BY log_record_number DESC;
+
+SELECT * FROM tournament_state_log ORDER BY state_id DESC;
+SELECT * FROM game_state_log ORDER BY state_id DESC;
+SELECT * FROM player_state_log ORDER BY state_id DESC, seat_number;
+SELECT * FROM pot_log ORDER BY state_id DESC, pot_number;
+SELECT * FROM pot_contribution_log ORDER BY state_id DESC, pot_number, player_seat_number;
+
+-- tournament results
+SELECT * FROM tournament_state;
 SELECT seat_number,
-	   player_id,
-       pkg_poker_ai.get_card_display_value(p_card_id => hole_card_1) hole_card_1,
-       pkg_poker_ai.get_card_display_value(p_card_id => hole_card_2) hole_card_2,
-	   pkg_poker_ai.get_hand_display_value(
-            p_hand_rank => best_hand_rank,
-            p_card_1    => best_hand_card_1,
-            p_card_2    => best_hand_card_2,
-            p_card_3    => best_hand_card_3,
-            p_card_4    => best_hand_card_4,
-            p_card_5    => best_hand_card_5) best_possible_hand,
-	   hand_showing,
-       money,
-       state,
-       game_rank,
-       tournament_rank
+	   tournament_rank,
+	   money
 FROM   player_state
-ORDER BY seat_number;
+ORDER BY
+	tournament_rank,
+	seat_number;
 
--- pots
-SELECT * FROM pot;
 
--- deck
-SELECT * FROM deck ORDER BY suit, value;
+-- money balance throughout tournament (ignoring states when game not in progress)
+WITH player_money AS (
+	SELECT state_id,
+		   SUM(money) total_player_money
+	FROM   player_state_log
+	GROUP BY state_id
+),
 
--- log
-SELECT * FROM poker_ai_log ORDER BY log_record_number DESC;
+pot_money AS (
+	SELECT state_id,
+		   SUM(pot_contribution) total_pot_money
+	FROM   pot_contribution_log
+	GROUP BY state_id
+),
+
+total_money AS (
+	SELECT NVL(plm.state_id, pom.state_id) state_id,
+		   plm.total_player_money,
+		   pom.total_pot_money,
+		   NVL(plm.total_player_money, 0) + NVL(pom.total_pot_money, 0) total_money
+	FROM   player_money plm
+		   FULL OUTER JOIN pot_money pom ON plm.state_id = pom.state_id
+)
+
+SELECT tm.state_id,
+	   tm.total_player_money,
+	   tm.total_pot_money,
+	   tm.total_money
+FROM   total_money tm,
+	   tournament_state_log tsl
+WHERE  tm.state_id = tsl.state_id
+   AND tsl.game_in_progress = 'Y'
+ORDER BY state_id DESC;
+
+

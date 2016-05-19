@@ -3,35 +3,29 @@
 #include <string>
 
 DbInterface::DbInterface() {
-	lastLogRecordNumber = 0;
 	ocilib::Environment::Initialize();
 	con.Open("XE", "matt", "matt");
 }
 
 DbInterface::~DbInterface() {
-	con.Commit();
 	con.Close();
 	ocilib::Environment::Cleanup();
 }
 
-void DbInterface::initTournament(unsigned int playerCount, unsigned int buyInAmount, unsigned int smallBlindAmount, unsigned int bigBlindAmount) {
+void DbInterface::initTournament(unsigned int playerCount, unsigned int buyInAmount) {
 	try
 	{
 		std::string procCall = "BEGIN pkg_poker_ai.initialize_tournament(";
+		procCall.append("p_player_ids        => NULL, ");
 		procCall.append("p_player_count      => :playerCount, ");
-		procCall.append("p_buy_in_amount     => :buyInAmount, ");
-		procCall.append("p_small_blind_value => :smallBlindAmount, ");
-		procCall.append("p_big_blind_value   => :bigBlindAmount");
+		procCall.append("p_buy_in_amount     => :buyInAmount");
 		procCall.append("); END; ");
 
 		ocilib::Statement st(con);
 		st.Prepare(procCall);
 		st.Bind("playerCount", playerCount, ocilib::BindInfo::In);
 		st.Bind("buyInAmount", buyInAmount, ocilib::BindInfo::In);
-		st.Bind("smallBlindAmount", smallBlindAmount, ocilib::BindInfo::In);
-		st.Bind("bigBlindAmount", bigBlindAmount, ocilib::BindInfo::In);
 		st.ExecutePrepared();
-		con.Commit();
 	}
 	catch (std::exception &ex)
 	{
@@ -40,12 +34,11 @@ void DbInterface::initTournament(unsigned int playerCount, unsigned int buyInAmo
 	}
 }
 
-void DbInterface::stepPlay(unsigned int smallBlindAmount, unsigned int bigBlindAmount, unsigned int playerMove, unsigned int playerMoveAmount) {
+void DbInterface::stepPlay(unsigned int smallBlindAmount, const std::string& playerMove, unsigned int playerMoveAmount) {
 	try
 	{
 		std::string procCall = "BEGIN pkg_poker_ai.step_play(";
 		procCall.append("p_small_blind_value  => :smallBlindAmount, ");
-		procCall.append("p_big_blind_value    => :bigBlindAmount, ");
 		procCall.append("p_player_move        => :playerMove, ");
 		procCall.append("p_player_move_amount => :playerMoveAmount");
 		procCall.append("); END;");
@@ -53,11 +46,10 @@ void DbInterface::stepPlay(unsigned int smallBlindAmount, unsigned int bigBlindA
 		ocilib::Statement st(con);
 		st.Prepare(procCall);
 		st.Bind("smallBlindAmount", smallBlindAmount, ocilib::BindInfo::In);
-		st.Bind("bigBlindAmount", bigBlindAmount, ocilib::BindInfo::In);
-		st.Bind("playerMove", playerMove, ocilib::BindInfo::In);
+		ocilib::ostring playerMoveOstring(playerMove);
+		st.Bind("playerMove", playerMoveOstring, static_cast<unsigned int>(playerMoveOstring.size()), ocilib::BindInfo::In);
 		st.Bind("playerMoveAmount", playerMoveAmount, ocilib::BindInfo::In);
 		st.ExecutePrepared();
-		con.Commit();
 	}
 	catch (std::exception &ex)
 	{
@@ -66,17 +58,77 @@ void DbInterface::stepPlay(unsigned int smallBlindAmount, unsigned int bigBlindA
 	}
 }
 
+void DbInterface::loadState(unsigned int stateId) {
+	try
+	{
+		std::string procCall = "BEGIN pkg_poker_ai.load_state(";
+		procCall.append("p_state_id => :stateId");
+		procCall.append("); END;");
+
+		ocilib::Statement st(con);
+		st.Prepare(procCall);
+		st.Bind("stateId", stateId, ocilib::BindInfo::In);
+		st.ExecutePrepared();
+	}
+	catch (std::exception &ex)
+	{
+		std::string exceptionString(ex.what());
+		std::cout << "exception: " << exceptionString << std::endl;
+	}
+}
+
+void DbInterface::loadPreviousState(unsigned int stateId) {
+
+	try
+	{
+		std::string procCall = "BEGIN pkg_poker_ai.load_previous_state(";
+		procCall.append("p_state_id => :stateId");
+		procCall.append("); END;");
+
+		ocilib::Statement st(con);
+		st.Prepare(procCall);
+		st.Bind("stateId", stateId, ocilib::BindInfo::In);
+		st.ExecutePrepared();
+	}
+	catch (std::exception &ex)
+	{
+		std::string exceptionString(ex.what());
+		std::cout << "exception: " << exceptionString << std::endl;
+	}
+
+}
+
+void DbInterface::loadNextState(unsigned int stateId) {
+	
+	try
+	{
+		std::string procCall = "BEGIN pkg_poker_ai.load_next_state(";
+		procCall.append("p_state_id => :stateId");
+		procCall.append("); END;");
+
+		ocilib::Statement st(con);
+		st.Prepare(procCall);
+		st.Bind("stateId", stateId, ocilib::BindInfo::In);
+		st.ExecutePrepared();
+	}
+	catch (std::exception &ex)
+	{
+		std::string exceptionString(ex.what());
+		std::cout << "exception: " << exceptionString << std::endl;
+	}
+
+}
+
 void DbInterface::getUiState(Json::Value& uiData) {
 	try
 	{
 		// call for tournament state
 		std::string procCall = "BEGIN pkg_poker_ai.select_ui_state(";
-		procCall.append("p_last_log_record_number => :lastLogRecordNumber, ");
-		procCall.append("p_tournament_state       => :tournamentStateRs, ");
-		procCall.append("p_game_state             => :gameStateRs, ");
-		procCall.append("p_player_state           => :playerStateRs, ");
-		procCall.append("p_pots                   => :potsRs, ");
-		procCall.append("p_status                 => :statusRs");
+		procCall.append("p_tournament_state => :tournamentStateRs, ");
+		procCall.append("p_game_state       => :gameStateRs, ");
+		procCall.append("p_player_state     => :playerStateRs, ");
+		procCall.append("p_pots             => :potsRs, ");
+		procCall.append("p_status           => :statusRs");
 		procCall.append("); END;");
 		ocilib::Statement sts(con);
 		ocilib::Statement tournamentStateRsBind(con);
@@ -85,9 +137,6 @@ void DbInterface::getUiState(Json::Value& uiData) {
 		ocilib::Statement potsBind(con);
 		ocilib::Statement statusBind(con);
 		sts.Prepare(procCall);
-		sts.Bind("lastLogRecordNumber", lastLogRecordNumber, ocilib::BindInfo::In);
-		if (lastLogRecordNumber == 0)
-			sts.GetBind("lastLogRecordNumber").SetDataNull(true);
 		sts.Bind("tournamentStateRs", tournamentStateRsBind, ocilib::BindInfo::Out);
 		sts.Bind("gameStateRs", gameStateBind, ocilib::BindInfo::Out);
 		sts.Bind("playerStateRs", playerStateBind, ocilib::BindInfo::Out);
@@ -103,6 +152,7 @@ void DbInterface::getUiState(Json::Value& uiData) {
 		tournamentStateData["buy_in_amount"] = tournamentStateRs.IsColumnNull("buy_in_amount") ? Json::Value::null : tournamentStateRs.Get<unsigned int>("buy_in_amount");
 		tournamentStateData["current_game_number"] = tournamentStateRs.IsColumnNull("current_game_number") ? Json::Value::null : tournamentStateRs.Get<unsigned int>("current_game_number");
 		tournamentStateData["game_in_progress"] = tournamentStateRs.IsColumnNull("game_in_progress") ? Json::Value::null : tournamentStateRs.Get<std::string>("game_in_progress");
+		tournamentStateData["current_state_id"] = tournamentStateRs.IsColumnNull("current_state_id") ? Json::Value::null : tournamentStateRs.Get<unsigned int>("current_state_id");
 		uiData["tournamentState"] = tournamentStateData;
 
 		// game state
@@ -194,7 +244,6 @@ void DbInterface::getUiState(Json::Value& uiData) {
 			statusMessageData["log_record_number"] = logRecordNumber;
 			statusMessageData["message"] = statusRs.IsColumnNull("message") ? Json::Value::null : statusRs.Get<std::string>("message");
 			statusMessageArray.append(statusMessageData);
-			lastLogRecordNumber = logRecordNumber;
 		}
 		uiData["statusMessage"] = statusMessageArray;
 
