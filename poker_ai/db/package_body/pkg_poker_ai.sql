@@ -564,6 +564,7 @@ FUNCTION get_distance_from_small_blind (
 ) RETURN INTEGER IS
 
 	v_small_blind_seat_number player_state.seat_number%TYPE;
+	v_distance                INTEGER;
 
 BEGIN
 
@@ -572,11 +573,15 @@ BEGIN
 	FROM   game_state;
 
 	IF p_seat_number >= v_small_blind_seat_number THEN
-		RETURN p_seat_number - v_small_blind_seat_number;
+		v_distance := p_seat_number - v_small_blind_seat_number;
 	ELSE
-		RETURN v_small_blind_seat_number + p_seat_number;
+		SELECT ((p_seat_number + player_count) - v_small_blind_seat_number) distance
+		INTO   v_distance
+		FROM   tournament_state;
 	END IF;
 
+	RETURN v_distance;
+	
 END get_distance_from_small_blind;
 
 FUNCTION draw_deck_card RETURN deck.card_id%TYPE IS
@@ -882,7 +887,7 @@ BEGIN
 					   ps.seat_number,
 					   pkg_poker_ai.get_distance_from_small_blind(p_seat_number => ps.seat_number) distance_from_small_blind,
 					   ps.best_hand_rank,
-					   RANK() OVER (PARTITION BY pc.pot_number, pc.betting_round_number ORDER BY ps.best_hand_rank DESC) pot_rank
+					   RANK() OVER (PARTITION BY pc.pot_number ORDER BY ps.best_hand_rank DESC) pot_rank
 				FROM   player_state ps,
 					   pot_contribution pc
 				WHERE  ps.hand_showing = 'Y'
@@ -893,7 +898,8 @@ BEGIN
 				SELECT pr.pot_number,
 					   COUNT(*) pot_winners_count,
 					   FLOOR(MIN(ps.pot_value) / COUNT(*)) per_player_amount,
-					   CASE WHEN FLOOR(MIN(ps.pot_value) / COUNT(*)) != (MIN(ps.pot_value) / COUNT(*)) THEN 'Y' ELSE 'N' END odd_split
+					   CASE WHEN FLOOR(MIN(ps.pot_value) / COUNT(*)) != (MIN(ps.pot_value) / COUNT(*)) THEN 'Y' ELSE 'N' END odd_split,
+					   MIN(ps.pot_value) - (COUNT(*) * FLOOR(MIN(ps.pot_value) / COUNT(*))) odd_chip_balance
 				FROM   pot_ranks pr,
 					   pot_sums ps
 				WHERE  pr.pot_rank = 1
@@ -901,26 +907,37 @@ BEGIN
 				GROUP BY pr.pot_number
 			),
 
-			-- winning player closest to small blind going clockwise gets any odd split chip per pot
-			player_positions AS (
-				SELECT DISTINCT
-					   pot_number,
-					   MIN(seat_number) KEEP (DENSE_RANK FIRST ORDER BY distance_from_small_blind) OVER (PARTITION BY pot_number) odd_chip_keeper
-				FROM   pot_ranks
-				WHERE  pot_rank = 1
+			-- winning players closest to small blind going clockwise get any odd split chips per pot
+			odd_split_positions AS (
+				SELECT pwc.pot_number,
+					   pwc.odd_chip_balance,
+					   pr.seat_number,
+					   DENSE_RANK() OVER (PARTITION BY pwc.pot_number ORDER BY pr.distance_from_small_blind) odd_chip_keeper_rank
+				FROM   pot_winner_counts pwc,
+					   pot_ranks pr
+				WHERE  pwc.odd_split = 'Y'
+				   AND pwc.pot_number = pr.pot_number
+				   AND pr.pot_rank = 1
+			),
+			
+			odd_split_chip_keepers AS (
+				SELECT pot_number,
+					   seat_number,
+					   1 extra_chip
+				FROM   odd_split_positions
+				WHERE  odd_chip_keeper_rank <= odd_chip_balance
 			)
-
+			
 			SELECT pr.pot_number,
 				   pr.seat_number,
-				   CASE WHEN pwc.odd_split = 'Y' AND pr.seat_number = pp.odd_chip_keeper THEN pwc.per_player_amount + 1
-						ELSE pwc.per_player_amount
-				   END player_winnings
+				   pwc.per_player_amount + NVL(osck.extra_chip, 0) player_winnings
 			FROM   pot_winner_counts pwc,
 				   pot_ranks pr,
-				   player_positions pp
+				   odd_split_chip_keepers osck
 			WHERE  pwc.pot_number = pr.pot_number
 			   AND pr.pot_rank = 1
-			   AND pr.pot_number = pp.pot_number
+			   AND pr.pot_number = osck.pot_number (+)
+			   AND pr.seat_number = osck.seat_number (+)
 			ORDER BY
 				pot_number,
 				seat_number
@@ -951,6 +968,8 @@ BEGIN
 	SET    betting_round_in_progress = 'N';
 	
 	pkg_poker_ai.log(p_message => 'game over');
+	
+--	pkg_poker_ai.update_player_game_stats;
 	
 END process_game_results;
 
@@ -2082,9 +2101,6 @@ PROCEDURE select_ui_state (
 	p_pots             OUT t_rc_generic,
 	p_status           OUT t_rc_generic
 ) IS
-
-	v_max_player_count INTEGER := 10;
-
 BEGIN
 
 	OPEN p_tournament_state FOR
@@ -2096,25 +2112,23 @@ BEGIN
 		FROM   tournament_state;
 
 	OPEN p_game_state FOR
-		SELECT small_blind_seat_number,
-			   big_blind_seat_number,
-			   turn_seat_number,
-			   small_blind_value,
-			   big_blind_value,
-			   CASE betting_round_number
-					WHEN 1 THEN '1 - Pre-flop'
-					WHEN 2 THEN '2 - Flop'
-					WHEN 3 THEN '3 - Turn'
-					WHEN 4 THEN '4 - River'
-			   END betting_round_number,
-			   CASE betting_round_in_progress WHEN 'Y' THEN 'Yes' WHEN 'N' THEN 'No' END betting_round_in_progress,
-			   last_to_raise_seat_number,
-			   community_card_1,
-			   community_card_2,
-			   community_card_3,
-			   community_card_4,
-			   community_card_5
-		FROM   game_state;
+		SELECT gs.small_blind_seat_number,
+			   gs.big_blind_seat_number,
+			   gs.turn_seat_number,
+			   gs.small_blind_value,
+			   gs.big_blind_value,
+			   mfv.display_value betting_round_number,
+			   CASE gs.betting_round_in_progress WHEN 'Y' THEN 'Yes' WHEN 'N' THEN 'No' END betting_round_in_progress,
+			   gs.last_to_raise_seat_number,
+			   gs.community_card_1,
+			   gs.community_card_2,
+			   gs.community_card_3,
+			   gs.community_card_4,
+			   gs.community_card_5
+		FROM   game_state gs,
+			   master_field_value mfv
+		WHERE  mfv.field_name_code (+) = 'BETTING_ROUND_NUMBER'
+		   AND gs.betting_round_number = mfv.field_value_code (+);
 
 	OPEN p_player_state FOR
 		WITH seats AS (
@@ -2164,17 +2178,7 @@ BEGIN
 			   CASE WHEN ps.best_hand_card_5 IN (ps.hole_card_1, ps.hole_card_2) THEN 'Y' ELSE 'N' END best_hand_card_5_is_hole_card,
 			   CASE ps.hand_showing WHEN 'Y' THEN 'Yes' WHEN 'N' THEN 'No' END hand_showing,
 			   ps.money,
-			   CASE WHEN ps.state IS NULL THEN 'No Player'
-					WHEN ps.state = 'NO_MOVE' THEN 'No Move'
-					WHEN ps.state = 'FOLDED' THEN 'Folded'
-					WHEN ps.state = 'CHECKED' THEN 'Checked'
-					WHEN ps.state = 'CALLED' THEN 'Called'
-					WHEN ps.state = 'BET' THEN 'Bet'
-					WHEN ps.state = 'RAISED' THEN 'Raised'
-					WHEN ps.state = 'OUT_OF_TOURNAMENT' THEN 'Out of Tournament'
-					WHEN ps.state = 'ALL_IN' THEN 'All In'
-					ELSE ps.state
-			   END state,
+			   mfv.display_value state,
 			   ps.game_rank,
 			   ps.tournament_rank,
 			   pc.total_pot_contribution,
@@ -2190,10 +2194,13 @@ BEGIN
 		FROM   seats s,
 			   player_state ps,
 			   pot_contributions pc,
-			   hand_ranks hr
+			   hand_ranks hr,
+			   master_field_value mfv
 		WHERE  s.seat_number = ps.seat_number (+)
 		   AND s.seat_number = pc.player_seat_number (+)
 		   AND s.seat_number = hr.seat_number (+)
+		   AND mfv.field_name_code (+) = 'PLAYER_STATE'
+		   AND ps.state = mfv.field_value_code (+)
 		ORDER BY seat_number;
 
 	OPEN p_pots FOR
@@ -2581,6 +2588,21 @@ BEGIN
 	END IF;
 	
 END load_next_state;
+	/*
 
+PROCEDURE update_player_game_stats IS
+BEGIN
+
+	NULL;
+	MERGE INTO player p USING (
+		SELECT *
+		FROM   player_state
+	) s ON (s.player_id = p.player_id)
+	WHEN MATCHED THEN UPDATE SET
+		games_won = s.
+	
+END update_player_game_stats;
+	*/
+	
 END pkg_poker_ai;
 

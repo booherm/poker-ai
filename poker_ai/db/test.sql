@@ -182,3 +182,69 @@ WHERE  tm.state_id = tsl.state_id
 ORDER BY state_id DESC;
 
 
+--------------------------------------------------------------------------------------------------------------------
+
+-- generate random strategies
+DELETE FROM strategy;
+DECLARE
+
+	v_strategy_count INTEGER := 100;
+	v_chromosome     strategy.strategy_chromosome%TYPE;
+	v_strategy_proc  strategy.strategy_procedure%TYPE;
+	
+BEGIN
+
+	FOR v_i IN 1 .. v_strategy_count LOOP
+	
+		-- generate random chromosome
+		SELECT pkg_ga_util.get_random_bit_string(p_length => pkg_ga_player.v_strat_chromosome_metadata.chromosome_bit_length) strategy_chromosome
+		INTO   v_chromosome
+		FROM   DUAL;
+		
+		v_strategy_proc := pkg_ga_player.get_strategy_procedure(p_strategy_chromosome => v_chromosome);
+	
+		INSERT INTO strategy (
+			strategy_id,
+			strategy_chromosome,
+			strategy_procedure
+		) VALUES (
+			pai_seq_stratid.NEXTVAL,
+			v_chromosome,
+			v_strategy_proc
+		);
+		
+	END LOOP;
+	
+	COMMIT;
+	
+END;
+
+-- execute strategy
+DECLARE
+
+	v_strategy_procedure strategy.strategy_procedure%TYPE;
+	v_player_move        VARCHAR2(30);
+	v_player_move_amount player_state.money%TYPE;
+	
+BEGIN
+
+	SELECT strategy_procedure
+	INTO   v_strategy_procedure
+	FROM   strategy
+	WHERE  strategy_id = 808;
+	
+	pkg_ga_player.execute_strategy(
+		p_strategy_procedure => v_strategy_procedure,
+		p_seat_number        => 1,
+		p_can_fold           => 'Y',
+		p_can_check          => 'Y',
+		p_can_call           => 'N',
+		p_can_bet            => 'Y',
+		p_can_raise          => 'N',
+		p_player_move        => v_player_move,
+		p_player_move_amount => v_player_move_amount
+	);
+	
+	DBMS_OUTPUT.PUT_LINE('v_player_move = ' || v_player_move || ', v_player_move_amount = ' || v_player_move_amount);
+	
+END;

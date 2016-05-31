@@ -1,6 +1,7 @@
 CREATE OR REPLACE PACKAGE pkg_poker_ai AS
 
 v_state_id poker_ai_log.state_id%TYPE;
+v_max_player_count INTEGER := 10;
 
 TYPE t_rc_generic IS REF CURSOR;
 
