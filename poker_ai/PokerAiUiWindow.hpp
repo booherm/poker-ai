@@ -16,6 +16,7 @@ private:
 	void loadState(WebView* caller, const JSArray& args);
 	void loadPreviousState(WebView* caller, const JSArray& args);
 	void loadNextState(WebView* caller, const JSArray& args);
+	void editCard(WebView* caller, const JSArray& args);
 	void refreshUi();
 	void bindJsFunctions();
 

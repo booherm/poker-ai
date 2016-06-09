@@ -1,29 +1,44 @@
 DECLARE
 
 	v_tournament_play_count     INTEGER := 1;
-	v_player_count              tournament_state.player_count%TYPE := 3;
+	v_player_count              tournament_state.player_count%TYPE := 10;
 	v_tournament_buy_in         tournament_state.buy_in_amount%TYPE := 500;
 	v_initial_small_blind_value game_state.small_blind_value%TYPE := 5;
 	v_double_blinds_interval    tournament_state.current_game_number%TYPE := 5;
 	
-	v_player_record         t_row_number := t_row_number(NULL);
-	v_player_ids            t_tbl_number := t_tbl_number();
-	v_current_game_number   tournament_state.current_game_number%TYPE;
-	v_money_imbalance       VARCHAR2(1);
+	v_strategy_record           t_row_number := t_row_number(NULL);
+	v_strategy_ids              t_tbl_number := t_tbl_number();
+	v_current_game_number       tournament_state.current_game_number%TYPE;
+	v_money_imbalance           VARCHAR2(1);
 	
 BEGIN
 
 	-- setup players
 	FOR v_rec IN (
-		SELECT ROWNUM seat_number,
-			   player_id
-		FROM   player
-		WHERE  player_id <= v_player_count
+		WITH seats AS (
+			SELECT ROWNUM seat_number
+			FROM   DUAL
+			CONNECT BY ROWNUM <= v_player_count
+		),
+		
+		strategies AS (
+			SELECT ROWNUM seat_number,
+				   strategy_id
+			FROM   strategy
+			WHERE  ROWNUM <= v_player_count
+		)
+		
+		SELECT s.seat_number,
+			   st.strategy_id
+		FROM   seats s,
+			   strategies st
+		WHERE  s.seat_number = st.seat_number (+)
+		ORDER BY s.seat_number
 	) LOOP
 	
-		v_player_record.value := v_rec.player_id;
-		v_player_ids.EXTEND;
-		v_player_ids(v_rec.seat_number) := v_player_record;
+		v_strategy_record.value := v_rec.strategy_id;
+		v_strategy_ids.EXTEND;
+		v_strategy_ids(v_rec.seat_number) := v_strategy_record;
 		
 	END LOOP;
 
@@ -47,7 +62,7 @@ BEGIN
 
 		-- play tournament
 		pkg_poker_ai.play_tournament(
-			p_player_ids                => v_player_ids,
+			p_strategy_ids              => v_strategy_ids,
 			p_buy_in_amount             => v_tournament_buy_in,
 			p_initial_small_blind_value => v_initial_small_blind_value,
 			p_double_blinds_interval    => v_double_blinds_interval
@@ -205,10 +220,12 @@ BEGIN
 	
 		INSERT INTO strategy (
 			strategy_id,
+			generation,
 			strategy_chromosome,
 			strategy_procedure
 		) VALUES (
 			pai_seq_stratid.NEXTVAL,
+			1,
 			v_chromosome,
 			v_strategy_proc
 		);

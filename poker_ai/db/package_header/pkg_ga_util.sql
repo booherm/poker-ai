@@ -7,7 +7,7 @@ FUNCTION get_random_int (
 
 FUNCTION get_random_bit_string (
 	p_length INTEGER
-) RETURN VARCHAR2;
+) RETURN CLOB;
 
 FUNCTION bit_string_to_unsigned_int(
 	p_bit_string VARCHAR2

@@ -1,7 +1,7 @@
 CREATE OR REPLACE PACKAGE BODY pkg_poker_ai AS
 
 PROCEDURE play_tournament(
-	p_player_ids                t_tbl_number,
+	p_strategy_ids              t_tbl_number,
 	p_buy_in_amount             tournament_state.buy_in_amount%TYPE,
 	p_initial_small_blind_value game_state.small_blind_value%TYPE,
 	p_double_blinds_interval    tournament_state.current_game_number%TYPE
@@ -21,12 +21,13 @@ BEGIN
 	
 	SELECT COUNT(*) player_count
 	INTO   v_player_count
-	FROM   TABLE(p_player_ids);
+	FROM   TABLE(p_strategy_ids);
 	
 	pkg_poker_ai.initialize_tournament(
-		p_player_ids    => p_player_ids,
-		p_player_count  => v_player_count,
-		p_buy_in_amount => p_buy_in_amount
+		p_tournament_mode => 'INTERNAL',
+		p_strategy_ids    => p_strategy_ids,
+		p_player_count    => v_player_count,
+		p_buy_in_amount   => p_buy_in_amount
 	);
 	
 	LOOP
@@ -61,18 +62,21 @@ END play_tournament;
 
 PROCEDURE initialize_tournament
 (
-	p_player_ids    t_tbl_number,
-	p_player_count  tournament_state.player_count%TYPE,
-    p_buy_in_amount tournament_state.buy_in_amount%TYPE
+	p_tournament_mode tournament_state.tournament_mode%TYPE,
+	p_strategy_ids    t_tbl_number,
+	p_player_count    tournament_state.player_count%TYPE,
+    p_buy_in_amount   tournament_state.buy_in_amount%TYPE
 ) IS
 BEGIN
 
 	v_state_id := pkg_poker_ai.get_state_id;
 	
 	-- init tournament state
-	pkg_poker_ai.log(p_message => 'initializing tournament');
+	pkg_poker_ai.log(p_message => 'initializing ' || LOWER(p_tournament_mode) || ' tournament');
 	DELETE FROM tournament_state;
 	INSERT INTO tournament_state(
+		tournament_mode,
+		fitness_test_id,
 		player_count,
 		buy_in_amount,
 		tournament_in_progress,
@@ -80,6 +84,8 @@ BEGIN
 		game_in_progress,
 		current_state_id
 	) VALUES (
+		p_tournament_mode,
+		p_player_count || '_PLAYER_' || p_buy_in_amount || '_BUYIN',
 		p_player_count,
 		p_buy_in_amount,
 		'Y',
@@ -92,53 +98,137 @@ BEGIN
 	pkg_poker_ai.clear_game_state;
 
 	-- init players
+	pkg_poker_ai.log(p_message => 'selecting ' || CASE WHEN p_strategy_ids IS NULL THEN 'random' ELSE 'specified strategies as' END || ' players');
+	
 	DELETE FROM player_state;
-	IF p_player_ids IS NULL THEN
-		-- select random players
-		pkg_poker_ai.log(p_message => 'selecting random players');
-		INSERT INTO player_state(
-			player_id,
-			seat_number,
-			hand_showing,
-			money,
-			state,
-			presented_bet_opportunity
-		)
-		WITH players AS (
-			SELECT player_id
-			FROM   player
-			ORDER BY DBMS_RANDOM.VALUE
-		)
-		SELECT player_id,
-			   ROWNUM seat_number,
-			   'N' hand_showing,
-			   p_buy_in_amount money,
-			   'NO_MOVE' state,
-			   'N' presented_bet_opportunity
-		FROM   players
-		WHERE  ROWNUM <= p_player_count;
-	ELSE
-		-- use secified players
-		INSERT INTO player_state(
-			player_id,
-			seat_number,
-			hand_showing,
-			money,
-			state,
-			presented_bet_opportunity
-		)
-		WITH players AS (
-			SELECT value player_id
-			FROM   TABLE(p_player_ids)
-		)
-		SELECT player_id,
-			   ROWNUM seat_number,
-			   'N' hand_showing,
-			   p_buy_in_amount money,
-			   'NO_MOVE' state,
-			   'N' presented_bet_opportunity
-		FROM   players;
-	END IF;
+	INSERT INTO player_state(
+		seat_number,
+		current_strategy_id,
+		hand_showing,
+		money,
+		state,
+		presented_bet_opportunity,
+		games_played,
+		main_pots_won,
+		main_pots_split,
+		side_pots_won,
+		side_pots_split,
+		flops_seen,
+		turns_seen,
+		rivers_seen,
+		pre_flop_folds,
+		flop_folds,
+		turn_folds,
+		river_folds,
+		total_folds,
+		pre_flop_checks,
+		flop_checks,
+		turn_checks,
+		river_checks,
+		total_checks,
+		pre_flop_calls,
+		flop_calls,
+		turn_calls,
+		river_calls,
+		total_calls,
+		pre_flop_bets,
+		flop_bets,
+		turn_bets,
+		river_bets,
+		total_bets,
+		pre_flop_total_bet_amount,
+		flop_total_bet_amount,
+		turn_total_bet_amount,
+		river_total_bet_amount,
+		total_bet_amount,
+		pre_flop_raises,
+		flop_raises,
+		turn_raises,
+		river_raises,
+		total_raises,
+		pre_flop_total_raise_amount,
+		flop_total_raise_amount,
+		turn_total_raise_amount,
+		river_total_raise_amount,
+		total_raise_amount,
+		times_all_in,
+		total_money_played,
+		total_money_won
+	)
+	
+	WITH seats AS (
+		SELECT ROWNUM seat_number
+		FROM   DUAL
+		CONNECT BY ROWNUM <= p_player_count
+	),
+	
+	strategies AS (
+		SELECT ROWNUM seat_number,
+			   value strategy_id
+		FROM   TABLE(p_strategy_ids)
+	),
+	
+	players AS (
+		SELECT s.seat_number,
+			   st.strategy_id
+		FROM   seats s,
+			   strategies st
+		WHERE  s.seat_number = st.seat_number (+)
+	)
+	
+	SELECT seat_number,
+		   strategy_id current_strategy_id,
+		   'N' hand_showing,
+		   p_buy_in_amount money,
+		   'NO_MOVE' state,
+		   'N' presented_bet_opportunity,
+		   0 games_played,
+		   0 main_pots_won,
+		   0 main_pots_split,
+		   0 side_pots_won,
+		   0 side_pots_split,
+		   0 flops_seen,
+		   0 turns_seen,
+		   0 rivers_seen,
+		   0 pre_flop_folds,
+		   0 flop_folds,
+		   0 turn_folds,
+		   0 river_folds,
+		   0 total_folds,
+		   0 pre_flop_checks,
+		   0 flop_checks,
+		   0 turn_checks,
+		   0 river_checks,
+		   0 total_checks,
+		   0 pre_flop_calls,
+		   0 flop_calls,
+		   0 turn_calls,
+		   0 river_calls,
+		   0 total_calls,
+		   0 pre_flop_bets,
+		   0 flop_bets,
+		   0 turn_bets,
+		   0 river_bets,
+		   0 total_bets,
+		   0 pre_flop_total_bet_amount,
+		   0 flop_total_bet_amount,
+		   0 turn_total_bet_amount,
+		   0 river_total_bet_amount,
+		   0 total_bet_amount,
+		   0 pre_flop_raises,
+		   0 flop_raises,
+		   0 turn_raises,
+		   0 river_raises,
+		   0 total_raises,
+		   0 pre_flop_total_raise_amount,
+		   0 flop_total_raise_amount,
+		   0 turn_total_raise_amount,
+		   0 river_total_raise_amount,
+		   0 total_raise_amount,
+		   0 times_all_in,
+		   0 total_money_played,
+		   0 total_money_won
+	FROM   players;
 
 	pkg_poker_ai.log(p_message => 'tournament initialized');
 	pkg_poker_ai.capture_state_log;
@@ -153,6 +243,7 @@ PROCEDURE step_play(
 	p_player_move_amount player_state.money%TYPE
 ) IS
 
+	v_tournament_mode           tournament_state.tournament_mode%TYPE;
 	v_remaining_player_count    tournament_state.player_count%TYPE;
 	v_game_in_progress          tournament_state.game_in_progress%TYPE;
 	v_current_game_number       tournament_state.current_game_number%TYPE;
@@ -179,9 +270,11 @@ BEGIN
 
 	IF v_remaining_player_count > 1 THEN
 		
-		SELECT game_in_progress,
+		SELECT tournament_mode,
+			   game_in_progress,
 			   current_game_number
-		INTO   v_game_in_progress,
+		INTO   v_tournament_mode,
+			   v_game_in_progress,
 			   v_current_game_number
 		FROM   tournament_state;
 
@@ -237,10 +330,11 @@ BEGIN
 					-- deal hole cards
 					pkg_poker_ai.log(p_message => 'dealing hole cards');
 					UPDATE player_state
-					SET    hole_card_1 = pkg_poker_ai.draw_deck_card,
-						   hole_card_2 = pkg_poker_ai.draw_deck_card
+					SET    hole_card_1 = CASE WHEN v_tournament_mode = 'INTERNAL' THEN pkg_poker_ai.draw_deck_card ELSE 0 END,
+						   hole_card_2 = CASE WHEN v_tournament_mode = 'INTERNAL' THEN pkg_poker_ai.draw_deck_card ELSE 0 END,
+						   games_played = games_played + 1
 					WHERE  state != 'OUT_OF_TOURNAMENT';
-				
+					
 				ELSIF v_betting_round_number = 1 THEN
 					-- reset player state
 					pkg_poker_ai.log(p_message => 'resetting player state');
@@ -249,15 +343,20 @@ BEGIN
 						   presented_bet_opportunity = 'N'
 					WHERE  state NOT IN ('FOLDED', 'OUT_OF_TOURNAMENT', 'ALL_IN');
 
+					-- update flops seen stat
+					UPDATE player_state
+					SET    flops_seen = flops_seen + 1
+					WHERE  state NOT IN ('FOLDED', 'OUT_OF_TOURNAMENT');
+					
 					-- reset player turn
 					v_turn_seat_number := pkg_poker_ai.init_betting_round_start_seat;
 
 					-- deal flop
 					pkg_poker_ai.log(p_message => 'dealing flop');
 					UPDATE game_state
-					SET    community_card_1 = pkg_poker_ai.draw_deck_card,
-						   community_card_2 = pkg_poker_ai.draw_deck_card,
-						   community_card_3 = pkg_poker_ai.draw_deck_card;
+					SET    community_card_1 = CASE WHEN v_tournament_mode = 'INTERNAL' THEN pkg_poker_ai.draw_deck_card ELSE 0 END,
+						   community_card_2 = CASE WHEN v_tournament_mode = 'INTERNAL' THEN pkg_poker_ai.draw_deck_card ELSE 0 END,
+						   community_card_3 = CASE WHEN v_tournament_mode = 'INTERNAL' THEN pkg_poker_ai.draw_deck_card ELSE 0 END;
 
 					pkg_poker_ai.calculate_best_hands;
 					pkg_poker_ai.sort_hands;
@@ -270,13 +369,18 @@ BEGIN
 						   presented_bet_opportunity = 'N'
 					WHERE  state NOT IN ('FOLDED', 'OUT_OF_TOURNAMENT', 'ALL_IN');
 
+					-- update turns seen stat
+					UPDATE player_state
+					SET    turns_seen = turns_seen + 1
+					WHERE  state NOT IN ('FOLDED', 'OUT_OF_TOURNAMENT');
+
 					-- reset player turn
 					v_turn_seat_number := pkg_poker_ai.init_betting_round_start_seat;
 					
 					-- deal turn
 					pkg_poker_ai.log(p_message => 'dealing turn');
 					UPDATE game_state
-					SET    community_card_4 = pkg_poker_ai.draw_deck_card;
+					SET    community_card_4 = CASE WHEN v_tournament_mode = 'INTERNAL' THEN pkg_poker_ai.draw_deck_card ELSE 0 END;
 
 					pkg_poker_ai.calculate_best_hands;
 					pkg_poker_ai.sort_hands;
@@ -289,13 +393,18 @@ BEGIN
 						   presented_bet_opportunity = 'N'
 					WHERE  state NOT IN ('FOLDED', 'OUT_OF_TOURNAMENT', 'ALL_IN');
 
+					-- update rivers seen stat
+					UPDATE player_state
+					SET    rivers_seen = rivers_seen + 1
+					WHERE  state NOT IN ('FOLDED', 'OUT_OF_TOURNAMENT');
+					
 					-- reset player turn
 					v_turn_seat_number := pkg_poker_ai.init_betting_round_start_seat;
 
 					-- deal river
 					pkg_poker_ai.log(p_message => 'dealing river');
 					UPDATE game_state
-					SET    community_card_5 = pkg_poker_ai.draw_deck_card;
+					SET    community_card_5 = CASE WHEN v_tournament_mode = 'INTERNAL' THEN pkg_poker_ai.draw_deck_card ELSE 0 END;
 
 					pkg_poker_ai.calculate_best_hands;
 					pkg_poker_ai.sort_hands;
@@ -594,7 +703,8 @@ BEGIN
 	WITH remaining_deck AS (
 		SELECT card_id
 		FROM   deck
-		WHERE  dealt = 'N'
+		WHERE  card_id != 0
+		   AND dealt = 'N'
 		ORDER BY DBMS_RANDOM.VALUE
 	)
 	SELECT card_id
@@ -646,6 +756,18 @@ BEGIN
 		p_player_seat_number => v_small_blind_seat_number,
 		p_pot_contribution   => v_small_blind_post_amount
 	);
+	
+	UPDATE player_state
+	SET    pre_flop_bets = pre_flop_bets + 1,
+		   total_bets = total_bets + 1,
+		   pre_flop_total_bet_amount = pre_flop_total_bet_amount + v_small_blind_post_amount,
+		   total_bet_amount = total_bet_amount + v_small_blind_post_amount		   
+	WHERE  seat_number = v_small_blind_seat_number;
+
+	UPDATE player_state
+	SET    pre_flop_average_bet_amount = pre_flop_total_bet_amount / NULLIF(pre_flop_bets, 0),
+		   average_bet_amount = total_bet_amount / NULLIF(total_bets, 0)
+	WHERE  seat_number = v_small_blind_seat_number;
 
 	-- post big blind
 	SELECT gs.big_blind_seat_number,
@@ -669,6 +791,20 @@ BEGIN
 		p_pot_contribution   => v_big_blind_post_amount
 	);
 
+	IF v_big_blind_post_amount - v_small_blind_post_amount > 0 THEN
+		UPDATE player_state
+		SET    pre_flop_raises = pre_flop_raises + 1,
+			   total_raises = total_raises + 1,
+			   pre_flop_total_raise_amount = pre_flop_total_raise_amount + (v_big_blind_post_amount - v_small_blind_post_amount),
+			   total_raise_amount = total_raise_amount + (v_big_blind_post_amount - v_small_blind_post_amount)	   
+		WHERE  seat_number = v_big_blind_seat_number;
+		
+		UPDATE player_state
+		SET    pre_flop_average_raise_amount = pre_flop_total_raise_amount / NULLIF(pre_flop_raises, 0),
+			   average_raise_amount = total_raise_amount / NULLIF(total_raises, 0)
+		WHERE  seat_number = v_big_blind_seat_number;
+	END IF;
+	
 END post_blinds;
 
 PROCEDURE perform_player_move
@@ -697,15 +833,25 @@ PROCEDURE perform_explicit_player_move (
 	p_player_move_amount player_state.money%TYPE
 ) IS
 
-	v_player_money player_state.money%TYPE;
+	v_player_money          player_state.money%TYPE;
+	v_current_betting_round game_state.betting_round_number%TYPE;
 
 BEGIN
+
+	SELECT betting_round_number current_betting_round
+	INTO   v_current_betting_round
+	FROM   game_state;
 
 	IF p_player_move = 'FOLD' THEN
 	
 		pkg_poker_ai.log(p_message => 'player at seat ' || p_seat_number || ' folds');
 		UPDATE player_state
-		SET    state = 'FOLDED'
+		SET    state = 'FOLDED',
+			   pre_flop_folds = CASE WHEN v_current_betting_round = 1 THEN pre_flop_folds + 1 ELSE pre_flop_folds END,
+			   flop_folds = CASE WHEN v_current_betting_round = 2 THEN flop_folds + 1 ELSE flop_folds END,
+			   turn_folds = CASE WHEN v_current_betting_round = 3 THEN turn_folds + 1 ELSE turn_folds END,
+			   river_folds = CASE WHEN v_current_betting_round = 4 THEN river_folds + 1 ELSE river_folds END,
+			   total_folds = total_folds + 1
 		WHERE  seat_number = p_seat_number;
 		
 		pkg_poker_ai.issue_applicable_pot_refunds;
@@ -715,7 +861,12 @@ BEGIN
 	
 		pkg_poker_ai.log(p_message => 'player at seat ' || p_seat_number || ' checks');
 		UPDATE player_state
-		SET    state = CASE WHEN state != 'ALL_IN' THEN 'CHECKED' ELSE 'ALL_IN' END
+		SET    state = CASE WHEN state != 'ALL_IN' THEN 'CHECKED' ELSE 'ALL_IN' END,
+			   pre_flop_checks = CASE WHEN v_current_betting_round = 1 THEN pre_flop_checks + 1 ELSE pre_flop_checks END,
+			   flop_checks = CASE WHEN v_current_betting_round = 2 THEN flop_checks + 1 ELSE flop_checks END,
+			   turn_checks = CASE WHEN v_current_betting_round = 3 THEN turn_checks + 1 ELSE turn_checks END,
+			   river_checks = CASE WHEN v_current_betting_round = 4 THEN river_checks + 1 ELSE river_checks END,
+			   total_checks = total_checks + 1
 		WHERE  seat_number = p_seat_number;
 		
 	ELSIF p_player_move = 'CALL' THEN
@@ -734,7 +885,12 @@ BEGIN
 		);
 
 		UPDATE player_state
-		SET    state = CASE WHEN state != 'ALL_IN' THEN 'CALLED' ELSE 'ALL_IN' END
+		SET    state = CASE WHEN state != 'ALL_IN' THEN 'CALLED' ELSE 'ALL_IN' END,
+			   pre_flop_calls = CASE WHEN v_current_betting_round = 1 THEN pre_flop_calls + 1 ELSE pre_flop_calls END,
+			   flop_calls = CASE WHEN v_current_betting_round = 2 THEN flop_calls + 1 ELSE flop_calls END,
+			   turn_calls = CASE WHEN v_current_betting_round = 3 THEN turn_calls + 1 ELSE turn_calls END,
+			   river_calls = CASE WHEN v_current_betting_round = 4 THEN river_calls + 1 ELSE river_calls END,
+			   total_calls = total_calls + 1
 		WHERE  seat_number = p_seat_number;
 
 	ELSIF p_player_move = 'BET' THEN
@@ -746,7 +902,25 @@ BEGIN
 		);
 
 		UPDATE player_state
-		SET    state = CASE WHEN state != 'ALL_IN' THEN 'BET' ELSE 'ALL_IN' END
+		SET    state = CASE WHEN state != 'ALL_IN' THEN 'BET' ELSE 'ALL_IN' END,
+			   pre_flop_bets = CASE WHEN v_current_betting_round = 1 THEN pre_flop_bets + 1 ELSE pre_flop_bets END,
+			   flop_bets = CASE WHEN v_current_betting_round = 2 THEN flop_bets + 1 ELSE flop_bets END,
+			   turn_bets = CASE WHEN v_current_betting_round = 3 THEN turn_bets + 1 ELSE turn_bets END,
+			   river_bets = CASE WHEN v_current_betting_round = 4 THEN river_bets + 1 ELSE river_bets END,
+			   total_bets = total_bets + 1,
+			   pre_flop_total_bet_amount = CASE WHEN v_current_betting_round = 1 THEN pre_flop_total_bet_amount + p_player_move_amount ELSE pre_flop_total_bet_amount END,
+			   flop_total_bet_amount = CASE WHEN v_current_betting_round = 2 THEN flop_total_bet_amount + p_player_move_amount ELSE flop_total_bet_amount END,
+			   turn_total_bet_amount = CASE WHEN v_current_betting_round = 3 THEN turn_total_bet_amount + p_player_move_amount ELSE turn_total_bet_amount END,
+			   river_total_bet_amount = CASE WHEN v_current_betting_round = 4 THEN river_total_bet_amount + p_player_move_amount ELSE river_total_bet_amount END,
+			   total_bet_amount = total_bet_amount + p_player_move_amount		   
+		WHERE  seat_number = p_seat_number;
+
+		UPDATE player_state
+		SET    pre_flop_average_bet_amount = CASE WHEN v_current_betting_round = 1 THEN pre_flop_total_bet_amount / NULLIF(pre_flop_bets, 0) ELSE pre_flop_average_bet_amount END,
+			   flop_average_bet_amount = CASE WHEN v_current_betting_round = 2 THEN flop_total_bet_amount / NULLIF(flop_bets, 0) ELSE flop_average_bet_amount END,
+			   turn_average_bet_amount = CASE WHEN v_current_betting_round = 3 THEN turn_total_bet_amount / NULLIF(turn_bets, 0) ELSE turn_average_bet_amount END,
+			   river_average_bet_amount = CASE WHEN v_current_betting_round = 4 THEN river_total_bet_amount / NULLIF(river_bets, 0) ELSE river_average_bet_amount END,
+			   average_bet_amount = total_bet_amount / NULLIF(total_bets, 0)
 		WHERE  seat_number = p_seat_number;
 		
 		UPDATE game_state
@@ -764,9 +938,27 @@ BEGIN
 		);
 
 		UPDATE player_state
-		SET    state = CASE WHEN state != 'ALL_IN' THEN 'RAISED' ELSE 'ALL_IN' END
+		SET    state = CASE WHEN state != 'ALL_IN' THEN 'RAISED' ELSE 'ALL_IN' END,
+			   pre_flop_raises = CASE WHEN v_current_betting_round = 1 THEN pre_flop_raises + 1 ELSE pre_flop_raises END,
+			   flop_raises = CASE WHEN v_current_betting_round = 2 THEN flop_raises + 1 ELSE flop_raises END,
+			   turn_raises = CASE WHEN v_current_betting_round = 3 THEN turn_raises + 1 ELSE turn_raises END,
+			   river_raises = CASE WHEN v_current_betting_round = 4 THEN river_raises + 1 ELSE river_raises END,
+			   total_raises = total_raises + 1,
+			   pre_flop_total_raise_amount = CASE WHEN v_current_betting_round = 1 THEN pre_flop_total_raise_amount + p_player_move_amount ELSE pre_flop_total_raise_amount END,
+			   flop_total_raise_amount = CASE WHEN v_current_betting_round = 2 THEN flop_total_raise_amount + p_player_move_amount ELSE flop_total_raise_amount END,
+			   turn_total_raise_amount = CASE WHEN v_current_betting_round = 3 THEN turn_total_raise_amount + p_player_move_amount ELSE turn_total_raise_amount END,
+			   river_total_raise_amount = CASE WHEN v_current_betting_round = 4 THEN river_total_raise_amount + p_player_move_amount ELSE river_total_raise_amount END,
+			   total_raise_amount = total_raise_amount + p_player_move_amount		   
 		WHERE  seat_number = p_seat_number;
 		
+		UPDATE player_state
+		SET    pre_flop_average_raise_amount = CASE WHEN v_current_betting_round = 1 THEN pre_flop_total_raise_amount / NULLIF(pre_flop_raises, 0) ELSE pre_flop_average_raise_amount END,
+			   flop_average_raise_amount = CASE WHEN v_current_betting_round = 2 THEN flop_total_raise_amount / NULLIF(flop_raises, 0) ELSE flop_average_raise_amount END,
+			   turn_average_raise_amount = CASE WHEN v_current_betting_round = 3 THEN turn_total_raise_amount / NULLIF(turn_raises, 0) ELSE turn_average_raise_amount END,
+			   river_average_raise_amount = CASE WHEN v_current_betting_round = 4 THEN river_total_raise_amount / NULLIF(river_raises, 0) ELSE river_average_raise_amount END,
+			   average_raise_amount = total_raise_amount / NULLIF(total_raises, 0)
+		WHERE  seat_number = p_seat_number;
+	
 		UPDATE game_state
 		SET    last_to_raise_seat_number = p_seat_number,
 			   min_raise_amount = CASE WHEN p_player_move_amount < min_raise_amount THEN min_raise_amount + p_player_move_amount
@@ -810,7 +1002,9 @@ BEGIN
 
 		UPDATE player_state
 		SET    money = money + (SELECT SUM(pot_contribution) FROM pot_contribution),
-			   game_rank = 1
+			   game_rank = 1,
+			   main_pots_won = main_pots_won + 1,
+			   total_money_won = (SELECT SUM(pot_contribution) FROM pot_contribution)
 		WHERE  seat_number = v_winner_seat_number;
 	ELSE
 
@@ -930,7 +1124,8 @@ BEGIN
 			
 			SELECT pr.pot_number,
 				   pr.seat_number,
-				   pwc.per_player_amount + NVL(osck.extra_chip, 0) player_winnings
+				   pwc.per_player_amount + NVL(osck.extra_chip, 0) player_winnings,
+				   CASE WHEN pwc.pot_winners_count > 1 THEN 'Y' ELSE 'N' END split_pot
 			FROM   pot_winner_counts pwc,
 				   pot_ranks pr,
 				   odd_split_chip_keepers osck
@@ -946,13 +1141,21 @@ BEGIN
 			-- distribute pot money
 			pkg_poker_ai.log(p_message => 'player at seat ' || v_winners_rec.seat_number || ' wins ' || v_winners_rec.player_winnings || ' from pot ' || v_winners_rec.pot_number);
 			UPDATE player_state
-			SET    money = money + v_winners_rec.player_winnings
+			SET    money = money + v_winners_rec.player_winnings,
+				   main_pots_won = CASE WHEN v_winners_rec.split_pot = 'N' AND v_winners_rec.pot_number = 1 THEN main_pots_won + 1 ELSE main_pots_won END,
+				   main_pots_split = CASE WHEN v_winners_rec.split_pot = 'Y' AND v_winners_rec.pot_number = 1 THEN main_pots_split + 1 ELSE main_pots_split END,
+				   side_pots_won = CASE WHEN v_winners_rec.split_pot = 'N' AND v_winners_rec.pot_number != 1 THEN side_pots_won + 1 ELSE side_pots_won END,
+				   side_pots_split = CASE WHEN v_winners_rec.split_pot = 'Y' AND v_winners_rec.pot_number != 1 THEN side_pots_split + 1 ELSE side_pots_split END,
+				   total_money_won = total_money_won + v_winners_rec.player_winnings
 			WHERE  seat_number = v_winners_rec.seat_number;
 
 		END LOOP;
 
 	END IF;
 
+	UPDATE player_state
+	SET    average_game_profit = (total_money_won - total_money_played) / NULLIF(games_played, 0);
+	
 	-- set tournament rank on anyone that ran out of money
 	UPDATE player_state
 	SET    tournament_rank = (SELECT COUNT(*) FROM player_state WHERE tournament_rank IS NULL),
@@ -969,11 +1172,12 @@ BEGIN
 	
 	pkg_poker_ai.log(p_message => 'game over');
 	
---	pkg_poker_ai.update_player_game_stats;
-	
 END process_game_results;
 
 PROCEDURE process_tournament_results IS
+
+	v_fitness_test_id tournament_state.fitness_test_id%TYPE;
+	
 BEGIN
 
 	UPDATE player_state
@@ -983,6 +1187,12 @@ BEGIN
 
 	UPDATE tournament_state
 	SET    tournament_in_progress = 'N';
+	
+	SELECT fitness_test_id
+	INTO   v_fitness_test_id
+	FROM   tournament_state;
+
+	pkg_ga_player.update_strategy_fitness(p_fitness_test_id => v_fitness_test_id);
 	
 	pkg_poker_ai.log(p_message => 'tournament over');
 
@@ -1003,7 +1213,8 @@ FUNCTION get_hand_rank(
 
 BEGIN
 
-	IF p_card_1 IS NULL OR p_card_2 IS NULL OR p_card_3 IS NULL OR p_card_4 IS NULL OR p_card_5 IS NULL THEN
+	IF p_card_1 IS NULL OR p_card_2 IS NULL OR p_card_3 IS NULL OR p_card_4 IS NULL OR p_card_5 IS NULL
+		OR p_card_1 = 0 OR p_card_2 = 0 OR p_card_3 = 0 OR p_card_4 = 0 OR p_card_5 = 0 THEN
 		-- incomplete hand
 		RETURN '00';
 	END IF;
@@ -1117,23 +1328,6 @@ BEGIN
 
 END get_hand_rank;
 
-FUNCTION get_card_display_value(
-	p_card_id deck.card_id%TYPE
-) RETURN deck.display_value%TYPE RESULT_CACHE IS
-
-	v_display_value deck.display_value%TYPE;
-
-BEGIN
-
-	SELECT LPAD(display_value, 4, ' ') display_value
-	INTO   v_display_value
-	FROM   deck
-	WHERE  card_id = p_card_id;
-
-	RETURN v_display_value;	
-
-END get_card_display_value;
-
 FUNCTION get_hand_rank_display_value(
 	p_hand_rank player_state.best_hand_rank%TYPE
 ) RETURN VARCHAR2 IS
@@ -1213,6 +1407,7 @@ BEGIN
 			   MIN(card_4) KEEP (DENSE_RANK FIRST ORDER BY hand_rank DESC, combination) OVER (PARTITION BY seat_number) best_hand_card_4,
 			   MIN(card_5) KEEP (DENSE_RANK FIRST ORDER BY hand_rank DESC, combination) OVER (PARTITION BY seat_number) best_hand_card_5
 		FROM   possible_hands
+		WHERE  hand_rank != '00'
 	) LOOP
 
 		-- set the player's best possible hand in on the player's state record
@@ -1981,7 +2176,9 @@ BEGIN
 	-- remove money from player's stack and flag all in state when needed
 	UPDATE player_state
 	SET    money = money - p_pot_contribution,
-		   state = CASE WHEN money - p_pot_contribution = 0 THEN 'ALL_IN' ELSE state END
+		   state = CASE WHEN money - p_pot_contribution = 0 THEN 'ALL_IN' ELSE state END,
+		   times_all_in = CASE WHEN money - p_pot_contribution = 0 THEN times_all_in + 1 ELSE times_all_in END,
+		   total_money_played = total_money_played + p_pot_contribution
 	WHERE  seat_number = p_player_seat_number;
 	
 	pkg_poker_ai.issue_applicable_pot_refunds;
@@ -2021,7 +2218,9 @@ BEGIN
 			|| v_rec.sole_contributor || ' from pot ' || v_rec.pot_number);
 			
 		UPDATE player_state
-		SET    money = money + v_rec.pot_contribution
+		SET    state = CASE WHEN state = 'ALL_IN' THEN 'RAISED' ELSE state END,
+			   money = money + v_rec.pot_contribution,
+			   total_money_played = total_money_played - v_rec.pot_contribution
 		WHERE  seat_number = v_rec.sole_contributor;
 		
 		DELETE FROM pot_contribution
@@ -2081,7 +2280,9 @@ BEGIN
 			|| v_rec.win_amount || ' from pot ' || v_rec.pot_number);
 			
 		UPDATE player_state
-		SET    money = money + v_rec.win_amount
+		SET    state = CASE WHEN state = 'ALL_IN' THEN 'RAISED' ELSE state END,
+			   money = money + v_rec.win_amount,
+			   total_money_won = total_money_won + v_rec.win_amount
 		WHERE  seat_number = v_rec.pot_winner;
 		
 		DELETE FROM pot_contribution
@@ -2093,6 +2294,63 @@ BEGIN
 	END LOOP;
 	
 END issue_default_pot_wins;
+
+PROCEDURE edit_card(
+	p_card_type   VARCHAR2,
+	p_seat_number player_state.seat_number%TYPE,
+	p_card_slot   NUMBER,
+	p_card_id     deck.card_id%TYPE
+) IS
+
+	v_current_card_id deck.card_id%TYPE;
+	
+BEGIN
+
+	IF p_card_type = 'HOLE_CARD' THEN
+		SELECT CASE WHEN p_card_slot = 1 THEN hole_card_1 ELSE hole_card_2 END current_card_id
+		INTO   v_current_card_id
+		FROM   player_state
+		WHERE  seat_number = p_seat_number;
+		
+		UPDATE player_state
+		SET    hole_card_1 = CASE WHEN p_card_slot = 1 THEN p_card_id ELSE hole_card_1 END,
+			   hole_card_2 = CASE WHEN p_card_slot = 2 THEN p_card_id ELSE hole_card_2 END
+		WHERE  seat_number = p_seat_number;
+	ELSE
+		SELECT CASE p_card_slot
+					WHEN 1 THEN community_card_1
+					WHEN 2 THEN community_card_2
+					WHEN 3 THEN community_card_3
+					WHEN 4 THEN community_card_4
+					WHEN 5 THEN community_card_5
+			   END current_card_id
+		INTO   v_current_card_id
+		FROM   game_state;
+		
+		UPDATE game_state
+		SET    community_card_1 = CASE WHEN p_card_slot = 1 THEN p_card_id ELSE community_card_1 END,
+			   community_card_2 = CASE WHEN p_card_slot = 2 THEN p_card_id ELSE community_card_2 END,
+			   community_card_3 = CASE WHEN p_card_slot = 3 THEN p_card_id ELSE community_card_3 END,
+			   community_card_4 = CASE WHEN p_card_slot = 4 THEN p_card_id ELSE community_card_4 END,
+			   community_card_5 = CASE WHEN p_card_slot = 5 THEN p_card_id ELSE community_card_5 END;
+	END IF;
+	
+	IF v_current_card_id IS NOT NULL AND v_current_card_id != 0 THEN
+		UPDATE deck
+		SET    dealt = 'N'
+		WHERE  card_id = v_current_card_id;
+	END IF;
+	
+	UPDATE deck
+	SET    dealt = 'Y'
+	WHERE  card_id = p_card_id;
+	
+	pkg_poker_ai.calculate_best_hands;
+	pkg_poker_ai.sort_hands;
+	
+	COMMIT;
+	
+END edit_card;
 
 PROCEDURE select_ui_state (
 	p_tournament_state OUT t_rc_generic,
@@ -2178,7 +2436,7 @@ BEGIN
 			   CASE WHEN ps.best_hand_card_5 IN (ps.hole_card_1, ps.hole_card_2) THEN 'Y' ELSE 'N' END best_hand_card_5_is_hole_card,
 			   CASE ps.hand_showing WHEN 'Y' THEN 'Yes' WHEN 'N' THEN 'No' END hand_showing,
 			   ps.money,
-			   mfv.display_value state,
+			   NVL(mfv.display_value, 'No Player') state,
 			   ps.game_rank,
 			   ps.tournament_rank,
 			   pc.total_pot_contribution,
@@ -2285,6 +2543,8 @@ BEGIN
 
 	INSERT INTO tournament_state_log (
 		state_id,
+		tournament_mode,
+		fitness_test_id,
 		player_count,
 		buy_in_amount,
 		tournament_in_progress,
@@ -2292,6 +2552,8 @@ BEGIN
 		game_in_progress
 	)
 	SELECT v_state_id state_id,
+		   tournament_mode,
+		   fitness_test_id,
 		   player_count,
 		   buy_in_amount,
 		   tournament_in_progress,
@@ -2335,8 +2597,10 @@ BEGIN
 	
 	INSERT INTO player_state_log (
 		state_id,
-		player_id,
 		seat_number,
+		player_id,
+		current_strategy_id,
+		assumed_strategy_id,
 		hole_card_1,
 		hole_card_2,
 		best_hand_combination,
@@ -2351,11 +2615,70 @@ BEGIN
 		money,
 		state,
 		game_rank,
-		tournament_rank
+		tournament_rank,
+		games_played,
+		main_pots_won,
+		main_pots_split,
+		side_pots_won,
+		side_pots_split,
+		average_game_profit,
+		flops_seen,
+		turns_seen,
+		rivers_seen,
+		pre_flop_folds,
+		flop_folds,
+		turn_folds,
+		river_folds,
+		total_folds,
+		pre_flop_checks,
+		flop_checks,
+		turn_checks,
+		river_checks,
+		total_checks,
+		pre_flop_calls,
+		flop_calls,
+		turn_calls,
+		river_calls,
+		total_calls,
+		pre_flop_bets,
+		flop_bets,
+		turn_bets,
+		river_bets,
+		total_bets,
+		pre_flop_total_bet_amount,
+		flop_total_bet_amount,
+		turn_total_bet_amount,
+		river_total_bet_amount,
+		total_bet_amount,
+		pre_flop_average_bet_amount,
+		flop_average_bet_amount,
+		turn_average_bet_amount,
+		river_average_bet_amount,
+		average_bet_amount,
+		pre_flop_raises,
+		flop_raises,
+		turn_raises,
+		river_raises,
+		total_raises,
+		pre_flop_total_raise_amount,
+		flop_total_raise_amount,
+		turn_total_raise_amount,
+		river_total_raise_amount,
+		total_raise_amount,
+		pre_flop_average_raise_amount,
+		flop_average_raise_amount,
+		turn_average_raise_amount,
+		river_average_raise_amount,
+		average_raise_amount,
+		times_all_in,
+		total_money_played,
+		total_money_won
 	)
 	SELECT v_state_id state_id,
-		   player_id,
 		   seat_number,
+		   player_id,
+		   current_strategy_id,
+		   assumed_strategy_id,
 		   hole_card_1,
 		   hole_card_2,
 		   best_hand_combination,
@@ -2370,7 +2693,64 @@ BEGIN
 		   money,
 		   state,
 		   game_rank,
-		   tournament_rank
+		   tournament_rank,
+		   games_played,
+		   main_pots_won,
+		   main_pots_split,
+		   side_pots_won,
+		   side_pots_split,
+		   average_game_profit,
+		   flops_seen,
+		   turns_seen,
+		   rivers_seen,
+		   pre_flop_folds,
+		   flop_folds,
+		   turn_folds,
+		   river_folds,
+		   total_folds,
+		   pre_flop_checks,
+		   flop_checks,
+		   turn_checks,
+		   river_checks,
+		   total_checks,
+		   pre_flop_calls,
+		   flop_calls,
+		   turn_calls,
+		   river_calls,
+		   total_calls,
+		   pre_flop_bets,
+		   flop_bets,
+		   turn_bets,
+		   river_bets,
+		   total_bets,
+		   pre_flop_total_bet_amount,
+		   flop_total_bet_amount,
+		   turn_total_bet_amount,
+		   river_total_bet_amount,
+		   total_bet_amount,
+		   pre_flop_average_bet_amount,
+		   flop_average_bet_amount,
+		   turn_average_bet_amount,
+		   river_average_bet_amount,
+		   average_bet_amount,
+		   pre_flop_raises,
+		   flop_raises,
+		   turn_raises,
+		   river_raises,
+		   total_raises,
+		   pre_flop_total_raise_amount,
+		   flop_total_raise_amount,
+		   turn_total_raise_amount,
+		   river_total_raise_amount,
+		   total_raise_amount,
+		   pre_flop_average_raise_amount,
+		   flop_average_raise_amount,
+		   turn_average_raise_amount,
+		   river_average_raise_amount,
+		   average_raise_amount,
+		   times_all_in,
+		   total_money_played,
+		   total_money_won
 	FROM   player_state;
 	
 	INSERT INTO pot_log (
@@ -2420,6 +2800,8 @@ BEGIN
 	DELETE FROM tournament_state;
 	
 	INSERT INTO tournament_state (
+		tournament_mode,
+		fitness_test_id,
 		player_count,
 		buy_in_amount,
 		tournament_in_progress,
@@ -2427,7 +2809,9 @@ BEGIN
 		game_in_progress,
 		current_state_id
 	)
-	SELECT player_count,
+	SELECT tournament_mode,
+		   fitness_test_id,
+		   player_count,
 		   buy_in_amount,
 		   tournament_in_progress,
 		   current_game_number,
@@ -2470,8 +2854,10 @@ BEGIN
 	WHERE  state_id = p_state_id;
 	
 	INSERT INTO player_state (
-		player_id,
 		seat_number,
+		player_id,
+		current_strategy_id,
+		assumed_strategy_id,
 		hole_card_1,
 		hole_card_2,
 		best_hand_combination,
@@ -2486,10 +2872,69 @@ BEGIN
 		money,
 		state,
 		game_rank,
-		tournament_rank
+		tournament_rank,
+		games_played,
+		main_pots_won,
+		main_pots_split,
+		side_pots_won,
+		side_pots_split,
+		average_game_profit,
+		flops_seen,
+		turns_seen,
+		rivers_seen,
+		pre_flop_folds,
+		flop_folds,
+		turn_folds,
+		river_folds,
+		total_folds,
+		pre_flop_checks,
+		flop_checks,
+		turn_checks,
+		river_checks,
+		total_checks,
+		pre_flop_calls,
+		flop_calls,
+		turn_calls,
+		river_calls,
+		total_calls,
+		pre_flop_bets,
+		flop_bets,
+		turn_bets,
+		river_bets,
+		total_bets,
+		pre_flop_total_bet_amount,
+		flop_total_bet_amount,
+		turn_total_bet_amount,
+		river_total_bet_amount,
+		total_bet_amount,
+		pre_flop_average_bet_amount,
+		flop_average_bet_amount,
+		turn_average_bet_amount,
+		river_average_bet_amount,
+		average_bet_amount,
+		pre_flop_raises,
+		flop_raises,
+		turn_raises,
+		river_raises,
+		total_raises,
+		pre_flop_total_raise_amount,
+		flop_total_raise_amount,
+		turn_total_raise_amount,
+		river_total_raise_amount,
+		total_raise_amount,
+		pre_flop_average_raise_amount,
+		flop_average_raise_amount,
+		turn_average_raise_amount,
+		river_average_raise_amount,
+		average_raise_amount,
+		times_all_in,
+		total_money_played,
+		total_money_won
 	)
-	SELECT player_id,
-		   seat_number,
+	SELECT seat_number,
+		   player_id,
+		   current_strategy_id,
+		   assumed_strategy_id,
 		   hole_card_1,
 		   hole_card_2,
 		   best_hand_combination,
@@ -2504,7 +2949,64 @@ BEGIN
 		   money,
 		   state,
 		   game_rank,
-		   tournament_rank
+		   tournament_rank,
+		   games_played,
+		   main_pots_won,
+		   main_pots_split,
+		   side_pots_won,
+		   side_pots_split,
+		   average_game_profit,
+		   flops_seen,
+		   turns_seen,
+		   rivers_seen,
+		   pre_flop_folds,
+		   flop_folds,
+		   turn_folds,
+		   river_folds,
+		   total_folds,
+		   pre_flop_checks,
+		   flop_checks,
+		   turn_checks,
+		   river_checks,
+		   total_checks,
+		   pre_flop_calls,
+		   flop_calls,
+		   turn_calls,
+		   river_calls,
+		   total_calls,
+		   pre_flop_bets,
+		   flop_bets,
+		   turn_bets,
+		   river_bets,
+		   total_bets,
+		   pre_flop_total_bet_amount,
+		   flop_total_bet_amount,
+		   turn_total_bet_amount,
+		   river_total_bet_amount,
+		   total_bet_amount,
+		   pre_flop_average_bet_amount,
+		   flop_average_bet_amount,
+		   turn_average_bet_amount,
+		   river_average_bet_amount,
+		   average_bet_amount,
+		   pre_flop_raises,
+		   flop_raises,
+		   turn_raises,
+		   river_raises,
+		   total_raises,
+		   pre_flop_total_raise_amount,
+		   flop_total_raise_amount,
+		   turn_total_raise_amount,
+		   river_total_raise_amount,
+		   total_raise_amount,
+		   pre_flop_average_raise_amount,
+		   flop_average_raise_amount,
+		   turn_average_raise_amount,
+		   river_average_raise_amount,
+		   average_raise_amount,
+		   times_all_in,
+		   total_money_played,
+		   total_money_won
 	FROM   player_state_log
 	WHERE  state_id = p_state_id;
 	
@@ -2538,13 +3040,13 @@ BEGIN
 	UPDATE deck
 	SET    dealt = 'Y'
 	WHERE  card_id IN (
-		SELECT hole_card_1 card_id FROM player_state WHERE hole_card_1 IS NOT NULL UNION ALL
-		SELECT hole_card_2 card_id FROM player_state WHERE hole_card_2 IS NOT NULL  UNION ALL
-		SELECT community_card_1 card_id FROM game_state WHERE community_card_1 IS NOT NULL UNION ALL
-		SELECT community_card_2 card_id FROM game_state WHERE community_card_2 IS NOT NULL UNION ALL
-		SELECT community_card_3 card_id FROM game_state WHERE community_card_3 IS NOT NULL UNION ALL
-		SELECT community_card_4 card_id FROM game_state WHERE community_card_4 IS NOT NULL UNION ALL
-		SELECT community_card_5 card_id FROM game_state WHERE community_card_5 IS NOT NULL
+		SELECT hole_card_1 card_id FROM player_state WHERE hole_card_1 IS NOT NULL AND hole_card_1 != 0 UNION ALL
+		SELECT hole_card_2 card_id FROM player_state WHERE hole_card_2 IS NOT NULL AND hole_card_2 != 0 UNION ALL
+		SELECT community_card_1 card_id FROM game_state WHERE community_card_1 IS NOT NULL AND community_card_1 != 0 UNION ALL
+		SELECT community_card_2 card_id FROM game_state WHERE community_card_2 IS NOT NULL AND community_card_2 != 0  UNION ALL
+		SELECT community_card_3 card_id FROM game_state WHERE community_card_3 IS NOT NULL AND community_card_3 != 0  UNION ALL
+		SELECT community_card_4 card_id FROM game_state WHERE community_card_4 IS NOT NULL AND community_card_4 != 0  UNION ALL
+		SELECT community_card_5 card_id FROM game_state WHERE community_card_5 IS NOT NULL AND community_card_5 != 0 
 	);
 	
 	COMMIT;
@@ -2588,21 +3090,6 @@ BEGIN
 	END IF;
 	
 END load_next_state;
-	/*
-
-PROCEDURE update_player_game_stats IS
-BEGIN
-
-	NULL;
-	MERGE INTO player p USING (
-		SELECT *
-		FROM   player_state
-	) s ON (s.player_id = p.player_id)
-	WHEN MATCHED THEN UPDATE SET
-		games_won = s.
-	
-END update_player_game_stats;
-	*/
 	
 END pkg_poker_ai;
 

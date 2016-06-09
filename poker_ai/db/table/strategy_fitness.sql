@@ -1,25 +1,10 @@
-CREATE TABLE player_state_log
+CREATE TABLE strategy_fitness
 (
-	state_id                      NUMBER(38, 0),
-	seat_number                   NUMBER(2, 0),
-	player_id                     NUMBER(10, 0),
-	current_strategy_id           NUMBER(10, 0),
-	assumed_strategy_id           NUMBER(10, 0),
-    hole_card_1                   NUMBER(2, 0),
-    hole_card_2                   NUMBER(2, 0),
-	best_hand_combination         VARCHAR2(9),
-	best_hand_rank                VARCHAR2(17),
-	best_hand_card_1              NUMBER(2, 0),
-	best_hand_card_2              NUMBER(2, 0),
-	best_hand_card_3              NUMBER(2, 0),
-	best_hand_card_4              NUMBER(2, 0),
-	best_hand_card_5              NUMBER(2, 0),
-	hand_showing                  VARCHAR2(1),
-	presented_bet_opportunity     VARCHAR2(1),
-    money                         NUMBER(10, 0),
-    state                         VARCHAR2(20),
-	game_rank                     NUMBER(2, 0),
-	tournament_rank               NUMBER(2, 0),
+	strategy_id                   NUMBER(10, 0),
+	fitness_test_id               VARCHAR2(100),
+	fitness_score                 NUMBER(38, 10),
+	tournaments_played            NUMBER(10, 0),
+	average_tournament_profit     NUMBER(12, 2),
 	games_played                  NUMBER(10, 0),
 	main_pots_won                 NUMBER(10, 0),
 	main_pots_split               NUMBER(10, 0),
@@ -76,10 +61,16 @@ CREATE TABLE player_state_log
 	average_raise_amount          NUMBER(12, 2),
 	times_all_in                  NUMBER(10, 0),
 	total_money_played            NUMBER(38, 0),
-	total_money_won               NUMBER(38, 0) 
+	total_money_won               NUMBER(38, 0)
 );
 
-ALTER TABLE player_state_log ADD
+ALTER TABLE strategy_fitness ADD
 (
-	CONSTRAINT psl_pk_sidsn PRIMARY KEY (state_id, seat_number)
+	CONSTRAINT sf_pk_sidftid PRIMARY KEY (strategy_id, fitness_test_id)
 );
+
+ALTER TABLE strategy_fitness ADD
+(
+	CONSTRAINT sf_fk_sid FOREIGN KEY (strategy_id) REFERENCES strategy(strategy_id)
+);
+

@@ -12,9 +12,9 @@ END get_random_int;
 
 FUNCTION get_random_bit_string (
 	p_length INTEGER
-) RETURN VARCHAR2 IS
+) RETURN CLOB IS
 
-	v_bit_string VARCHAR2(4000);
+	v_bit_string CLOB;
 
 BEGIN
 

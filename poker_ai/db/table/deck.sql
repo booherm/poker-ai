@@ -12,6 +12,7 @@ ALTER TABLE deck ADD
 	CONSTRAINT d_pk_cid PRIMARY KEY (card_id)
 );
 
+INSERT INTO deck(card_id, suit, display_value, value, dealt) VALUES (0,  NULL, 'N/A', NULL, 'N');
 INSERT INTO deck(card_id, suit, display_value, value, dealt) VALUES (1,  'HEARTS',   '2 H',  2, 'N');
 INSERT INTO deck(card_id, suit, display_value, value, dealt) VALUES (2,  'HEARTS',   '3 H',  3, 'N');
 INSERT INTO deck(card_id, suit, display_value, value, dealt) VALUES (3,  'HEARTS',   '4 H',  4, 'N');

@@ -1,7 +1,8 @@
 CREATE TABLE strategy
 (
 	strategy_id         NUMBER(10, 0),
-	strategy_chromosome VARCHAR2(4000),
+	generation          NUMBER(10, 0),
+	strategy_chromosome CLOB,
 	strategy_procedure  CLOB
 );
 

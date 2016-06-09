@@ -6,7 +6,7 @@ v_max_player_count INTEGER := 10;
 TYPE t_rc_generic IS REF CURSOR;
 
 PROCEDURE play_tournament(
-	p_player_ids                t_tbl_number,
+	p_strategy_ids              t_tbl_number,
 	p_buy_in_amount             tournament_state.buy_in_amount%TYPE,
 	p_initial_small_blind_value game_state.small_blind_value%TYPE,
 	p_double_blinds_interval    tournament_state.current_game_number%TYPE
@@ -14,9 +14,10 @@ PROCEDURE play_tournament(
 
 PROCEDURE initialize_tournament
 (
-	p_player_ids    t_tbl_number,
-	p_player_count  tournament_state.player_count%TYPE,
-    p_buy_in_amount tournament_state.buy_in_amount%TYPE
+	p_tournament_mode tournament_state.tournament_mode%TYPE,
+	p_strategy_ids    t_tbl_number,
+	p_player_count    tournament_state.player_count%TYPE,
+    p_buy_in_amount   tournament_state.buy_in_amount%TYPE
 );
 
 PROCEDURE step_play( 
@@ -81,10 +82,6 @@ FUNCTION get_hand_rank(
 	p_card_5 deck.card_id%TYPE
 ) RETURN VARCHAR2;
 
-FUNCTION get_card_display_value(
-	p_card_id deck.card_id%TYPE
-) RETURN deck.display_value%TYPE RESULT_CACHE;
-
 FUNCTION get_hand_rank_display_value(
 	p_hand_rank player_state.best_hand_rank%TYPE
 ) RETURN VARCHAR2;
@@ -141,6 +138,13 @@ PROCEDURE contribute_to_pot (
 PROCEDURE issue_applicable_pot_refunds;
 
 PROCEDURE issue_default_pot_wins;
+
+PROCEDURE edit_card(
+	p_card_type   VARCHAR2,
+	p_seat_number player_state.seat_number%TYPE,
+	p_card_slot   NUMBER,
+	p_card_id     deck.card_id%TYPE
+);
 
 PROCEDURE select_ui_state (
 	p_tournament_state OUT t_rc_generic,

@@ -25,18 +25,16 @@ BEGIN
 		SELECT s.strategy_procedure
 		INTO   v_strategy_procedure
 		FROM   player_state ps,
-			   player p,
 			   strategy s
 		WHERE  ps.seat_number = p_seat_number
-		   AND ps.player_id = p.player_id
-		   AND p.current_strategy_id = s.strategy_id (+);
+		   AND ps.current_strategy_id = s.strategy_id;
 		   
 		EXCEPTION WHEN NO_DATA_FOUND THEN
 			NULL;
 	END;
 	
 	IF v_strategy_procedure IS NOT NULL THEN
-		pkg_poker_ai.log(p_message => 'deriving move from strategy procedure');
+		pkg_poker_ai.log(p_message => 'player at seat ' || p_seat_number || ' is deriving move from strategy procedure');
 		pkg_ga_player.execute_strategy(
 			p_strategy_procedure => v_strategy_procedure,
 			p_seat_number        => p_seat_number,
@@ -50,7 +48,7 @@ BEGIN
 		);
 	ELSE
 		-- random move and amount
-		pkg_poker_ai.log(p_message => 'performing random move');
+		pkg_poker_ai.log(p_message => 'player at seat ' || p_seat_number || ' is performing random move');
 		
 		WITH possible_moves AS (
 			SELECT 'FOLD'  player_move FROM DUAL WHERE v_can_fold = 'Y'  UNION ALL
@@ -97,8 +95,8 @@ FUNCTION get_strategy_procedure(
 	p_strategy_chromosome strategy.strategy_chromosome%TYPE
 ) RETURN strategy.strategy_procedure%TYPE IS
 
-	v_procedure_plsql VARCHAR2(32000);
-	v_variables_sql   VARCHAR2(32000);
+	v_procedure_plsql strategy.strategy_procedure%TYPE;
+	v_variables_sql   strategy.strategy_procedure%TYPE;
 	
 BEGIN
 
@@ -138,9 +136,9 @@ END;
 	
 END get_strategy_procedure;
 
-FUNCTION get_expression_loader RETURN VARCHAR2 IS
+FUNCTION get_expression_loader RETURN strategy.strategy_procedure%TYPE IS
 
-	v_plsql VARCHAR2(32000);
+	v_plsql strategy.strategy_procedure%TYPE;
 	
 BEGIN
 
@@ -190,10 +188,10 @@ END get_expression_loader;
 FUNCTION get_decision_tree (
 	p_decision_tree_unit_id strategy_build.decision_tree_unit_id%TYPE,
 	p_max_depth             INTEGER
-) RETURN VARCHAR2 IS
+) RETURN strategy.strategy_procedure%TYPE IS
 
 	v_depth                    INTEGER;
-	v_decision_tree            VARCHAR2(32000);
+	v_decision_tree            strategy.strategy_procedure%TYPE;
 	v_expression_operator_text VARCHAR2(1);
 	
 BEGIN
@@ -292,9 +290,10 @@ FUNCTION get_expression_value(
 	p_expression_id strategy_expression_map.expression_slot_id%TYPE
 ) RETURN strategy_variable.value%TYPE IS
 
-	v_expression_id  strategy_expression_map.expression_slot_id%TYPE;
-	v_value          strategy_variable.value%TYPE;
-	v_referenced_ids t_expression_map_entries;
+	v_expression_id        strategy_expression_map.expression_slot_id%TYPE;
+	v_value                strategy_variable.value%TYPE;
+	v_left_referenced_ids  t_expression_map_entries;
+	v_right_referenced_ids t_expression_map_entries;
 	
 BEGIN
 
@@ -306,10 +305,12 @@ BEGIN
 	
 		-- refers to another expression
 		--DBMS_OUTPUT.PUT_LINE('get_expression_value: refers to another expression, calling get_sub_expression_value');
-		v_referenced_ids(v_expression_id) := v_expression_id;
+		v_left_referenced_ids(v_expression_id) := v_expression_id;
+		v_right_referenced_ids(v_expression_id) := v_expression_id;
 		v_value := pkg_ga_player.get_sub_expression_value(
-			p_expression_id  => v_expression_id,
-			p_referenced_ids => v_referenced_ids
+			p_expression_id        => v_expression_id,
+			p_left_referenced_ids  => v_left_referenced_ids,
+			p_right_referenced_ids => v_right_referenced_ids
 		);
 		
 	ELSE
@@ -328,8 +329,9 @@ BEGIN
 END get_expression_value;
 
 FUNCTION get_sub_expression_value(
-	p_expression_id  strategy_expression_map.expression_slot_id%TYPE,
-	p_referenced_ids IN OUT t_expression_map_entries
+	p_expression_id               strategy_expression_map.expression_slot_id%TYPE,
+	p_left_referenced_ids  IN OUT t_expression_map_entries,
+	p_right_referenced_ids IN OUT t_expression_map_entries
 ) RETURN strategy_variable.value%TYPE IS
 
 	v_expression_id       strategy_expression_map.expression_slot_id%TYPE;
@@ -360,7 +362,7 @@ BEGIN
 		FROM   strategy_expression_map
 		WHERE  expression_slot_id = v_expression_id;
 		
-		IF p_referenced_ids.EXISTS(v_left_operand_id) THEN
+		IF p_left_referenced_ids.EXISTS(v_left_operand_id) THEN
 			--DBMS_OUTPUT.PUT_LINE('get_sub_expression_value: found circular reference, replacing with safe value');
 			IF v_operator_value IN ('+', '-') THEN
 				v_left_operand_value := 0;
@@ -368,14 +370,15 @@ BEGIN
 				v_left_operand_value := 1;
 			END IF;
 		ELSE
-			p_referenced_ids(v_left_operand_id) := v_left_operand_id;
+			p_left_referenced_ids(v_left_operand_id) := v_left_operand_id;
 			v_left_operand_value := pkg_ga_player.get_sub_expression_value(
-				p_expression_id  => v_left_operand_id,
-				p_referenced_ids => p_referenced_ids
+				p_expression_id        => v_left_operand_id,
+				p_left_referenced_ids  => p_left_referenced_ids,
+				p_right_referenced_ids => p_right_referenced_ids
 			);
 		END IF;
 			
-		IF p_referenced_ids.EXISTS(v_right_operand_id) THEN
+		IF p_right_referenced_ids.EXISTS(v_right_operand_id) THEN
 			--DBMS_OUTPUT.PUT_LINE('get_sub_expression_value: found circular reference, replacing with safe value');
 			IF v_operator_value IN ('+', '-') THEN
 				v_right_operand_value := 0;
@@ -383,10 +386,11 @@ BEGIN
 				v_right_operand_value := 1;
 			END IF;
 		ELSE
-			p_referenced_ids(v_right_operand_id) := v_right_operand_id;
+			p_right_referenced_ids(v_right_operand_id) := v_right_operand_id;
 			v_right_operand_value := pkg_ga_player.get_sub_expression_value(
-				p_expression_id  => v_right_operand_id,
-				p_referenced_ids => p_referenced_ids
+				p_expression_id        => v_right_operand_id,
+				p_left_referenced_ids  => p_left_referenced_ids,
+				p_right_referenced_ids => p_right_referenced_ids
 			);
 		END IF;
 
@@ -734,7 +738,7 @@ PROCEDURE execute_strategy(
 	p_player_move_amount OUT player_state.money%TYPE
 ) IS
 
-	v_variables_sql VARCHAR2(32000);
+	v_variables_sql strategy.strategy_procedure%TYPE;
 	v_decision_type INTEGER;
 	
 BEGIN
@@ -774,6 +778,8 @@ variables AS (
 	SELECT ''PLAYER_STATE_SEAT_' || LPAD(v_i, 2, '0') || '.MONEY''     variable_name, money     value FROM players WHERE seat_number = ' || v_i || ' UNION ALL
 	SELECT ''PLAYER_STATE_SEAT_' || LPAD(v_i, 2, '0') || '.STATE''     variable_name, state     value FROM players WHERE seat_number = ' || v_i || ' UNION ALL
 ';
+		-- debug, many new variables to add in
+		
 	END LOOP;
 	v_variables_sql := v_variables_sql || '
 	SELECT ''TOURNAMENT_STATE.PLAYER_COUNT''        variable_name, player_count                  value FROM tournament_state UNION ALL
@@ -896,6 +902,262 @@ BEGIN
 		
 END get_decision_type;
 
+PROCEDURE update_strategy_fitness (
+	p_fitness_test_id strategy_fitness.fitness_test_id%TYPE
+) IS
+
+	v_perf_strat_fitness_update VARCHAR2(1);
+	v_min_avg_tournament_profit strategy_fitness.average_tournament_profit%TYPE;
+	
+BEGIN
+
+	SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END perf_strat_fitness_update
+	INTO   v_perf_strat_fitness_update
+	FROM   player_state
+	WHERE  current_strategy_id IS NOT NULL;
+	
+	IF v_perf_strat_fitness_update = 'Y' THEN
+	
+		pkg_poker_ai.log(p_message => 'updating strategy fitness statistics');
+		
+		-- update aggregate strategy fitness values
+		MERGE INTO strategy_fitness d USING (
+			SELECT *
+			FROM   player_state
+		) s ON (
+			d.strategy_id = s.current_strategy_id
+			AND d.fitness_test_id = p_fitness_test_id
+		) WHEN MATCHED THEN UPDATE SET
+			d.tournaments_played = d.tournaments_played + 1,
+			d.games_played = d.games_played + s.games_played,
+			d.main_pots_won = d.main_pots_won + s.main_pots_won,
+			d.main_pots_split = d.main_pots_split + s.main_pots_split,
+			d.side_pots_won = d.side_pots_won + s.side_pots_won,
+			d.side_pots_split = d.side_pots_split + s.side_pots_split,
+			d.flops_seen = d.flops_seen + s.flops_seen,
+			d.turns_seen = d.turns_seen + s.turns_seen,
+			d.rivers_seen = d.rivers_seen + s.rivers_seen,
+			d.pre_flop_folds = d.pre_flop_folds + s.pre_flop_folds,
+			d.flop_folds = d.flop_folds + s.flop_folds,
+			d.turn_folds = d.turn_folds + s.turn_folds,
+			d.river_folds = d.river_folds + s.river_folds,
+			d.total_folds = d.total_folds + s.total_folds,
+			d.pre_flop_checks = d.pre_flop_checks + s.pre_flop_checks,
+			d.flop_checks = d.flop_checks + s.flop_checks,
+			d.turn_checks = d.turn_checks + s.turn_checks,
+			d.river_checks = d.river_checks + s.river_checks,
+			d.total_checks = d.total_checks + s.total_checks,
+			d.pre_flop_calls = d.pre_flop_calls + s.pre_flop_calls,
+			d.flop_calls = d.flop_calls + s.flop_calls,
+			d.turn_calls = d.turn_calls + s.turn_calls,
+			d.river_calls = d.river_calls + s.river_calls,
+			d.total_calls = d.total_calls + s.total_calls,
+			d.pre_flop_bets = d.pre_flop_bets + s.pre_flop_bets,
+			d.flop_bets = d.flop_bets + s.flop_bets,
+			d.turn_bets = d.turn_bets + s.turn_bets,
+			d.river_bets = d.river_bets + s.river_bets,
+			d.total_bets = d.total_bets + s.total_bets,
+			d.pre_flop_total_bet_amount = d.pre_flop_total_bet_amount + s.pre_flop_total_bet_amount,
+			d.flop_total_bet_amount = d.flop_total_bet_amount + s.flop_total_bet_amount,
+			d.turn_total_bet_amount = d.turn_total_bet_amount + s.turn_total_bet_amount,
+			d.river_total_bet_amount = d.river_total_bet_amount + s.river_total_bet_amount,
+			d.total_bet_amount = d.total_bet_amount + s.total_bet_amount,
+			d.pre_flop_raises = d.pre_flop_raises + s.pre_flop_raises,
+			d.flop_raises = d.flop_raises + s.flop_raises,
+			d.turn_raises = d.turn_raises + s.turn_raises,
+			d.river_raises = d.river_raises + s.river_raises,
+			d.total_raises = d.total_raises + s.total_raises,
+			d.pre_flop_total_raise_amount = d.pre_flop_total_raise_amount + s.pre_flop_total_raise_amount,
+			d.flop_total_raise_amount = d.flop_total_raise_amount + s.flop_total_raise_amount,
+			d.turn_total_raise_amount = d.turn_total_raise_amount + s.turn_total_raise_amount,
+			d.river_total_raise_amount = d.river_total_raise_amount + s.river_total_raise_amount,
+			d.total_raise_amount = d.total_raise_amount + s.total_raise_amount,
+			d.times_all_in = d.times_all_in + s.times_all_in,
+			d.total_money_played = d.total_money_played + s.total_money_played,
+			d.total_money_won = d.total_money_won + s.total_money_won
+		WHEN NOT MATCHED THEN INSERT (
+			strategy_id,
+			fitness_test_id,
+			tournaments_played,
+			games_played,
+			main_pots_won,
+			main_pots_split,
+			side_pots_won,
+			side_pots_split,
+			flops_seen,
+			turns_seen,
+			rivers_seen,
+			pre_flop_folds,
+			flop_folds,
+			turn_folds,
+			river_folds,
+			total_folds,
+			pre_flop_checks,
+			flop_checks,
+			turn_checks,
+			river_checks,
+			total_checks,
+			pre_flop_calls,
+			flop_calls,
+			turn_calls,
+			river_calls,
+			total_calls,
+			pre_flop_bets,
+			flop_bets,
+			turn_bets,
+			river_bets,
+			total_bets,
+			pre_flop_total_bet_amount,
+			flop_total_bet_amount,
+			turn_total_bet_amount,
+			river_total_bet_amount,
+			total_bet_amount,
+			pre_flop_raises,
+			flop_raises,
+			turn_raises,
+			river_raises,
+			total_raises,
+			pre_flop_total_raise_amount,
+			flop_total_raise_amount,
+			turn_total_raise_amount,
+			river_total_raise_amount,
+			total_raise_amount,
+			times_all_in,
+			total_money_played,
+			total_money_won
+		) VALUES (
+			s.current_strategy_id,    -- strategy_id,
+			p_fitness_test_id,        -- fitness_test_id
+			1,                        -- tournaments_played,
+			s.games_played,
+			s.main_pots_won,
+			s.main_pots_split,
+			s.side_pots_won,
+			s.side_pots_split,
+			s.flops_seen,
+			s.turns_seen,
+			s.rivers_seen,
+			s.pre_flop_folds,
+			s.flop_folds,
+			s.turn_folds,
+			s.river_folds,
+			s.total_folds,
+			s.pre_flop_checks,
+			s.flop_checks,
+			s.turn_checks,
+			s.river_checks,
+			s.total_checks,
+			s.pre_flop_calls,
+			s.flop_calls,
+			s.turn_calls,
+			s.river_calls,
+			s.total_calls,
+			s.pre_flop_bets,
+			s.flop_bets,
+			s.turn_bets,
+			s.river_bets,
+			s.total_bets,
+			s.pre_flop_total_bet_amount,
+			s.flop_total_bet_amount,
+			s.turn_total_bet_amount,
+			s.river_total_bet_amount,
+			s.total_bet_amount,
+			s.pre_flop_raises,
+			s.flop_raises,
+			s.turn_raises,
+			s.river_raises,
+			s.total_raises,
+			s.pre_flop_total_raise_amount,
+			s.flop_total_raise_amount,
+			s.turn_total_raise_amount,
+			s.river_total_raise_amount,
+			s.total_raise_amount,
+			s.times_all_in,
+			s.total_money_played,
+			s.total_money_won
+		);
+
+		-- udpate averages dependent on newly updated aggregate values
+		MERGE INTO strategy_fitness d USING (
+			SELECT *
+			FROM   player_state
+		) s ON (
+			d.strategy_id = s.current_strategy_id
+			AND d.fitness_test_id = p_fitness_test_id
+		) WHEN MATCHED THEN UPDATE SET
+			d.average_tournament_profit = (d.total_money_won - d.total_money_played) / NULLIF(d.tournaments_played, 0),
+			d.average_game_profit = (d.total_money_won - d.total_money_played) / NULLIF(d.games_played, 0),
+			d.pre_flop_average_bet_amount = d.pre_flop_total_bet_amount / NULLIF(d.pre_flop_bets, 0),
+			d.flop_average_bet_amount = d.flop_total_bet_amount / NULLIF(d.flop_bets, 0),
+			d.turn_average_bet_amount = d.turn_total_bet_amount / NULLIF(d.turn_bets, 0),
+			d.river_average_bet_amount = d.river_total_bet_amount / NULLIF(d.river_bets, 0),
+			d.average_bet_amount = d.total_bet_amount / NULLIF(d.total_bets, 0),
+			d.pre_flop_average_raise_amount = d.pre_flop_total_raise_amount / NULLIF(d.pre_flop_raises, 0),
+			d.flop_average_raise_amount = d.flop_total_raise_amount / NULLIF(d.flop_raises, 0),
+			d.turn_average_raise_amount = d.turn_total_raise_amount / NULLIF(d.turn_raises, 0),
+			d.river_average_raise_amount = d.river_total_raise_amount / NULLIF(d.river_raises, 0),
+			d.average_raise_amount = d.total_raise_amount / NULLIF(d.total_raises, 0);
+
+		-- normalize fitness scores for the fitness test group to be a value >= 0
+		SELECT MIN(average_tournament_profit) min_avg_tournament_profit
+		INTO   v_min_avg_tournament_profit
+		FROM   strategy_fitness
+		WHERE  fitness_test_id = p_fitness_test_id
+		   AND average_tournament_profit < 0;
+		   
+		UPDATE strategy_fitness
+		SET    fitness_score = NVL(ABS(v_min_avg_tournament_profit), 0) + average_tournament_profit
+		WHERE  fitness_test_id = p_fitness_test_id;	
+
+	END IF;
+	
+END update_strategy_fitness;
+
+/*
+PROCEDURE create_new_generation(
+	p_from_generation strategy.generation%TYPE
+) IS
+BEGIN
+
+	WITH current_generation AS (
+		SELECT s.strategy_id,
+			   sf.fitness_score
+		FROM   strategy s,
+			   strategy_fitness sf
+		WHERE  s.generation = p_from_generation
+		   AND s.strategy_id = sf.strategy_id
+		   AND sf.fitness_test_id = '100_TOURNAMENTS_OF_10_PLAYERS'
+	),
+	
+	total_fitness AS (
+		SELECT SUM(fitness_score) total_fitness_score
+		FROM   current_generation
+	),
+	
+	proportioned_generation AS (
+		SELECT cg.strategy_id,
+			   (cg.fitness_score / NULLIF(tf.total_fitness_score, 0)) fitness_proportion
+		FROM   current_generation cg,
+			   total_fitness tf
+	)
+	
+	SELECT pg_a.strategy_id,
+		   pg_a.fitness_proportion,
+		   SUM(pg_b.fitness_proportion) lower_limit,
+		   (SUM(pg_b.fitness_proportion) + pg_a.fitness_proportion) upper_limit
+	FROM   proportioned_generation pg_a,
+		   proportioned_generation pg_b
+	WHERE  pg_b.fitness_proportion < pg_a.fitness_proportion
+	GROUP BY
+		pg_a.strategy_id,
+		pg_a.fitness_proportion
+	ORDER BY
+		fitness_proportion,
+		strategy_id;
+
+END create_new_generation;
+*/
+
 BEGIN
 
 	-- package variables initialization
@@ -904,7 +1166,7 @@ BEGIN
 	v_strat_chromosome_metadata.exp_operator_id_bit_length := 2;
 	v_strat_chromosome_metadata.bool_operator_bit_length := 3;
 	v_strat_chromosome_metadata.amount_mult_bit_length := 8;
-	v_strat_chromosome_metadata.stack_depth := 4;
+	v_strat_chromosome_metadata.stack_depth := 8;
 	
 	v_strat_chromosome_metadata.expression_bit_length := (2 * v_strat_chromosome_metadata.exp_operand_id_bit_length)
 		+ v_strat_chromosome_metadata.exp_operator_id_bit_length;

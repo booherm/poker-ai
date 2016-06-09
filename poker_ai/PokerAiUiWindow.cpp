@@ -8,10 +8,11 @@ PokerAiUiWindow::PokerAiUiWindow(DbInterface* dbInterface)
 
 void PokerAiUiWindow::initTournament(WebView* caller, const JSArray& args) {
 	
-	unsigned int playerCount = args.At(0).ToInteger();
-	unsigned int buyInAmount = args.At(1).ToInteger();
+	std::string tournamentMode = Awesomium::ToString(args.At(0).ToString());
+	unsigned int playerCount = args.At(1).ToInteger();
+	unsigned int buyInAmount = args.At(2).ToInteger();
 
-	dbInterface->initTournament(playerCount, buyInAmount);
+	dbInterface->initTournament(tournamentMode, playerCount, buyInAmount);
 	refreshUi();
 }
 
@@ -44,6 +45,16 @@ void PokerAiUiWindow::loadNextState(WebView* caller, const JSArray& args) {
 	refreshUi();
 }
 
+void PokerAiUiWindow::editCard(WebView* caller, const JSArray& args) {
+	std::string cardType = Awesomium::ToString(args.At(0).ToString());
+	unsigned int seatNumber = args.At(1).ToInteger();
+	unsigned int cardSlot = args.At(2).ToInteger();
+	unsigned int cardId = args.At(3).ToInteger();
+
+	dbInterface->editCard(cardType, seatNumber, cardSlot, cardId);
+	refreshUi();
+}
+
 void PokerAiUiWindow::refreshUi() {
 	Json::Value uiData(Json::objectValue);
 	dbInterface->getUiState(uiData);
@@ -58,4 +69,5 @@ void PokerAiUiWindow::bindJsFunctions() {
 	bindJsFunction(scopeObj, std::string("loadState"), JSDelegate(this, &PokerAiUiWindow::loadState));
 	bindJsFunction(scopeObj, std::string("loadPreviousState"), JSDelegate(this, &PokerAiUiWindow::loadPreviousState));
 	bindJsFunction(scopeObj, std::string("loadNextState"), JSDelegate(this, &PokerAiUiWindow::loadNextState));
+	bindJsFunction(scopeObj, std::string("editCard"), JSDelegate(this, &PokerAiUiWindow::editCard));
 }

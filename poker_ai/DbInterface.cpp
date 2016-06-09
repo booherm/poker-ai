@@ -12,17 +12,20 @@ DbInterface::~DbInterface() {
 	ocilib::Environment::Cleanup();
 }
 
-void DbInterface::initTournament(unsigned int playerCount, unsigned int buyInAmount) {
+void DbInterface::initTournament(const std::string& tournamentMode, unsigned int playerCount, unsigned int buyInAmount) {
 	try
 	{
 		std::string procCall = "BEGIN pkg_poker_ai.initialize_tournament(";
-		procCall.append("p_player_ids        => NULL, ");
-		procCall.append("p_player_count      => :playerCount, ");
-		procCall.append("p_buy_in_amount     => :buyInAmount");
+		procCall.append("p_tournament_mode => :tournamentMode, ");
+		procCall.append("p_strategy_ids    => NULL, ");
+		procCall.append("p_player_count    => :playerCount, ");
+		procCall.append("p_buy_in_amount   => :buyInAmount");
 		procCall.append("); END; ");
 
 		ocilib::Statement st(con);
 		st.Prepare(procCall);
+		ocilib::ostring tournamentMoveOstring(tournamentMode);
+		st.Bind("tournamentMode", tournamentMoveOstring, static_cast<unsigned int>(tournamentMoveOstring.size()), ocilib::BindInfo::In);
 		st.Bind("playerCount", playerCount, ocilib::BindInfo::In);
 		st.Bind("buyInAmount", buyInAmount, ocilib::BindInfo::In);
 		st.ExecutePrepared();
@@ -109,6 +112,34 @@ void DbInterface::loadNextState(unsigned int stateId) {
 		ocilib::Statement st(con);
 		st.Prepare(procCall);
 		st.Bind("stateId", stateId, ocilib::BindInfo::In);
+		st.ExecutePrepared();
+	}
+	catch (std::exception &ex)
+	{
+		std::string exceptionString(ex.what());
+		std::cout << "exception: " << exceptionString << std::endl;
+	}
+
+}
+
+void DbInterface::editCard(const std::string& cardType, unsigned int seatNumber, unsigned int cardSlot, unsigned int cardId) {
+
+	try
+	{
+		std::string procCall = "BEGIN pkg_poker_ai.edit_card(";
+		procCall.append("p_card_type   => :cardType, ");
+		procCall.append("p_seat_number => :seatNumber, ");
+		procCall.append("p_card_slot   => :cardSlot, ");
+		procCall.append("p_card_id     => :cardId");
+		procCall.append("); END;");
+
+		ocilib::Statement st(con);
+		st.Prepare(procCall);
+		ocilib::ostring cardTypeOstring(cardType);
+		st.Bind("cardType", cardTypeOstring, static_cast<unsigned int>(cardTypeOstring.size()), ocilib::BindInfo::In);
+		st.Bind("seatNumber", seatNumber, ocilib::BindInfo::In);
+		st.Bind("cardSlot", cardSlot, ocilib::BindInfo::In);
+		st.Bind("cardId", cardId, ocilib::BindInfo::In);
 		st.ExecutePrepared();
 	}
 	catch (std::exception &ex)

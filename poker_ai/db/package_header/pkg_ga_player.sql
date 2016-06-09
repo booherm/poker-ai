@@ -26,20 +26,21 @@ FUNCTION get_strategy_procedure(
 	p_strategy_chromosome strategy.strategy_chromosome%TYPE
 ) RETURN strategy.strategy_procedure%TYPE;
 
-FUNCTION get_expression_loader RETURN VARCHAR2;
+FUNCTION get_expression_loader RETURN strategy.strategy_procedure%TYPE;
 
 FUNCTION get_decision_tree (
 	p_decision_tree_unit_id strategy_build.decision_tree_unit_id%TYPE,
 	p_max_depth             INTEGER
-) RETURN VARCHAR2;
+) RETURN strategy.strategy_procedure%TYPE;
 
 FUNCTION get_expression_value(
 	p_expression_id strategy_expression_map.expression_slot_id%TYPE
 ) RETURN strategy_variable.value%TYPE;
 
 FUNCTION get_sub_expression_value(
-	p_expression_id  strategy_expression_map.expression_slot_id%TYPE,
-	p_referenced_ids IN OUT t_expression_map_entries
+	p_expression_id               strategy_expression_map.expression_slot_id%TYPE,
+	p_left_referenced_ids  IN OUT t_expression_map_entries,
+	p_right_referenced_ids IN OUT t_expression_map_entries
 ) RETURN strategy_variable.value%TYPE;
 
 FUNCTION get_move_for_dec_tree_unit(
@@ -88,5 +89,9 @@ FUNCTION get_decision_type(
 	p_can_bet   VARCHAR2,
 	p_can_raise VARCHAR2
 ) RETURN INTEGER;
+
+PROCEDURE update_strategy_fitness (
+	p_fitness_test_id strategy_fitness.fitness_test_id%TYPE
+);
 
 END pkg_ga_player;
