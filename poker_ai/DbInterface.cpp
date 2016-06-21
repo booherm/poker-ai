@@ -17,9 +17,10 @@ void DbInterface::initTournament(const std::string& tournamentMode, unsigned int
 	{
 		std::string procCall = "BEGIN pkg_poker_ai.initialize_tournament(";
 		procCall.append("p_tournament_mode => :tournamentMode, ");
-		procCall.append("p_strategy_ids    => NULL, ");
-		procCall.append("p_player_count    => :playerCount, ");
-		procCall.append("p_buy_in_amount   => :buyInAmount");
+		procCall.append("p_strategy_ids          => NULL, ");
+		procCall.append("p_player_count          => :playerCount, ");
+		procCall.append("p_buy_in_amount         => :buyInAmount, ");
+		procCall.append("p_perform_state_logging => 'Y'");
 		procCall.append("); END; ");
 
 		ocilib::Statement st(con);
@@ -41,9 +42,10 @@ void DbInterface::stepPlay(unsigned int smallBlindAmount, const std::string& pla
 	try
 	{
 		std::string procCall = "BEGIN pkg_poker_ai.step_play(";
-		procCall.append("p_small_blind_value  => :smallBlindAmount, ");
-		procCall.append("p_player_move        => :playerMove, ");
-		procCall.append("p_player_move_amount => :playerMoveAmount");
+		procCall.append("p_small_blind_value     => :smallBlindAmount, ");
+		procCall.append("p_player_move           => :playerMove, ");
+		procCall.append("p_player_move_amount    => :playerMoveAmount, ");
+		procCall.append("p_perform_state_logging => 'Y'");
 		procCall.append("); END;");
 
 		ocilib::Statement st(con);

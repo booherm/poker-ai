@@ -15,12 +15,6 @@ ALTER TABLE preflop_odds ADD
 	CONSTRAINT pfo_pk_c1idc2id PRIMARY KEY (card_1_id, card_2_id)
 );
 
-ALTER TABLE preflop_odds ADD
-(
-    CONSTRAINT pfo_fk_c1id FOREIGN KEY (card_1_id) REFERENCES deck(card_id),
-    CONSTRAINT pfo_fk_c2id FOREIGN KEY (card_2_id) REFERENCES deck(card_id)
-);
-
 INSERT INTO preflop_odds (
 	card_1_id,
 	card_2_id,

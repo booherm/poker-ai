@@ -1,0 +1,4 @@
+to do:
+performance test hand sort change
+code sort hands/caclulate hands redundency change
+add average game rank stat

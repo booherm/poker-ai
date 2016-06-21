@@ -18,8 +18,10 @@ FUNCTION get_random_bit_string (
 
 BEGIN
 
+	DBMS_LOB.CREATETEMPORARY(lob_loc => v_bit_string, cache => TRUE, dur => DBMS_LOB.CALL);
+
 	FOR v_i IN 1 .. p_length LOOP
-		v_bit_string := v_bit_string || pkg_ga_util.get_random_int(p_lower_limit => 0, p_upper_limit => 1);
+		DBMS_LOB.WRITEAPPEND(lob_loc => v_bit_string, amount => 1, buffer => pkg_ga_util.get_random_int(p_lower_limit => 0, p_upper_limit => 1));
 	END LOOP;
 	
 	RETURN v_bit_string;
@@ -28,7 +30,7 @@ END get_random_bit_string;
 
 FUNCTION bit_string_to_unsigned_int(
 	p_bit_string VARCHAR2
-) RETURN INTEGER IS
+) RETURN INTEGER RESULT_CACHE IS
 
 	v_result        INTEGER := 0;
 	v_string_length INTEGER := LENGTH(p_bit_string) - 1;
@@ -47,7 +49,7 @@ END bit_string_to_unsigned_int;
 
 FUNCTION indent(
 	p_level INTEGER
-) RETURN VARCHAR2 IS
+) RETURN VARCHAR2 RESULT_CACHE IS
 
 	v_indention VARCHAR2(1000);
 	
@@ -60,5 +62,32 @@ BEGIN
 	RETURN v_indention;
 	
 END indent;
+
+FUNCTION mutate_chromosome(
+	p_chromosome    CLOB,
+	p_mutation_rate NUMBER
+) RETURN CLOB IS
+
+	v_mutated CLOB;
+	
+BEGIN
+
+	DBMS_LOB.CREATETEMPORARY(lob_loc => v_mutated, cache => TRUE, dur => DBMS_LOB.CALL);
+
+	FOR v_i IN 1 .. LENGTH(p_chromosome) LOOP
+		IF DBMS_RANDOM.VALUE < p_mutation_rate THEN
+			IF SUBSTR(p_chromosome, v_i, 1) = '0' THEN
+				DBMS_LOB.WRITEAPPEND(lob_loc => v_mutated, amount => 1, buffer => '1');
+			ELSE
+				DBMS_LOB.WRITEAPPEND(lob_loc => v_mutated, amount => 1, buffer => '0');
+			END IF;
+		ELSE
+			DBMS_LOB.WRITEAPPEND(lob_loc => v_mutated, amount => 1, buffer => SUBSTR(p_chromosome, v_i, 1));
+		END IF;
+	END LOOP;
+	
+	RETURN v_mutated;
+	
+END mutate_chromosome;
 
 END pkg_ga_util;

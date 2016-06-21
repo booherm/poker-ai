@@ -1,3 +1,6 @@
+TRUNCATE TABLE poker_ai_log;
+ALTER SYSTEM FLUSH SHARED_POOL;
+		
 DECLARE
 
 	v_tournament_play_count     INTEGER := 1;
@@ -51,7 +54,6 @@ BEGIN
 	) LOOP
 	
 		-- clear state logs
-		EXECUTE IMMEDIATE 'TRUNCATE TABLE poker_ai_log';
 		EXECUTE IMMEDIATE 'TRUNCATE TABLE pot_log';
 		EXECUTE IMMEDIATE 'TRUNCATE TABLE pot_contribution_log';
 		EXECUTE IMMEDIATE 'TRUNCATE TABLE player_state_log';
@@ -65,7 +67,8 @@ BEGIN
 			p_strategy_ids              => v_strategy_ids,
 			p_buy_in_amount             => v_tournament_buy_in,
 			p_initial_small_blind_value => v_initial_small_blind_value,
-			p_double_blinds_interval    => v_double_blinds_interval
+			p_double_blinds_interval    => v_double_blinds_interval,
+			p_perform_state_logging     => 'Y'
 		);
 
 		------------ check results of tournament play, abort on anomolies  -----------
@@ -127,6 +130,16 @@ BEGIN
 	FROM   poker_ai_log
 	WHERE  message LIKE '%test play%'
 	ORDER BY log_record_number DESC;
+	
+	SELECT AVG(play_time) FROM (
+		SELECT log_record_number,
+			   TO_CHAR(mod_date, 'MM/DD/YYYY HH12:MI:SS AM') mod_date,
+			   message,
+			   (mod_date - LAG(mod_date) OVER (ORDER BY log_record_number)) * 24 * 60 * 60 play_time
+		FROM   poker_ai_log
+		WHERE  message LIKE 'Begin test play%'
+		ORDER BY log_record_number DESC
+    )
 	*/
 	
 END;
@@ -200,7 +213,10 @@ ORDER BY state_id DESC;
 --------------------------------------------------------------------------------------------------------------------
 
 -- generate random strategies
+DELETE FROM strategy_fitness;
+DELETE FROM player_state;
 DELETE FROM strategy;
+COMMIT;
 DECLARE
 
 	v_strategy_count INTEGER := 100;
@@ -265,3 +281,31 @@ BEGIN
 	DBMS_OUTPUT.PUT_LINE('v_player_move = ' || v_player_move || ', v_player_move_amount = ' || v_player_move_amount);
 	
 END;
+
+-- create new generation of strategies
+DECLARE
+
+	v_from_generation   strategy.generation%TYPE := 1;
+	v_chromosome_length INTEGER;
+	
+BEGIN
+
+	SELECT MAX(LENGTH(strategy_chromosome)) chromosome_length
+	INTO   v_chromosome_length
+	FROM   strategy
+	WHERE  generation = v_from_generation;
+	
+	pkg_ga_player.create_new_generation(
+		p_from_generation     => v_from_generation,
+		p_fitness_test_id     => '10_PLAYER_500_BUYIN',
+		p_new_generation_size => 10,
+		p_crossover_rate      => 0.85,
+		p_crossover_point     => FLOOR(v_chromosome_length / 2),
+		p_mutation_rate       => 1 / v_chromosome_length
+	);
+	
+	COMMIT;
+	
+END;
+
+

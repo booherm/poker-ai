@@ -1,4 +1,4 @@
-CREATE TABLE tournament_state
+CREATE GLOBAL TEMPORARY TABLE tournament_state
 (
 	tournament_mode        VARCHAR2(30),
 	fitness_test_id        VARCHAR2(100),
@@ -8,4 +8,4 @@ CREATE TABLE tournament_state
 	current_game_number    NUMBER(10, 0),
 	game_in_progress       VARCHAR2(1),
 	current_state_id       NUMBER(38, 0)
-);
+) ON COMMIT PRESERVE ROWS;

@@ -4,7 +4,8 @@ PROCEDURE play_tournament(
 	p_strategy_ids              t_tbl_number,
 	p_buy_in_amount             tournament_state.buy_in_amount%TYPE,
 	p_initial_small_blind_value game_state.small_blind_value%TYPE,
-	p_double_blinds_interval    tournament_state.current_game_number%TYPE
+	p_double_blinds_interval    tournament_state.current_game_number%TYPE,
+	p_perform_state_logging     VARCHAR2
 ) IS
 
 	v_max_games_in_tournament    tournament_state.current_game_number%TYPE:= 500;
@@ -24,10 +25,11 @@ BEGIN
 	FROM   TABLE(p_strategy_ids);
 	
 	pkg_poker_ai.initialize_tournament(
-		p_tournament_mode => 'INTERNAL',
-		p_strategy_ids    => p_strategy_ids,
-		p_player_count    => v_player_count,
-		p_buy_in_amount   => p_buy_in_amount
+		p_tournament_mode       => 'INTERNAL',
+		p_strategy_ids          => p_strategy_ids,
+		p_player_count          => v_player_count,
+		p_buy_in_amount         => p_buy_in_amount,
+		p_perform_state_logging => p_perform_state_logging
 	);
 	
 	LOOP
@@ -41,13 +43,17 @@ BEGIN
 		
 		IF v_prev_iteration_game_number != v_current_game_number AND MOD(v_current_game_number, p_double_blinds_interval) = 0 THEN
 			v_small_blind_value := v_small_blind_value * 2;
+			IF v_small_blind_value > p_buy_in_amount * v_player_count THEN
+				v_small_blind_value := p_buy_in_amount * v_player_count;
+			END IF;
 		END IF;
 		v_prev_iteration_game_number := v_current_game_number;
 		
 		pkg_poker_ai.step_play( 
-			p_small_blind_value  => v_small_blind_value,
-			p_player_move        => 'AUTO',
-			p_player_move_amount => NULL
+			p_small_blind_value     => v_small_blind_value,
+			p_player_move           => 'AUTO',
+			p_player_move_amount    => NULL,
+			p_perform_state_logging => p_perform_state_logging
 		);
 		
 	END LOOP;
@@ -62,14 +68,17 @@ END play_tournament;
 
 PROCEDURE initialize_tournament
 (
-	p_tournament_mode tournament_state.tournament_mode%TYPE,
-	p_strategy_ids    t_tbl_number,
-	p_player_count    tournament_state.player_count%TYPE,
-    p_buy_in_amount   tournament_state.buy_in_amount%TYPE
+	p_tournament_mode       tournament_state.tournament_mode%TYPE,
+	p_strategy_ids          t_tbl_number,
+	p_player_count          tournament_state.player_count%TYPE,
+    p_buy_in_amount         tournament_state.buy_in_amount%TYPE,
+	p_perform_state_logging VARCHAR2
 ) IS
 BEGIN
 
-	v_state_id := pkg_poker_ai.get_state_id;
+	IF p_perform_state_logging = 'Y' THEN
+		v_state_id := pkg_poker_ai.get_state_id;
+	END IF;
 	
 	-- init tournament state
 	pkg_poker_ai.log(p_message => 'initializing ' || LOWER(p_tournament_mode) || ' tournament');
@@ -97,6 +106,9 @@ BEGIN
 	-- clear game state
 	pkg_poker_ai.clear_game_state;
 
+	-- initialize deck
+	pkg_poker_ai.initialize_deck;
+	
 	-- init players
 	pkg_poker_ai.log(p_message => 'selecting ' || CASE WHEN p_strategy_ids IS NULL THEN 'random' ELSE 'specified strategies as' END || ' players');
 	
@@ -231,16 +243,88 @@ BEGIN
 	FROM   players;
 
 	pkg_poker_ai.log(p_message => 'tournament initialized');
-	pkg_poker_ai.capture_state_log;
+	
+	IF p_perform_state_logging = 'Y' THEN
+		pkg_poker_ai.capture_state_log;
+	END IF;
 	
 	COMMIT;
 	
 END initialize_tournament;
 
+PROCEDURE initialize_deck IS
+BEGIN
+
+	DELETE FROM deck;
+	INSERT INTO deck(
+		card_id,
+		suit,
+		display_value,
+		value,
+		dealt
+	)
+
+	SELECT 0  card_id,  NULL      suit, 'N/A'  display_value, NULL value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 1  card_id, 'HEARTS'   suit, '2 H'  display_value,    2 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 2  card_id, 'HEARTS'   suit, '3 H'  display_value,    3 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 3  card_id, 'HEARTS'   suit, '4 H'  display_value,    4 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 4  card_id, 'HEARTS'   suit, '5 H'  display_value,    5 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 5  card_id, 'HEARTS'   suit, '6 H'  display_value,    6 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 6  card_id, 'HEARTS'   suit, '7 H'  display_value,    7 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 7  card_id, 'HEARTS'   suit, '8 H'  display_value,    8 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 8  card_id, 'HEARTS'   suit, '9 H'  display_value,    9 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 9  card_id, 'HEARTS'   suit, '10 H' display_value,   10 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 10 card_id, 'HEARTS'   suit, 'J H'  display_value,   11 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 11 card_id, 'HEARTS'   suit, 'Q H'  display_value,   12 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 12 card_id, 'HEARTS'   suit, 'K H'  display_value,   13 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 13 card_id, 'HEARTS'   suit, 'A H'  display_value,   14 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 14 card_id, 'DIAMONDS' suit, '2 D'  display_value,    2 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 15 card_id, 'DIAMONDS' suit, '3 D'  display_value,    3 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 16 card_id, 'DIAMONDS' suit, '4 D'  display_value,    4 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 17 card_id, 'DIAMONDS' suit, '5 D'  display_value,    5 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 18 card_id, 'DIAMONDS' suit, '6 D'  display_value,    6 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 19 card_id, 'DIAMONDS' suit, '7 D'  display_value,    7 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 20 card_id, 'DIAMONDS' suit, '8 D'  display_value,    8 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 21 card_id, 'DIAMONDS' suit, '9 D'  display_value,    9 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 22 card_id, 'DIAMONDS' suit, '10 D' display_value,   10 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 23 card_id, 'DIAMONDS' suit, 'J D'  display_value,   11 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 24 card_id, 'DIAMONDS' suit, 'Q D'  display_value,   12 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 25 card_id, 'DIAMONDS' suit, 'K D'  display_value,   13 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 26 card_id, 'DIAMONDS' suit, 'A D'  display_value,   14 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 27 card_id, 'SPADES'   suit, '2 S'  display_value,    2 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 28 card_id, 'SPADES'   suit, '3 S'  display_value,    3 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 29 card_id, 'SPADES'   suit, '4 S'  display_value,    4 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 30 card_id, 'SPADES'   suit, '5 S'  display_value,    5 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 31 card_id, 'SPADES'   suit, '6 S'  display_value,    6 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 32 card_id, 'SPADES'   suit, '7 S'  display_value,    7 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 33 card_id, 'SPADES'   suit, '8 S'  display_value,    8 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 34 card_id, 'SPADES'   suit, '9 S'  display_value,    9 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 35 card_id, 'SPADES'   suit, '10 S' display_value,   10 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 36 card_id, 'SPADES'   suit, 'J S'  display_value,   11 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 37 card_id, 'SPADES'   suit, 'Q S'  display_value,   12 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 38 card_id, 'SPADES'   suit, 'K S'  display_value,   13 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 39 card_id, 'SPADES'   suit, 'A S'  display_value,   14 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 40 card_id, 'CLUBS'    suit, '2 C'  display_value,    2 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 41 card_id, 'CLUBS'    suit, '3 C'  display_value,    3 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 42 card_id, 'CLUBS'    suit, '4 C'  display_value,    4 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 43 card_id, 'CLUBS'    suit, '5 C'  display_value,    5 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 44 card_id, 'CLUBS'    suit, '6 C'  display_value,    6 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 45 card_id, 'CLUBS'    suit, '7 C'  display_value,    7 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 46 card_id, 'CLUBS'    suit, '8 C'  display_value,    8 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 47 card_id, 'CLUBS'    suit, '9 C'  display_value,    9 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 48 card_id, 'CLUBS'    suit, '10 C' display_value,   10 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 49 card_id, 'CLUBS'    suit, 'J C'  display_value,   11 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 50 card_id, 'CLUBS'    suit, 'Q C'  display_value,   12 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 51 card_id, 'CLUBS'    suit, 'K C'  display_value,   13 value, 'N' dealt FROM DUAL UNION ALL
+	SELECT 52 card_id, 'CLUBS'    suit, 'A C'  display_value,   14 value, 'N' dealt FROM DUAL;
+	
+END initialize_deck;
+
 PROCEDURE step_play( 
-	p_small_blind_value  game_state.small_blind_value%TYPE,
-	p_player_move        VARCHAR2,
-	p_player_move_amount player_state.money%TYPE
+	p_small_blind_value     game_state.small_blind_value%TYPE,
+	p_player_move           VARCHAR2,
+	p_player_move_amount    player_state.money%TYPE,
+	p_perform_state_logging VARCHAR2
 ) IS
 
 	v_tournament_mode           tournament_state.tournament_mode%TYPE;
@@ -258,9 +342,11 @@ PROCEDURE step_play(
 BEGIN
 
 	-- assumed tournament has been initialized
-	v_state_id := pkg_poker_ai.get_state_id;
-	UPDATE tournament_state
-	SET    current_state_id = v_state_id;
+	IF p_perform_state_logging = 'Y' THEN
+		v_state_id := pkg_poker_ai.get_state_id;
+		UPDATE tournament_state
+		SET    current_state_id = v_state_id;
+	END IF;
 	
 	-- determine how many active players remain
 	SELECT COUNT(*) remaining_player_count
@@ -495,7 +581,10 @@ BEGIN
 		
 	END IF;
 	
-	pkg_poker_ai.capture_state_log;
+	IF p_perform_state_logging = 'Y' THEN
+		pkg_poker_ai.capture_state_log;
+	END IF;
+	
 	COMMIT;
 	
 END step_play;
@@ -562,7 +651,7 @@ BEGIN
 		p_include_all_in_players     => 'Y'
 	);
 	pkg_poker_ai.log(p_message => 'small blind = ' || p_small_blind_seat_number || ', big blind = ' || v_big_blind_seat_number
-		|| ',  UTG = ' || v_turn_seat_number);
+		|| ', UTG = ' || v_turn_seat_number);
 
 	-- initialize game state
 	INSERT INTO game_state(
@@ -1004,7 +1093,7 @@ BEGIN
 		SET    money = money + (SELECT SUM(pot_contribution) FROM pot_contribution),
 			   game_rank = 1,
 			   main_pots_won = main_pots_won + 1,
-			   total_money_won = (SELECT SUM(pot_contribution) FROM pot_contribution)
+			   total_money_won = total_money_won + (SELECT SUM(pot_contribution) FROM pot_contribution)
 		WHERE  seat_number = v_winner_seat_number;
 	ELSE
 
@@ -1204,7 +1293,7 @@ FUNCTION get_hand_rank(
 	p_card_3 deck.card_id%TYPE,
 	p_card_4 deck.card_id%TYPE,
 	p_card_5 deck.card_id%TYPE
-) RETURN VARCHAR2 IS
+) RETURN VARCHAR2 RESULT_CACHE IS
 
 	v_hand_rank  VARCHAR2(17);
 	v_card_order VARCHAR2(14);
@@ -1222,29 +1311,13 @@ BEGIN
 	-- store hand for read back
 	v_tbl_hand.EXTEND(5);
 	FOR v_rec IN (
-		WITH cards AS (
-			SELECT card_id,
-				   suit,
-				   value
-			FROM   deck
-			WHERE  card_id IN (p_card_1, p_card_2, p_card_3, p_card_4, p_card_5)
-		),
-
-		value_occurences AS (
-			SELECT value,
-				   COUNT(*) value_occurences
-			FROM   cards
-			GROUP BY value
-		)
-
 		SELECT ROWNUM card_index,
-			   c.card_id,
-			   c.suit,
-			   c.value,
-			   vo.value_occurences
-		FROM   cards c,
-			   value_occurences vo
-		WHERE  c.value = vo.value
+			   card_id,
+			   suit,
+			   value,
+			   COUNT(*) OVER (PARTITION BY value) value_occurences
+		FROM   deck
+		WHERE  card_id IN (p_card_1, p_card_2, p_card_3, p_card_4, p_card_5)
 	) LOOP
 		v_row_hand.card_id := v_rec.card_id;
 		v_row_hand.suit := v_rec.suit;
@@ -1328,32 +1401,6 @@ BEGIN
 
 END get_hand_rank;
 
-FUNCTION get_hand_rank_display_value(
-	p_hand_rank player_state.best_hand_rank%TYPE
-) RETURN VARCHAR2 IS
-
-	v_display_value VARCHAR2(30);
-
-BEGIN
-
-	CASE SUBSTR(p_hand_rank, 1, 2)
-		WHEN '01' THEN v_display_value  := 'High Card';
-		WHEN '02' THEN v_display_value  := 'One Pair';
-		WHEN '03' THEN v_display_value  := 'Two Pair';
-		WHEN '04' THEN v_display_value  := 'Three of a Kind';
-		WHEN '05' THEN v_display_value  := 'Straight';
-		WHEN '06' THEN v_display_value  := 'Flush';
-		WHEN '07' THEN v_display_value  := 'Full House';
-		WHEN '08' THEN v_display_value  := 'Four of a Kind';
-		WHEN '09' THEN v_display_value  := 'Straight Flush';
-		WHEN '10' THEN v_display_value  := 'Royal Flush';
-		ELSE v_display_value := NULL;
-	END CASE;
-
-	RETURN v_display_value;
-		
-END get_hand_rank_display_value;
-
 PROCEDURE calculate_best_hands IS
 BEGIN
 
@@ -1372,29 +1419,68 @@ BEGIN
 			WHERE  ps.state NOT IN ('OUT_OF_TOURNAMENT', 'FOLDED')
 		),
 
+		combination_ids AS (
+			SELECT ROWNUM combination_id
+			FROM   DUAL
+			CONNECT BY ROWNUM <= 21
+		),
+
 		possible_hands AS (
 			-- 7 choose 5 = 21 possible combinations per player
-			SELECT '1,2,3,4,5' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c3, c4, c5) hand_rank, c1 card_1, c2 card_2, c3 card_3, c4 card_4, c5 card_5 FROM players UNION ALL
-			SELECT '1,2,3,4,6' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c3, c4, c6) hand_rank, c1 card_1, c2 card_2, c3 card_3, c4 card_4, c6 card_5 FROM players UNION ALL
-			SELECT '1,2,3,4,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c3, c4, c7) hand_rank, c1 card_1, c2 card_2, c3 card_3, c4 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,2,3,5,6' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c3, c5, c6) hand_rank, c1 card_1, c2 card_2, c3 card_3, c5 card_4, c6 card_5 FROM players UNION ALL
-			SELECT '1,2,3,5,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c3, c5, c7) hand_rank, c1 card_1, c2 card_2, c3 card_3, c5 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,2,3,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c3, c6, c7) hand_rank, c1 card_1, c2 card_2, c3 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,2,4,5,6' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c4, c5, c6) hand_rank, c1 card_1, c2 card_2, c4 card_3, c5 card_4, c6 card_5 FROM players UNION ALL
-			SELECT '1,2,4,5,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c4, c5, c7) hand_rank, c1 card_1, c2 card_2, c4 card_3, c5 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,2,4,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c4, c6, c7) hand_rank, c1 card_1, c2 card_2, c4 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,2,5,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c2, c5, c6, c7) hand_rank, c1 card_1, c2 card_2, c5 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,3,4,5,6' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c3, c4, c5, c6) hand_rank, c1 card_1, c3 card_2, c4 card_3, c5 card_4, c6 card_5 FROM players UNION ALL
-			SELECT '1,3,4,5,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c3, c4, c5, c7) hand_rank, c1 card_1, c3 card_2, c4 card_3, c5 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,3,4,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c3, c4, c6, c7) hand_rank, c1 card_1, c3 card_2, c4 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,3,5,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c3, c5, c6, c7) hand_rank, c1 card_1, c3 card_2, c5 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '1,4,5,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c1, c4, c5, c6, c7) hand_rank, c1 card_1, c4 card_2, c5 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '2,3,4,5,6' combination, seat_number, pkg_poker_ai.get_hand_rank(c2, c3, c4, c5, c6) hand_rank, c2 card_1, c3 card_2, c4 card_3, c5 card_4, c6 card_5 FROM players UNION ALL
-			SELECT '2,3,4,5,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c2, c3, c4, c5, c7) hand_rank, c2 card_1, c3 card_2, c4 card_3, c5 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '2,3,4,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c2, c3, c4, c6, c7) hand_rank, c2 card_1, c3 card_2, c4 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '2,3,5,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c2, c3, c5, c6, c7) hand_rank, c2 card_1, c3 card_2, c5 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '2,4,5,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c2, c4, c5, c6, c7) hand_rank, c2 card_1, c4 card_2, c5 card_3, c6 card_4, c7 card_5 FROM players UNION ALL
-			SELECT '3,4,5,6,7' combination, seat_number, pkg_poker_ai.get_hand_rank(c3, c4, c5, c6, c7) hand_rank, c3 card_1, c4 card_2, c5 card_3, c6 card_4, c7 card_5 FROM players
+			SELECT CASE cid.combination_id
+						WHEN 1 THEN '1,2,3,4,5'
+						WHEN 2 THEN '1,2,3,4,6'
+						WHEN 3 THEN '1,2,3,4,7'
+						WHEN 4 THEN '1,2,3,5,6'
+						WHEN 5 THEN '1,2,3,5,7'
+						WHEN 6 THEN '1,2,3,6,7'
+						WHEN 7 THEN '1,2,4,5,6'
+						WHEN 8 THEN '1,2,4,5,7'
+						WHEN 9 THEN '1,2,4,6,7'
+						WHEN 10 THEN '1,2,5,6,7'
+						WHEN 11 THEN '1,3,4,5,6'
+						WHEN 12 THEN '1,3,4,5,7'
+						WHEN 13 THEN '1,3,4,6,7'
+						WHEN 14 THEN '1,3,5,6,7'
+						WHEN 15 THEN '1,4,5,6,7'
+						WHEN 16 THEN '2,3,4,5,6'
+						WHEN 17 THEN '2,3,4,5,7'
+						WHEN 18 THEN '2,3,4,6,7'
+						WHEN 19 THEN '2,3,5,6,7'
+						WHEN 20 THEN '2,4,5,6,7'
+						WHEN 21 THEN '3,4,5,6,7'
+				   END combination,
+				   p.seat_number,
+				   CASE cid.combination_id
+						WHEN 1 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c3, p.c4, p.c5)
+						WHEN 2 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c3, p.c4, p.c6)
+						WHEN 3 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c3, p.c4, p.c7)
+						WHEN 4 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c3, p.c5, p.c6)
+						WHEN 5 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c3, p.c5, p.c7)
+						WHEN 6 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c3, p.c6, p.c7)
+						WHEN 7 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c4, p.c5, p.c6)
+						WHEN 8 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c4, p.c5, p.c7)
+						WHEN 9 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c4, p.c6, p.c7)
+						WHEN 10 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c2, p.c5, p.c6, p.c7)
+						WHEN 11 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c3, p.c4, p.c5, p.c6)
+						WHEN 12 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c3, p.c4, p.c5, p.c7)
+						WHEN 13 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c3, p.c4, p.c6, p.c7)
+						WHEN 14 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c3, p.c5, p.c6, p.c7)
+						WHEN 15 THEN pkg_poker_ai.get_hand_rank(p.c1, p.c4, p.c5, p.c6, p.c7)
+						WHEN 16 THEN pkg_poker_ai.get_hand_rank(p.c2, p.c3, p.c4, p.c5, p.c6)
+						WHEN 17 THEN pkg_poker_ai.get_hand_rank(p.c2, p.c3, p.c4, p.c5, p.c7)
+						WHEN 18 THEN pkg_poker_ai.get_hand_rank(p.c2, p.c3, p.c4, p.c6, p.c7)
+						WHEN 19 THEN pkg_poker_ai.get_hand_rank(p.c2, p.c3, p.c5, p.c6, p.c7)
+						WHEN 20 THEN pkg_poker_ai.get_hand_rank(p.c2, p.c4, p.c5, p.c6, p.c7)
+						WHEN 21 THEN pkg_poker_ai.get_hand_rank(p.c3, p.c4, p.c5, p.c6, p.c7)
+				   END hand_rank,
+				   p.c1 card_1,
+				   p.c2 card_2,
+				   p.c3 card_3,
+				   p.c4 card_4,
+				   p.c5 card_5
+			FROM   players p,
+				   combination_ids cid
 		)
 
 		SELECT DISTINCT
@@ -2411,11 +2497,14 @@ BEGIN
 		hand_ranks AS (
 			SELECT ps.seat_number,
 				   (apc.active_player_count - (RANK() OVER (ORDER BY ps.best_hand_rank)) + 1) best_hand_rank,
-				   pkg_poker_ai.get_hand_rank_display_value(ps.best_hand_rank) best_hand_rank_type
+				   mfv.display_value best_hand_rank_type
 			FROM   player_state ps,
-				   active_player_count apc
+				   active_player_count apc,
+				   master_field_value mfv
 			WHERE  ps.state NOT IN ('OUT_OF_TOURNAMENT', 'FOLDED')
 			   AND ps.best_hand_rank IS NOT NULL
+			   AND mfv.field_name_code = 'HAND_RANK'
+			   AND ps.best_hand_rank = mfv.field_value_code
 		)
 
 		SELECT s.seat_number,
@@ -3034,8 +3123,7 @@ BEGIN
 	FROM   pot_contribution_log
 	WHERE  state_id = p_state_id;
 
-	UPDATE deck
-	SET    dealt = 'N';
+	pkg_poker_ai.initialize_deck;
 	
 	UPDATE deck
 	SET    dealt = 'Y'
@@ -3043,9 +3131,9 @@ BEGIN
 		SELECT hole_card_1 card_id FROM player_state WHERE hole_card_1 IS NOT NULL AND hole_card_1 != 0 UNION ALL
 		SELECT hole_card_2 card_id FROM player_state WHERE hole_card_2 IS NOT NULL AND hole_card_2 != 0 UNION ALL
 		SELECT community_card_1 card_id FROM game_state WHERE community_card_1 IS NOT NULL AND community_card_1 != 0 UNION ALL
-		SELECT community_card_2 card_id FROM game_state WHERE community_card_2 IS NOT NULL AND community_card_2 != 0  UNION ALL
-		SELECT community_card_3 card_id FROM game_state WHERE community_card_3 IS NOT NULL AND community_card_3 != 0  UNION ALL
-		SELECT community_card_4 card_id FROM game_state WHERE community_card_4 IS NOT NULL AND community_card_4 != 0  UNION ALL
+		SELECT community_card_2 card_id FROM game_state WHERE community_card_2 IS NOT NULL AND community_card_2 != 0 UNION ALL
+		SELECT community_card_3 card_id FROM game_state WHERE community_card_3 IS NOT NULL AND community_card_3 != 0 UNION ALL
+		SELECT community_card_4 card_id FROM game_state WHERE community_card_4 IS NOT NULL AND community_card_4 != 0 UNION ALL
 		SELECT community_card_5 card_id FROM game_state WHERE community_card_5 IS NOT NULL AND community_card_5 != 0 
 	);
 	
@@ -3092,4 +3180,3 @@ BEGIN
 END load_next_state;
 	
 END pkg_poker_ai;
-

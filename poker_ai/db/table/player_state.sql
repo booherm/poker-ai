@@ -1,4 +1,4 @@
-CREATE TABLE player_state
+CREATE GLOBAL TEMPORARY TABLE player_state
 (
 	seat_number                   NUMBER(2, 0),
 	player_id                     NUMBER(10, 0),
@@ -76,23 +76,9 @@ CREATE TABLE player_state
 	times_all_in                  NUMBER(10, 0),
 	total_money_played            NUMBER(38, 0),
 	total_money_won               NUMBER(38, 0) 
-);
+) ON COMMIT PRESERVE ROWS;
 
 ALTER TABLE player_state ADD
 (
 	CONSTRAINT ps_pk_sn PRIMARY KEY (seat_number)
-);
-
-ALTER TABLE player_state ADD
-(
-	CONSTRAINT ps_fk_pid FOREIGN KEY (player_id) REFERENCES player(player_id),
-	CONSTRAINT ps_fk_csid FOREIGN KEY (current_strategy_id) REFERENCES strategy(strategy_id),
-	CONSTRAINT ps_fk_asid FOREIGN KEY (assumed_strategy_id) REFERENCES strategy(strategy_id),
-    CONSTRAINT ps_fk_hc1 FOREIGN KEY (hole_card_1) REFERENCES deck(card_id),
-    CONSTRAINT ps_fk_hc2 FOREIGN KEY (hole_card_2) REFERENCES deck(card_id),
-    CONSTRAINT ps_fk_bhc1 FOREIGN KEY (best_hand_card_1) REFERENCES deck(card_id),
-    CONSTRAINT ps_fk_bhc2 FOREIGN KEY (best_hand_card_2) REFERENCES deck(card_id),
-    CONSTRAINT ps_fk_bhc3 FOREIGN KEY (best_hand_card_3) REFERENCES deck(card_id),
-    CONSTRAINT ps_fk_bhc4 FOREIGN KEY (best_hand_card_4) REFERENCES deck(card_id),
-    CONSTRAINT ps_fk_bhc5 FOREIGN KEY (best_hand_card_5) REFERENCES deck(card_id)
 );
