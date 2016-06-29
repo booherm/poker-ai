@@ -1,6 +1,5 @@
-CREATE TABLE player_state_log
+CREATE OR REPLACE TYPE t_row_player_state AS OBJECT
 (
-	state_id                      NUMBER(38, 0),
 	seat_number                   NUMBER(2, 0),
 	player_id                     NUMBER(10, 0),
 	current_strategy_id           NUMBER(10, 0),
@@ -77,9 +76,4 @@ CREATE TABLE player_state_log
 	times_all_in                  NUMBER(10, 0),
 	total_money_played            NUMBER(38, 0),
 	total_money_won               NUMBER(38, 0) 
-) INMEMORY;
-
-ALTER TABLE player_state_log ADD
-(
-	CONSTRAINT psl_pk_sidsn PRIMARY KEY (state_id, seat_number)
 );

@@ -1,23 +1,8 @@
-CREATE GLOBAL TEMPORARY TABLE player_state
+CREATE TABLE tournament_result
 (
-	seat_number                   NUMBER(2, 0),
-	player_id                     NUMBER(10, 0),
-	current_strategy_id           NUMBER(10, 0),
-	assumed_strategy_id           NUMBER(10, 0),
-    hole_card_1                   NUMBER(2, 0),
-    hole_card_2                   NUMBER(2, 0),
-	best_hand_combination         VARCHAR2(9),
-	best_hand_rank                VARCHAR2(17),
-	best_hand_card_1              NUMBER(2, 0),
-	best_hand_card_2              NUMBER(2, 0),
-	best_hand_card_3              NUMBER(2, 0),
-	best_hand_card_4              NUMBER(2, 0),
-	best_hand_card_5              NUMBER(2, 0),
-	hand_showing                  VARCHAR2(1),
-	presented_bet_opportunity     VARCHAR2(1),
-    money                         NUMBER(10, 0),
-    state                         VARCHAR2(20),
-	game_rank                     NUMBER(2, 0),
+	strategy_id                   NUMBER(10, 0),
+	tournament_id                 NUMBER(10, 0),
+	evolution_trial_id            VARCHAR2(100),
 	tournament_rank               NUMBER(2, 0),
 	games_played                  NUMBER(10, 0),
 	main_pots_won                 NUMBER(10, 0),
@@ -76,9 +61,9 @@ CREATE GLOBAL TEMPORARY TABLE player_state
 	times_all_in                  NUMBER(10, 0),
 	total_money_played            NUMBER(38, 0),
 	total_money_won               NUMBER(38, 0) 
-) ON COMMIT PRESERVE ROWS;
+) INMEMORY;
 
-ALTER TABLE player_state ADD
+ALTER TABLE tournament_result ADD
 (
-	CONSTRAINT ps_pk_sn PRIMARY KEY (seat_number)
+	CONSTRAINT tr_pk_sidtid PRIMARY KEY (strategy_id, tournament_id)
 );

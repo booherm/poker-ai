@@ -1,12 +1,13 @@
 CREATE OR REPLACE PACKAGE BODY pkg_strategy_variable AS
 
 FUNCTION get_strategy_variable_value (
+	p_poker_state          t_poker_state,
 	p_strategy_variable_id INTEGER,
 	p_variable_qualifiers  t_strat_variable_qualifiers
 ) RETURN NUMBER IS
 
 	v_strategy_variable_name VARCHAR2(100);
-	v_peer_seat_number       player_state.seat_number%TYPE;
+	v_peer_seat_number       player_state_log.seat_number%TYPE;
 	v_return_value           NUMBER;
 	
 BEGIN
@@ -19,7 +20,7 @@ BEGIN
 		WITH peer_players AS (
 			SELECT seat_number peer_seat_number,
 				   DENSE_RANK() OVER (ORDER BY seat_number) peer_player_number
-			FROM   player_state
+			FROM   TABLE(p_poker_state.player_state)
 			WHERE  seat_number != p_variable_qualifiers.seat_number
 		)
 		SELECT peer_seat_number
@@ -34,17 +35,17 @@ BEGIN
 			WHEN 'PLAYER_ID' THEN
 				SELECT MIN(player_id) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'MONEY' THEN
 				SELECT MIN(money) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'STATE' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
+				FROM   TABLE(p_poker_state.player_state) ps,
 					   master_field_value mfv
 				WHERE  ps.seat_number = v_peer_seat_number
 				   AND mfv.field_name_code = 'PLAYER_STATE'
@@ -52,302 +53,302 @@ BEGIN
 			WHEN 'HAND_SHOWING' THEN
 				SELECT MIN(CASE hand_showing WHEN 'Y' THEN 1 WHEN 'N' THEN 0 END) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRESENTED_BET_OPPORTUNITY' THEN
 				SELECT MIN(CASE presented_bet_opportunity WHEN 'Y' THEN 1 WHEN 'N' THEN 0 END) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOURNAMENT_RANK' THEN
 				SELECT MIN(tournament_rank) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'GAMES_PLAYED' THEN
 				SELECT MIN(games_played) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'MAIN_POTS_WON' THEN
 				SELECT MIN(main_pots_won) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'MAIN_POTS_SPLIT' THEN
 				SELECT MIN(main_pots_split) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'SIDE_POTS_WON' THEN
 				SELECT MIN(side_pots_won) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'SIDE_POTS_SPLIT' THEN
 				SELECT MIN(side_pots_split) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'AVERAGE_GAME_PROFIT' THEN
 				SELECT MIN(average_game_profit) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOPS_SEEN' THEN
 				SELECT MIN(flops_seen) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURNS_SEEN' THEN
 				SELECT MIN(turns_seen) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVERS_SEEN' THEN
 				SELECT MIN(rivers_seen) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_FOLDS' THEN
 				SELECT MIN(pre_flop_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_FOLDS' THEN
 				SELECT MIN(flop_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_FOLDS' THEN
 				SELECT MIN(turn_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_FOLDS' THEN
 				SELECT MIN(river_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_FOLDS' THEN
 				SELECT MIN(total_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_CHECKS' THEN
 				SELECT MIN(pre_flop_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_CHECKS' THEN
 				SELECT MIN(flop_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_CHECKS' THEN
 				SELECT MIN(turn_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_CHECKS' THEN
 				SELECT MIN(river_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_CHECKS' THEN
 				SELECT MIN(total_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_CALLS' THEN
 				SELECT MIN(pre_flop_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_CALLS' THEN
 				SELECT MIN(flop_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_CALLS' THEN
 				SELECT MIN(turn_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_CALLS' THEN
 				SELECT MIN(river_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_CALLS' THEN
 				SELECT MIN(total_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_BETS' THEN
 				SELECT MIN(pre_flop_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_BETS' THEN
 				SELECT MIN(flop_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_BETS' THEN
 				SELECT MIN(turn_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_BETS' THEN
 				SELECT MIN(river_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_BETS' THEN
 				SELECT MIN(total_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(pre_flop_total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(flop_total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(turn_total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(river_total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(pre_flop_average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(flop_average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(turn_average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(river_average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_RAISES' THEN
 				SELECT MIN(pre_flop_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_RAISES' THEN
 				SELECT MIN(flop_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_RAISES' THEN
 				SELECT MIN(turn_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_RAISES' THEN
 				SELECT MIN(river_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_RAISES' THEN
 				SELECT MIN(total_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(pre_flop_total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(flop_total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(turn_total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(river_total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'PRE_FLOP_AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(pre_flop_average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'FLOP_AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(flop_average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TURN_AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(turn_average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'RIVER_AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(river_average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TIMES_ALL_IN' THEN
 				SELECT MIN(times_all_in) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_MONEY_PLAYED' THEN
 				SELECT MIN(total_money_played) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 			WHEN 'TOTAL_MONEY_WON' THEN
 				SELECT MIN(total_money_won) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = v_peer_seat_number;
 		END CASE;
 		
@@ -360,18 +361,18 @@ BEGIN
 			WHEN 'PLAYER_ID' THEN
 				SELECT MIN(player_id) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'HOLE_CARD_1_ID' THEN
 				SELECT MIN(hole_card_1) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'HOLE_CARD_1_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d,
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.hole_card_1 = d.card_id
@@ -380,20 +381,20 @@ BEGIN
 			WHEN 'HOLE_CARD_1_VALUE' THEN
 				SELECT MIN(d.value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.hole_card_1 = d.card_id;
 			WHEN 'HOLE_CARD_2_ID' THEN
 				SELECT MIN(hole_card_2) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'HOLE_CARD_2_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d,
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.hole_card_2 = d.card_id
@@ -402,14 +403,14 @@ BEGIN
 			WHEN 'HOLE_CARD_2_VALUE' THEN
 				SELECT MIN(d.value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.hole_card_2 = d.card_id;
 			WHEN 'BEST_HAND_RANK' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
+				FROM   TABLE(p_poker_state.player_state) ps,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND mfv.field_name_code = 'HAND_RANK'
@@ -417,13 +418,13 @@ BEGIN
 			WHEN 'BEST_HAND_CARD_1_ID' THEN
 				SELECT MIN(best_hand_card_1) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'BEST_HAND_CARD_1_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d,
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_1 = d.card_id
@@ -432,20 +433,20 @@ BEGIN
 			WHEN 'BEST_HAND_CARD_1_VALUE' THEN
 				SELECT MIN(d.value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_1 = d.card_id;
 			WHEN 'BEST_HAND_CARD_2_ID' THEN
 				SELECT MIN(best_hand_card_2) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'BEST_HAND_CARD_2_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d,
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_2 = d.card_id
@@ -454,20 +455,20 @@ BEGIN
 			WHEN 'BEST_HAND_CARD_2_VALUE' THEN
 				SELECT MIN(d.value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_2 = d.card_id;
 			WHEN 'BEST_HAND_CARD_3_ID' THEN
 				SELECT MIN(best_hand_card_3) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'BEST_HAND_CARD_3_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d,
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_3 = d.card_id
@@ -476,20 +477,20 @@ BEGIN
 			WHEN 'BEST_HAND_CARD_3_VALUE' THEN
 				SELECT MIN(d.value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_3 = d.card_id;
 			WHEN 'BEST_HAND_CARD_4_ID' THEN
 				SELECT MIN(best_hand_card_4) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'BEST_HAND_CARD_4_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d,
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_4 = d.card_id
@@ -498,20 +499,20 @@ BEGIN
 			WHEN 'BEST_HAND_CARD_4_VALUE' THEN
 				SELECT MIN(d.value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_4 = d.card_id;
 			WHEN 'BEST_HAND_CARD_5_ID' THEN
 				SELECT MIN(best_hand_card_5) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'BEST_HAND_CARD_5_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d,
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_5 = d.card_id
@@ -520,29 +521,29 @@ BEGIN
 			WHEN 'BEST_HAND_CARD_5_VALUE' THEN
 				SELECT MIN(d.value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
-					   deck d
+				FROM   TABLE(p_poker_state.player_state) ps,
+					   TABLE(p_poker_state.deck) d
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND ps.best_hand_card_5 = d.card_id;
 			WHEN 'HAND_SHOWING' THEN
 				SELECT MIN(CASE hand_showing WHEN 'Y' THEN 1 WHEN 'N' THEN 0 END) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRESENTED_BET_OPPORTUNITY' THEN
 				SELECT MIN(CASE presented_bet_opportunity WHEN 'Y' THEN 1 WHEN 'N' THEN 0 END) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'MONEY' THEN
 				SELECT MIN(money) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'STATE' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   player_state ps,
+				FROM   TABLE(p_poker_state.player_state) ps,
 					   master_field_value mfv
 				WHERE  ps.seat_number = p_variable_qualifiers.seat_number
 				   AND mfv.field_name_code = 'PLAYER_STATE'
@@ -550,292 +551,292 @@ BEGIN
 			WHEN 'TOURNAMENT_RANK' THEN
 				SELECT MIN(tournament_rank) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'GAMES_PLAYED' THEN
 				SELECT MIN(games_played) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'MAIN_POTS_WON' THEN
 				SELECT MIN(main_pots_won) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'MAIN_POTS_SPLIT' THEN
 				SELECT MIN(main_pots_split) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'SIDE_POTS_WON' THEN
 				SELECT MIN(side_pots_won) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'SIDE_POTS_SPLIT' THEN
 				SELECT MIN(side_pots_split) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'AVERAGE_GAME_PROFIT' THEN
 				SELECT MIN(average_game_profit) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOPS_SEEN' THEN
 				SELECT MIN(flops_seen) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURNS_SEEN' THEN
 				SELECT MIN(turns_seen) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVERS_SEEN' THEN
 				SELECT MIN(rivers_seen) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_FOLDS' THEN
 				SELECT MIN(pre_flop_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_FOLDS' THEN
 				SELECT MIN(flop_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_FOLDS' THEN
 				SELECT MIN(turn_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_FOLDS' THEN
 				SELECT MIN(river_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_FOLDS' THEN
 				SELECT MIN(total_folds) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_CHECKS' THEN
 				SELECT MIN(pre_flop_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_CHECKS' THEN
 				SELECT MIN(flop_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_CHECKS' THEN
 				SELECT MIN(turn_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_CHECKS' THEN
 				SELECT MIN(river_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_CHECKS' THEN
 				SELECT MIN(total_checks) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_CALLS' THEN
 				SELECT MIN(pre_flop_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_CALLS' THEN
 				SELECT MIN(flop_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_CALLS' THEN
 				SELECT MIN(turn_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_CALLS' THEN
 				SELECT MIN(river_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_CALLS' THEN
 				SELECT MIN(total_calls) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_BETS' THEN
 				SELECT MIN(pre_flop_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_BETS' THEN
 				SELECT MIN(flop_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_BETS' THEN
 				SELECT MIN(turn_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_BETS' THEN
 				SELECT MIN(river_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_BETS' THEN
 				SELECT MIN(total_bets) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(pre_flop_total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(flop_total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(turn_total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(river_total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_BET_AMOUNT' THEN
 				SELECT MIN(total_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(pre_flop_average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(flop_average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(turn_average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(river_average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'AVERAGE_BET_AMOUNT' THEN
 				SELECT MIN(average_bet_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_RAISES' THEN
 				SELECT MIN(pre_flop_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_RAISES' THEN
 				SELECT MIN(flop_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_RAISES' THEN
 				SELECT MIN(turn_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_RAISES' THEN
 				SELECT MIN(river_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_RAISES' THEN
 				SELECT MIN(total_raises) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(pre_flop_total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(flop_total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(turn_total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(river_total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_RAISE_AMOUNT' THEN
 				SELECT MIN(total_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'PRE_FLOP_AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(pre_flop_average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'FLOP_AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(flop_average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TURN_AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(turn_average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'RIVER_AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(river_average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'AVERAGE_RAISE_AMOUNT' THEN
 				SELECT MIN(average_raise_amount) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TIMES_ALL_IN' THEN
 				SELECT MIN(times_all_in) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_MONEY_PLAYED' THEN
 				SELECT MIN(total_money_played) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 			WHEN 'TOTAL_MONEY_WON' THEN
 				SELECT MIN(total_money_won) return_value
 				INTO   v_return_value
-				FROM   player_state
+				FROM   TABLE(p_poker_state.player_state)
 				WHERE  seat_number = p_variable_qualifiers.seat_number;
 		END CASE;
 		
@@ -843,149 +844,107 @@ BEGIN
 	
 		CASE SUBSTR(v_strategy_variable_name, 18)
 			WHEN 'PLAYER_COUNT' THEN
-				SELECT MIN(player_count) return_value
-				INTO   v_return_value
-				FROM   tournament_state;
+				v_return_value := p_poker_state.player_count;
 			WHEN 'BUY_IN_AMOUNT' THEN
-				SELECT MIN(buy_in_amount) return_value
-				INTO   v_return_value
-				FROM   tournament_state;
+				v_return_value := p_poker_state.buy_in_amount;
 			WHEN 'CURRENT_GAME_NUMBER' THEN
-				SELECT MIN(current_game_number) return_value
-				INTO   v_return_value
-				FROM   tournament_state;
+				v_return_value := p_poker_state.current_game_number;
 		END CASE;
 			
 	ELSIF v_strategy_variable_name LIKE 'GAME_STATE%' THEN
 	
 		CASE SUBSTR(v_strategy_variable_name, 12)
 			WHEN 'SMALL_BLIND_SEAT_NUMBER' THEN
-				SELECT MIN(small_blind_seat_number) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.small_blind_seat_number;
 			WHEN 'BIG_BLIND_SEAT_NUMBER' THEN
-				SELECT MIN(big_blind_seat_number) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.big_blind_seat_number;
 			WHEN 'TURN_SEAT_NUMBER' THEN
-				SELECT MIN(turn_seat_number) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.turn_seat_number;
 			WHEN 'SMALL_BLIND_VALUE' THEN
-				SELECT MIN(small_blind_value) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.small_blind_value;
 			WHEN 'BIG_BLIND_VALUE' THEN
-				SELECT MIN(big_blind_value) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.big_blind_value;
 			WHEN 'BETTING_ROUND_NUMBER' THEN
-				SELECT MIN(betting_round_number) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.betting_round_number;
 			WHEN 'LAST_TO_RAISE_SEAT_NUMBER' THEN
-				SELECT MIN(last_to_raise_seat_number) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.last_to_raise_seat_number;
 			WHEN 'MIN_RAISE_AMOUNT' THEN
-				SELECT MIN(min_raise_amount) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.min_raise_amount;
 			WHEN 'COMMUNITY_CARD_1_ID' THEN
-				SELECT MIN(community_card_1) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.community_card_1;
 			WHEN 'COMMUNITY_CARD_1_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d,
+				FROM   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
-				WHERE  gs.community_card_1 = d.card_id
+				WHERE  d.card_id = p_poker_state.community_card_1
 				   AND mfv.field_name_code = 'CARD_SUIT'
 				   AND d.suit = mfv.field_value_code;
 			WHEN 'COMMUNITY_CARD_1_VALUE' THEN
-				SELECT MIN(d.value) return_value
+				SELECT MIN(value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d
-				WHERE  gs.community_card_1 = d.card_id;
+				FROM   TABLE(p_poker_state.deck)
+				WHERE  card_id = p_poker_state.community_card_1;
 			WHEN 'COMMUNITY_CARD_2_ID' THEN
-				SELECT MIN(community_card_2) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.community_card_2;
 			WHEN 'COMMUNITY_CARD_2_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d,
+				FROM   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
-				WHERE  gs.community_card_2 = d.card_id
+				WHERE  d.card_id = p_poker_state.community_card_2
 				   AND mfv.field_name_code = 'CARD_SUIT'
 				   AND d.suit = mfv.field_value_code;
 			WHEN 'COMMUNITY_CARD_2_VALUE' THEN
-				SELECT MIN(d.value) return_value
+				SELECT MIN(value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d
-				WHERE  gs.community_card_2 = d.card_id;
+				FROM   TABLE(p_poker_state.deck)
+				WHERE  card_id = p_poker_state.community_card_2;
 			WHEN 'COMMUNITY_CARD_3_ID' THEN
-				SELECT MIN(community_card_3) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.community_card_3;
 			WHEN 'COMMUNITY_CARD_3_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d,
+				FROM   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
-				WHERE  gs.community_card_3 = d.card_id
+				WHERE  d.card_id = p_poker_state.community_card_3
 				   AND mfv.field_name_code = 'CARD_SUIT'
 				   AND d.suit = mfv.field_value_code;
 			WHEN 'COMMUNITY_CARD_3_VALUE' THEN
-				SELECT MIN(d.value) return_value
+				SELECT MIN(value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d
-				WHERE  gs.community_card_3 = d.card_id;
+				FROM   TABLE(p_poker_state.deck)
+				WHERE  card_id = p_poker_state.community_card_3;
 			WHEN 'COMMUNITY_CARD_4_ID' THEN
-				SELECT MIN(community_card_4) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.community_card_4;
 			WHEN 'COMMUNITY_CARD_4_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d,
+				FROM   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
-				WHERE  gs.community_card_4 = d.card_id
+				WHERE  d.card_id = p_poker_state.community_card_4
 				   AND mfv.field_name_code = 'CARD_SUIT'
 				   AND d.suit = mfv.field_value_code;
 			WHEN 'COMMUNITY_CARD_4_VALUE' THEN
-				SELECT MIN(d.value) return_value
+				SELECT MIN(value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d
-				WHERE  gs.community_card_4 = d.card_id;
+				FROM   TABLE(p_poker_state.deck)
+				WHERE  card_id = p_poker_state.community_card_4;
 			WHEN 'COMMUNITY_CARD_5_ID' THEN
-				SELECT MIN(community_card_5) return_value
-				INTO   v_return_value
-				FROM   game_state;
+				v_return_value := p_poker_state.community_card_5;
 			WHEN 'COMMUNITY_CARD_5_SUIT' THEN
 				SELECT MIN(mfv.numeric_value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d,
+				FROM   TABLE(p_poker_state.deck) d,
 					   master_field_value mfv
-				WHERE  gs.community_card_5 = d.card_id
+				WHERE  d.card_id = p_poker_state.community_card_5
 				   AND mfv.field_name_code = 'CARD_SUIT'
 				   AND d.suit = mfv.field_value_code;
 			WHEN 'COMMUNITY_CARD_5_VALUE' THEN
-				SELECT MIN(d.value) return_value
+				SELECT MIN(value) return_value
 				INTO   v_return_value
-				FROM   game_state gs,
-					   deck d
-				WHERE  gs.community_card_5 = d.card_id;
+				FROM   TABLE(p_poker_state.deck)
+				WHERE  card_id = p_poker_state.community_card_5;
 		END CASE;
 		
 	ELSIF v_strategy_variable_name LIKE 'DECISION_TYPE%' THEN

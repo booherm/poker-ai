@@ -2,9 +2,11 @@
 
 PokerAiController::PokerAiController() {
 
-	dbInterface = new DbInterface();
+	databaseId = "ORACLENODE1";
+	tournamentStepperDbInterface = new TournamentStepperDbInterface(databaseId);
+	gaEvolverController = new GaEvolverController(databaseId);
 
-	uiWindow = new PokerAiUiWindow(dbInterface);
+	uiWindow = new PokerAiUiWindow(tournamentStepperDbInterface, gaEvolverController);
 	uiWindow->threadStart();
 
 	uiWindow->threadJoin();
@@ -12,5 +14,6 @@ PokerAiController::PokerAiController() {
 
 PokerAiController::~PokerAiController() {
 	delete uiWindow;
-	delete dbInterface;
+	delete tournamentStepperDbInterface;
+	delete gaEvolverController;
 }

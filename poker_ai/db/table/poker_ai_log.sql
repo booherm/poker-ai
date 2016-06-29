@@ -4,7 +4,7 @@ CREATE TABLE poker_ai_log
 	mod_date          DATE,
 	state_id          NUMBER(38, 0),
 	message           VARCHAR2(4000)
-);
+) INMEMORY;
 
 ALTER TABLE poker_ai_log ADD
 (

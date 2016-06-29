@@ -4,7 +4,7 @@ CREATE TABLE strategy
 	generation          NUMBER(10, 0),
 	strategy_chromosome CLOB,
 	strategy_procedure  CLOB
-);
+) INMEMORY;
 
 ALTER TABLE strategy ADD
 (

@@ -1,26 +1,27 @@
-#include "DbInterface.hpp"
+#include "TournamentStepperDbInterface.hpp"
 #include <iostream>
 #include <string>
 
-DbInterface::DbInterface() {
-	ocilib::Environment::Initialize();
-	con.Open("XE", "matt", "matt");
+TournamentStepperDbInterface::TournamentStepperDbInterface(const std::string& databaseId) {
+	ocilib::Environment::Initialize(ocilib::Environment::EnvironmentFlagsValues::Threaded);
+	con.Open(databaseId, "poker_ai", "poker_ai");
 }
 
-DbInterface::~DbInterface() {
+TournamentStepperDbInterface::~TournamentStepperDbInterface() {
 	con.Close();
 	ocilib::Environment::Cleanup();
 }
 
-void DbInterface::initTournament(const std::string& tournamentMode, unsigned int playerCount, unsigned int buyInAmount) {
+unsigned int TournamentStepperDbInterface::initTournament(const std::string& tournamentMode, unsigned int playerCount, unsigned int buyInAmount) {
+
+	unsigned int stateId;
+
 	try
 	{
-		std::string procCall = "BEGIN pkg_poker_ai.initialize_tournament(";
-		procCall.append("p_tournament_mode => :tournamentMode, ");
-		procCall.append("p_strategy_ids          => NULL, ");
+		std::string procCall = "BEGIN :stateId := pkg_tournament_stepper.initialize_tournament(";
+		procCall.append("p_tournament_mode       => :tournamentMode, ");
 		procCall.append("p_player_count          => :playerCount, ");
-		procCall.append("p_buy_in_amount         => :buyInAmount, ");
-		procCall.append("p_perform_state_logging => 'Y'");
+		procCall.append("p_buy_in_amount         => :buyInAmount");
 		procCall.append("); END; ");
 
 		ocilib::Statement st(con);
@@ -29,6 +30,7 @@ void DbInterface::initTournament(const std::string& tournamentMode, unsigned int
 		st.Bind("tournamentMode", tournamentMoveOstring, static_cast<unsigned int>(tournamentMoveOstring.size()), ocilib::BindInfo::In);
 		st.Bind("playerCount", playerCount, ocilib::BindInfo::In);
 		st.Bind("buyInAmount", buyInAmount, ocilib::BindInfo::In);
+		st.Bind("stateId", stateId, ocilib::BindInfo::Out);
 		st.ExecutePrepared();
 	}
 	catch (std::exception &ex)
@@ -36,63 +38,31 @@ void DbInterface::initTournament(const std::string& tournamentMode, unsigned int
 		std::string exceptionString(ex.what());
 		std::cout << "exception: " << exceptionString << std::endl;
 	}
+
+	return stateId;
 }
 
-void DbInterface::stepPlay(unsigned int smallBlindAmount, const std::string& playerMove, unsigned int playerMoveAmount) {
+unsigned int TournamentStepperDbInterface::stepPlay(unsigned int stateId, unsigned int smallBlindAmount, const std::string& playerMove, unsigned int playerMoveAmount) {
+
+	unsigned int returnStateId;
+
 	try
 	{
-		std::string procCall = "BEGIN pkg_poker_ai.step_play(";
+		std::string procCall = "BEGIN :returnStateId := pkg_tournament_stepper.step_play(";
+		procCall.append("p_state_id              => :stateId, ");
 		procCall.append("p_small_blind_value     => :smallBlindAmount, ");
 		procCall.append("p_player_move           => :playerMove, ");
-		procCall.append("p_player_move_amount    => :playerMoveAmount, ");
-		procCall.append("p_perform_state_logging => 'Y'");
+		procCall.append("p_player_move_amount    => :playerMoveAmount");
 		procCall.append("); END;");
 
 		ocilib::Statement st(con);
 		st.Prepare(procCall);
+		st.Bind("stateId", stateId, ocilib::BindInfo::In);
 		st.Bind("smallBlindAmount", smallBlindAmount, ocilib::BindInfo::In);
 		ocilib::ostring playerMoveOstring(playerMove);
 		st.Bind("playerMove", playerMoveOstring, static_cast<unsigned int>(playerMoveOstring.size()), ocilib::BindInfo::In);
 		st.Bind("playerMoveAmount", playerMoveAmount, ocilib::BindInfo::In);
-		st.ExecutePrepared();
-	}
-	catch (std::exception &ex)
-	{
-		std::string exceptionString(ex.what());
-		std::cout << "exception: " << exceptionString << std::endl;
-	}
-}
-
-void DbInterface::loadState(unsigned int stateId) {
-	try
-	{
-		std::string procCall = "BEGIN pkg_poker_ai.load_state(";
-		procCall.append("p_state_id => :stateId");
-		procCall.append("); END;");
-
-		ocilib::Statement st(con);
-		st.Prepare(procCall);
-		st.Bind("stateId", stateId, ocilib::BindInfo::In);
-		st.ExecutePrepared();
-	}
-	catch (std::exception &ex)
-	{
-		std::string exceptionString(ex.what());
-		std::cout << "exception: " << exceptionString << std::endl;
-	}
-}
-
-void DbInterface::loadPreviousState(unsigned int stateId) {
-
-	try
-	{
-		std::string procCall = "BEGIN pkg_poker_ai.load_previous_state(";
-		procCall.append("p_state_id => :stateId");
-		procCall.append("); END;");
-
-		ocilib::Statement st(con);
-		st.Prepare(procCall);
-		st.Bind("stateId", stateId, ocilib::BindInfo::In);
+		st.Bind("returnStateId", returnStateId, ocilib::BindInfo::Out);
 		st.ExecutePrepared();
 	}
 	catch (std::exception &ex)
@@ -101,34 +71,17 @@ void DbInterface::loadPreviousState(unsigned int stateId) {
 		std::cout << "exception: " << exceptionString << std::endl;
 	}
 
+	return returnStateId;
 }
 
-void DbInterface::loadNextState(unsigned int stateId) {
-	
-	try
-	{
-		std::string procCall = "BEGIN pkg_poker_ai.load_next_state(";
-		procCall.append("p_state_id => :stateId");
-		procCall.append("); END;");
+unsigned int TournamentStepperDbInterface::editCard(unsigned int stateId, const std::string& cardType, unsigned int seatNumber, unsigned int cardSlot, unsigned int cardId) {
 
-		ocilib::Statement st(con);
-		st.Prepare(procCall);
-		st.Bind("stateId", stateId, ocilib::BindInfo::In);
-		st.ExecutePrepared();
-	}
-	catch (std::exception &ex)
-	{
-		std::string exceptionString(ex.what());
-		std::cout << "exception: " << exceptionString << std::endl;
-	}
-
-}
-
-void DbInterface::editCard(const std::string& cardType, unsigned int seatNumber, unsigned int cardSlot, unsigned int cardId) {
+	unsigned int returnStateId;
 
 	try
 	{
-		std::string procCall = "BEGIN pkg_poker_ai.edit_card(";
+		std::string procCall = "BEGIN :returnStateId := pkg_tournament_stepper.edit_card(";
+		procCall.append("p_state_id    => :stateId, ");
 		procCall.append("p_card_type   => :cardType, ");
 		procCall.append("p_seat_number => :seatNumber, ");
 		procCall.append("p_card_slot   => :cardSlot, ");
@@ -137,11 +90,13 @@ void DbInterface::editCard(const std::string& cardType, unsigned int seatNumber,
 
 		ocilib::Statement st(con);
 		st.Prepare(procCall);
+		st.Bind("stateId", stateId, ocilib::BindInfo::In);
 		ocilib::ostring cardTypeOstring(cardType);
 		st.Bind("cardType", cardTypeOstring, static_cast<unsigned int>(cardTypeOstring.size()), ocilib::BindInfo::In);
 		st.Bind("seatNumber", seatNumber, ocilib::BindInfo::In);
 		st.Bind("cardSlot", cardSlot, ocilib::BindInfo::In);
 		st.Bind("cardId", cardId, ocilib::BindInfo::In);
+		st.Bind("returnStateId", returnStateId, ocilib::BindInfo::Out);
 		st.ExecutePrepared();
 	}
 	catch (std::exception &ex)
@@ -150,13 +105,15 @@ void DbInterface::editCard(const std::string& cardType, unsigned int seatNumber,
 		std::cout << "exception: " << exceptionString << std::endl;
 	}
 
+	return returnStateId;
 }
 
-void DbInterface::getUiState(Json::Value& uiData) {
+void TournamentStepperDbInterface::getUiState(unsigned int stateId, Json::Value& uiData) {
 	try
 	{
 		// call for tournament state
-		std::string procCall = "BEGIN pkg_poker_ai.select_ui_state(";
+		std::string procCall = "BEGIN pkg_tournament_stepper.select_ui_state(";
+		procCall.append("p_state_id         => :stateId, ");
 		procCall.append("p_tournament_state => :tournamentStateRs, ");
 		procCall.append("p_game_state       => :gameStateRs, ");
 		procCall.append("p_player_state     => :playerStateRs, ");
@@ -170,6 +127,7 @@ void DbInterface::getUiState(Json::Value& uiData) {
 		ocilib::Statement potsBind(con);
 		ocilib::Statement statusBind(con);
 		sts.Prepare(procCall);
+		sts.Bind("stateId", stateId, ocilib::BindInfo::In);
 		sts.Bind("tournamentStateRs", tournamentStateRsBind, ocilib::BindInfo::Out);
 		sts.Bind("gameStateRs", gameStateBind, ocilib::BindInfo::Out);
 		sts.Bind("playerStateRs", playerStateBind, ocilib::BindInfo::Out);
@@ -286,4 +244,54 @@ void DbInterface::getUiState(Json::Value& uiData) {
 		std::string exceptionString(ex.what());
 		std::cout << "exception: " << exceptionString << std::endl;
 	}
+}
+
+unsigned int TournamentStepperDbInterface::getPreviousStateId(unsigned int stateId) {
+
+	unsigned int returnStateId;
+
+	try
+	{
+		std::string procCall = "BEGIN :returnStateId := pkg_tournament_stepper.get_previous_state_id(";
+		procCall.append("p_state_id => :stateId");
+		procCall.append("); END;");
+
+		ocilib::Statement st(con);
+		st.Prepare(procCall);
+		st.Bind("stateId", stateId, ocilib::BindInfo::In);
+		st.Bind("returnStateId", returnStateId, ocilib::BindInfo::Out);
+		st.ExecutePrepared();
+	}
+	catch (std::exception &ex)
+	{
+		std::string exceptionString(ex.what());
+		std::cout << "exception: " << exceptionString << std::endl;
+	}
+
+	return returnStateId;
+}
+
+unsigned int TournamentStepperDbInterface::getNextStateId(unsigned int stateId) {
+
+	unsigned int returnStateId;
+
+	try
+	{
+		std::string procCall = "BEGIN :returnStateId := pkg_tournament_stepper.get_next_state_id(";
+		procCall.append("p_state_id => :stateId");
+		procCall.append("); END;");
+
+		ocilib::Statement st(con);
+		st.Prepare(procCall);
+		st.Bind("stateId", stateId, ocilib::BindInfo::In);
+		st.Bind("returnStateId", returnStateId, ocilib::BindInfo::Out);
+		st.ExecutePrepared();
+	}
+	catch (std::exception &ex)
+	{
+		std::string exceptionString(ex.what());
+		std::cout << "exception: " << exceptionString << std::endl;
+	}
+
+	return returnStateId;
 }

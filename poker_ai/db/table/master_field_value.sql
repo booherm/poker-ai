@@ -5,13 +5,14 @@ CREATE TABLE master_field_value
 	numeric_value    NUMBER(10, 0),
 	display_value    VARCHAR2(100),
 	sort_order       NUMBER(10, 0)
-);
+) INMEMORY;
 
 ALTER TABLE master_field_value ADD
 (
 	CONSTRAINT mfv_pk_fncfvc PRIMARY KEY (field_name_code, field_value_code)
 );
 
+INSERT INTO master_field_value (field_name_code, field_value_code, numeric_value, display_value, sort_order) VALUES ('BETTING_ROUND_NUMBER', '0', 0, NULL, 0);
 INSERT INTO master_field_value (field_name_code, field_value_code, numeric_value, display_value, sort_order) VALUES ('BETTING_ROUND_NUMBER', '1', 1, '1 - Pre-flop', 10);
 INSERT INTO master_field_value (field_name_code, field_value_code, numeric_value, display_value, sort_order) VALUES ('BETTING_ROUND_NUMBER', '2', 2, '2 - Flop', 20);
 INSERT INTO master_field_value (field_name_code, field_value_code, numeric_value, display_value, sort_order) VALUES ('BETTING_ROUND_NUMBER', '3', 3, '3 - Turn', 30);

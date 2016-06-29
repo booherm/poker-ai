@@ -4,7 +4,7 @@ CREATE TABLE pot_log
 	pot_number           NUMBER(2, 0),
 	betting_round_number NUMBER(1, 0),
 	bet_value            NUMBER(10, 0)
-);
+) INMEMORY;
 
 ALTER TABLE pot_log ADD
 (

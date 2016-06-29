@@ -87,7 +87,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;OCI_API=__stdcall;OCI_CHARSET_ANSI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\projects\vs_workspace\poker_ai\poker_ai\external\boost_1_60_0;C:\projects\vs_workspace\poker_ai\poker_ai\external\awesomium-1.7.5.1\include;C:\projects\vs_workspace\poker_ai\poker_ai\external\ocilib-4.2.1-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -155,7 +155,16 @@
   <ItemGroup>
     <ClCompile Include="AwesomiumMessageDispatcher.cpp" />
     <ClCompile Include="AwesomiumUiWindow.cpp" />
-    <ClCompile Include="DbInterface.cpp" />
+    <ClCompile Include="Deck.cpp" />
+    <ClCompile Include="Player.cpp" />
+    <ClCompile Include="PokerController.cpp" />
+    <ClCompile Include="PotController.cpp" />
+    <ClCompile Include="TournamentStepperDbInterface.cpp" />
+    <ClCompile Include="GaEvolverController.cpp">
+      <SubType>
+      </SubType>
+    </ClCompile>
+    <ClCompile Include="GaEvolverWorker.cpp" />
     <ClCompile Include="GuiConsole.cpp" />
     <ClCompile Include="json.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -165,7 +174,13 @@
   <ItemGroup>
     <ClInclude Include="AwesomiumJsDelegate.hpp" />
     <ClInclude Include="AwesomiumUiWindow.hpp" />
-    <ClInclude Include="DbInterface.hpp" />
+    <ClInclude Include="Deck.hpp" />
+    <ClInclude Include="Player.hpp" />
+    <ClInclude Include="PokerController.hpp" />
+    <ClInclude Include="PotController.hpp" />
+    <ClInclude Include="TournamentStepperDbInterface.hpp" />
+    <ClInclude Include="GaEvolverController.hpp" />
+    <ClInclude Include="GaEvolverWorker.hpp" />
     <ClInclude Include="GuiConsole.hpp" />
     <ClInclude Include="AwesomiumMessageDispatcher.hpp" />
     <ClInclude Include="json.hpp" />

@@ -2,26 +2,28 @@
 #define POKERAIUIWINDOW_HPP
 
 #include "AwesomiumUiWindow.hpp"
-#include "DbInterface.hpp"
+#include "TournamentStepperDbInterface.hpp"
+#include "GaEvolverController.hpp"
 
 class PokerAiUiWindow : public AwesomiumUiWindow
 {
 
 public:
-	PokerAiUiWindow(DbInterface* dbInterface);
+	PokerAiUiWindow(TournamentStepperDbInterface* tournamentStepperDbInterface, GaEvolverController* gaEvolverController);
 
 private:
 	void initTournament(WebView* caller, const JSArray& args);
 	void stepPlay(WebView* caller, const JSArray& args);
+	void editCard(WebView* caller, const JSArray& args);
 	void loadState(WebView* caller, const JSArray& args);
 	void loadPreviousState(WebView* caller, const JSArray& args);
 	void loadNextState(WebView* caller, const JSArray& args);
-	void editCard(WebView* caller, const JSArray& args);
-	void refreshUi();
+	void refreshUi(unsigned int stateId);
+	void performEvolutionTrial(WebView* caller, const JSArray& args);
 	void bindJsFunctions();
 
-	DbInterface* dbInterface;
-
+	TournamentStepperDbInterface* tournamentStepperDbInterface;
+	GaEvolverController* gaEvolverController;
 };
 
 #endif

@@ -1,7 +1,7 @@
 CREATE TABLE strategy_fitness
 (
 	strategy_id                   NUMBER(10, 0),
-	fitness_test_id               VARCHAR2(100),
+	evolution_trial_id            VARCHAR2(100),
 	fitness_score                 NUMBER(38, 10),
 	tournaments_played            NUMBER(10, 0),
 	average_tournament_profit     NUMBER(12, 2),
@@ -62,15 +62,9 @@ CREATE TABLE strategy_fitness
 	times_all_in                  NUMBER(10, 0),
 	total_money_played            NUMBER(38, 0),
 	total_money_won               NUMBER(38, 0)
-);
+) INMEMORY;
 
 ALTER TABLE strategy_fitness ADD
 (
-	CONSTRAINT sf_pk_sidftid PRIMARY KEY (strategy_id, fitness_test_id)
+	CONSTRAINT sf_pk_sidetid PRIMARY KEY (strategy_id, evolution_trial_id)
 );
-
-ALTER TABLE strategy_fitness ADD
-(
-	CONSTRAINT sf_fk_sid FOREIGN KEY (strategy_id) REFERENCES strategy(strategy_id)
-);
-

@@ -1,7 +1,7 @@
 CREATE TABLE player
 (
 	player_id NUMBER(10, 0)
-);
+) INMEMORY;
 
 ALTER TABLE player ADD
 (

@@ -1,18 +1,21 @@
 TRUNCATE TABLE poker_ai_log;
 ALTER SYSTEM FLUSH SHARED_POOL;
-		
+
+-- tournament auto play tester
 DECLARE
 
 	v_tournament_play_count     INTEGER := 1;
-	v_player_count              tournament_state.player_count%TYPE := 10;
-	v_tournament_buy_in         tournament_state.buy_in_amount%TYPE := 500;
-	v_initial_small_blind_value game_state.small_blind_value%TYPE := 5;
-	v_double_blinds_interval    tournament_state.current_game_number%TYPE := 5;
+	v_player_count              poker_state_log.player_count%TYPE := 10;
+	v_tournament_buy_in         poker_state_log.buy_in_amount%TYPE := 500;
+	v_initial_small_blind_value poker_state_log.small_blind_value%TYPE := 5;
+	v_double_blinds_interval    poker_state_log.current_game_number%TYPE := 5;
 	
 	v_strategy_record           t_row_number := t_row_number(NULL);
 	v_strategy_ids              t_tbl_number := t_tbl_number();
-	v_current_game_number       tournament_state.current_game_number%TYPE;
+	v_current_game_number       poker_state_log.current_game_number%TYPE;
 	v_money_imbalance           VARCHAR2(1);
+	v_perform_state_logging     VARCHAR2(1) := 'Y';
+	v_final_state_id            poker_state_log.state_id%TYPE;
 	
 BEGIN
 
@@ -57,71 +60,81 @@ BEGIN
 		EXECUTE IMMEDIATE 'TRUNCATE TABLE pot_log';
 		EXECUTE IMMEDIATE 'TRUNCATE TABLE pot_contribution_log';
 		EXECUTE IMMEDIATE 'TRUNCATE TABLE player_state_log';
-		EXECUTE IMMEDIATE 'TRUNCATE TABLE game_state_log';
-		EXECUTE IMMEDIATE 'TRUNCATE TABLE tournament_state_log';
+		EXECUTE IMMEDIATE 'TRUNCATE TABLE poker_state_log';
 
-		pkg_poker_ai.log(p_message => 'Begin test play of tournament number ' || v_tournament_rec.tournament_number);
+		pkg_poker_ai.log(p_message  => 'Begin test play of tournament number ' || v_tournament_rec.tournament_number);
 
 		-- play tournament
 		pkg_poker_ai.play_tournament(
+			p_evolution_trial_id        => 'TEST_TRIAL',
+			p_tournament_id             => v_tournament_rec.tournament_number,
 			p_strategy_ids              => v_strategy_ids,
 			p_buy_in_amount             => v_tournament_buy_in,
 			p_initial_small_blind_value => v_initial_small_blind_value,
 			p_double_blinds_interval    => v_double_blinds_interval,
-			p_perform_state_logging     => 'Y'
+			p_perform_state_logging     => v_perform_state_logging
 		);
 
 		------------ check results of tournament play, abort on anomolies  -----------
-		
-		-- excessive number of games
-		SELECT current_game_number
-		INTO   v_current_game_number
-		FROM   tournament_state;
-		IF v_current_game_number >= 450 THEN
-			RAISE_APPLICATION_ERROR(-20000, 'Excessive number of games played in tournament');
+
+		IF v_perform_state_logging = 'Y' THEN
+			SELECT MAX(state_id)
+			INTO   v_final_state_id
+			FROM   poker_state_log;
+			
+			-- excessive number of games
+			SELECT current_game_number
+			INTO   v_current_game_number
+			FROM   poker_state_log
+			WHERE  state_id = v_final_state_id;
+			IF v_current_game_number >= 450 THEN
+				RAISE_APPLICATION_ERROR(-20000, 'Excessive number of games played in tournament');
+			END IF;
+			
+			-- money imbalance
+			WITH player_money AS (
+				SELECT state_id,
+					   SUM(money) total_player_money
+				FROM   player_state_log
+				GROUP BY state_id
+			),
+
+			pot_money AS (
+				SELECT state_id,
+					   SUM(pot_contribution) total_pot_money
+				FROM   pot_contribution_log
+				GROUP BY state_id
+			),
+
+			total_money AS (
+				SELECT NVL(plm.state_id, pom.state_id) state_id,
+					   plm.total_player_money,
+					   pom.total_pot_money,
+					   NVL(plm.total_player_money, 0) + NVL(pom.total_pot_money, 0) total_money
+				FROM   player_money plm
+					   FULL OUTER JOIN pot_money pom ON plm.state_id = pom.state_id
+			)
+
+			SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END money_imbalance
+			INTO   v_money_imbalance
+			FROM   total_money tm,
+				   poker_state_log psl
+			WHERE  tm.state_id = psl.state_id
+			   AND psl.game_in_progress = 'Y'
+			   AND tm.total_money != v_tournament_buy_in * v_player_count;
+			   
+			IF v_money_imbalance = 'Y' THEN
+				RAISE_APPLICATION_ERROR(-20000, 'Money imbalance detected in tournament');
+			END IF;
+		ELSE
+			COMMIT;
 		END IF;
 		
-		-- money imbalance
-		WITH player_money AS (
-			SELECT state_id,
-				   SUM(money) total_player_money
-			FROM   player_state_log
-			GROUP BY state_id
-		),
-
-		pot_money AS (
-			SELECT state_id,
-				   SUM(pot_contribution) total_pot_money
-			FROM   pot_contribution_log
-			GROUP BY state_id
-		),
-
-		total_money AS (
-			SELECT NVL(plm.state_id, pom.state_id) state_id,
-				   plm.total_player_money,
-				   pom.total_pot_money,
-				   NVL(plm.total_player_money, 0) + NVL(pom.total_pot_money, 0) total_money
-			FROM   player_money plm
-				   FULL OUTER JOIN pot_money pom ON plm.state_id = pom.state_id
-		)
-
-		SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END money_imbalance
-		INTO   v_money_imbalance
-		FROM   total_money tm,
-			   tournament_state_log tsl
-		WHERE  tm.state_id = tsl.state_id
-		   AND tsl.game_in_progress = 'Y'
-		   AND tm.total_money != v_tournament_buy_in * v_player_count;
-		   
-		IF v_money_imbalance = 'Y' THEN
-			RAISE_APPLICATION_ERROR(-20000, 'Money imbalance detected in tournament');
-		END IF;
-
-		pkg_poker_ai.log(p_message => 'Successfully completed test play of tournament number ' || v_tournament_rec.tournament_number);
+		pkg_poker_ai.log(p_message  => 'Successfully completed test play of tournament number ' || v_tournament_rec.tournament_number);
 
 	END LOOP;
 	
-	pkg_poker_ai.log(p_message => 'Successfully completed test play of all tournaments without anamoly');
+	pkg_poker_ai.log(p_message  => 'Successfully completed test play of all tournaments without anamoly');
 	
 	/*
 	SELECT log_record_number,
@@ -147,10 +160,6 @@ END;
 
 
 -- debugging
-SELECT * FROM tournament_state;
-SELECT * FROM game_state;
-SELECT * FROM player_state;
-
 SELECT log_record_number,
 	   TO_CHAR(mod_date, 'MM/DD/YYYY HH12:MI:SS AM') mod_date,
 	   state_id,
@@ -158,21 +167,21 @@ SELECT log_record_number,
 FROM   poker_ai_log
 ORDER BY log_record_number DESC;
 
-SELECT * FROM tournament_state_log ORDER BY state_id DESC;
-SELECT * FROM game_state_log ORDER BY state_id DESC;
+SELECT * FROM poker_state_log ORDER BY state_id DESC;
 SELECT * FROM player_state_log ORDER BY state_id DESC, seat_number;
 SELECT * FROM pot_log ORDER BY state_id DESC, pot_number;
 SELECT * FROM pot_contribution_log ORDER BY state_id DESC, pot_number, player_seat_number;
 
--- tournament results
-SELECT * FROM tournament_state;
-SELECT seat_number,
-	   tournament_rank,
-	   money
-FROM   player_state
-ORDER BY
-	tournament_rank,
-	seat_number;
+DECLARE
+	v_poker_state t_poker_state;
+	v_can_check   VARCHAR2(1);
+BEGIN
+	v_poker_state := pkg_poker_ai.get_poker_state(p_state_id => 189);
+	
+	v_can_check := pkg_poker_ai.get_can_check(p_poker_state => v_poker_state, p_seat_number => 9);
+	DBMS_OUTPUT.PUT_LINE('v_can_check = ' || v_can_check);
+	
+END;
 
 
 -- money balance throughout tournament (ignoring states when game not in progress)
@@ -204,9 +213,9 @@ SELECT tm.state_id,
 	   tm.total_pot_money,
 	   tm.total_money
 FROM   total_money tm,
-	   tournament_state_log tsl
-WHERE  tm.state_id = tsl.state_id
-   AND tsl.game_in_progress = 'Y'
+	   poker_state_log psl
+WHERE  tm.state_id = psl.state_id
+   AND psl.game_in_progress = 'Y'
 ORDER BY state_id DESC;
 
 
@@ -214,7 +223,6 @@ ORDER BY state_id DESC;
 
 -- generate random strategies
 DELETE FROM strategy_fitness;
-DELETE FROM player_state;
 DELETE FROM strategy;
 COMMIT;
 DECLARE

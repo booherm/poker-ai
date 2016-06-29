@@ -15,7 +15,6 @@ TYPE t_strat_chromosome_metadata IS RECORD (
 
 TYPE t_expression_map_entries IS TABLE OF NUMBER(10, 0) INDEX BY BINARY_INTEGER;
 TYPE t_strategy_expression_map_rec IS RECORD (
-
 	left_operand_id  NUMBER(38, 0),
 	operator_id      NUMBER(38, 0),
 	right_operand_id NUMBER(38, 0)
@@ -25,7 +24,7 @@ TYPE t_strategy_expression_map_tbl IS TABLE OF t_strategy_expression_map_rec IND
 v_strat_chromosome_metadata t_strat_chromosome_metadata;
 
 PROCEDURE perform_automatic_player_move (
-	p_seat_number player_state.seat_number%TYPE
+	p_poker_state IN OUT t_poker_state
 );
 
 FUNCTION get_strategy_procedure(
@@ -40,12 +39,14 @@ FUNCTION get_decision_tree (
 ) RETURN strategy.strategy_procedure%TYPE;
 
 FUNCTION get_expression_value(
+	p_poker_state         t_poker_state,
 	p_expression_id       NUMBER,
 	p_expression_map      pkg_ga_player.t_strategy_expression_map_tbl,
 	p_variable_qualifiers pkg_strategy_variable.t_strat_variable_qualifiers
 ) RETURN NUMBER;
 
 FUNCTION get_sub_expression_value(
+	p_poker_state                 t_poker_state,
 	p_expression_id               NUMBER,
 	p_expression_map              pkg_ga_player.t_strategy_expression_map_tbl,
 	p_variable_qualifiers         pkg_strategy_variable.t_strat_variable_qualifiers,
@@ -59,10 +60,11 @@ FUNCTION get_move_for_dec_tree_unit(
 ) RETURN VARCHAR2;
 
 FUNCTION get_move_amt_for_dec_tree_unit(
-	p_seat_number       player_state.seat_number%TYPE,
+	p_poker_state       t_poker_state,
+	p_seat_number       player_state_log.seat_number%TYPE,
 	p_player_move       VARCHAR2,
 	p_amount_multiplier NUMBER
-) RETURN player_state.money%TYPE;
+) RETURN player_state_log.money%TYPE;
 
 FUNCTION get_expression_operator_text(
 	p_expression_operator_id INTEGER
@@ -81,15 +83,16 @@ PROCEDURE load_strategy_build_table(
 );
 
 PROCEDURE execute_strategy(
+	p_poker_state        t_poker_state,
 	p_strategy_procedure strategy.strategy_procedure%TYPE,
-	p_seat_number        player_state.seat_number%TYPE,
+	p_seat_number        player_state_log.seat_number%TYPE,
 	p_can_fold           VARCHAR2,
 	p_can_check          VARCHAR2,
 	p_can_call           VARCHAR2,
 	p_can_bet            VARCHAR2,
 	p_can_raise          VARCHAR2,
 	p_player_move        OUT VARCHAR2,
-	p_player_move_amount OUT player_state.money%TYPE
+	p_player_move_amount OUT player_state_log.money%TYPE
 );
 
 FUNCTION get_decision_type(
@@ -100,17 +103,21 @@ FUNCTION get_decision_type(
 	p_can_raise VARCHAR2
 ) RETURN INTEGER RESULT_CACHE;
 
-PROCEDURE update_strategy_fitness (
-	p_fitness_test_id strategy_fitness.fitness_test_id%TYPE
+PROCEDURE capture_tournament_results (
+	p_poker_state t_poker_state
 );
 
-PROCEDURE create_new_generation(
+PROCEDURE update_strategy_fitness (
+	p_poker_state t_poker_state
+);
+
+FUNCTION create_new_generation(
+	p_evolution_trial_id  strategy_fitness.evolution_trial_id%TYPE,
 	p_from_generation     strategy.generation%TYPE,
-	p_fitness_test_id     strategy_fitness.fitness_test_id%TYPE,
 	p_new_generation_size INTEGER,
 	p_crossover_rate      NUMBER,
 	p_crossover_point     INTEGER,
 	p_mutation_rate       NUMBER
-);
+) RETURN strategy.generation%TYPE;
 
 END pkg_ga_player;

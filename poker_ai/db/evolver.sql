@@ -1,147 +1,68 @@
+-- clear strategy and trials
+DELETE FROM strategy_fitness;
+DELETE FROM strategy;
+DELETE FROM evolution_trial_work;
+DELETE FROM evolution_trial;
+TRUNCATE TABLE poker_ai_log;
 DECLARE
-
-	v_generation_size           INTEGER := 100;
-	v_max_generations           strategy.generation%TYPE := 1000;
-	v_crossover_rate            NUMBER := 0.85;
-	
-	v_tournament_groups         INTEGER := 10;
-	v_tournament_play_count     INTEGER := 10;
-	v_tournament_buy_in         tournament_state.buy_in_amount%TYPE := 500;
-	v_initial_small_blind_value game_state.small_blind_value%TYPE := 5;
-	v_double_blinds_interval    tournament_state.current_game_number%TYPE := 5;
-	
-	v_tournament_player_count   tournament_state.player_count%TYPE := v_generation_size / v_tournament_groups;
-	v_crossover_point           INTEGER := FLOOR(pkg_ga_player.v_strat_chromosome_metadata.chromosome_bit_length / 2);
-	v_mutation_rate             NUMBER := 1 / pkg_ga_player.v_strat_chromosome_metadata.chromosome_bit_length;
-	v_chromosome                strategy.strategy_chromosome%TYPE;
-	v_strategy_proc             strategy.strategy_procedure%TYPE;
-	v_strategy_record           t_row_number := t_row_number(NULL);
-	v_strategy_ids              t_tbl_number := t_tbl_number();
-
-	CURSOR v_tournament_group_set(
-		p_generation              strategy.generation%TYPE,
-		p_tournament_group_number INTEGER
-	) IS
-		WITH strategy_ids AS (
-			SELECT strategy_id
-			FROM   strategy
-			WHERE  generation = p_generation
-			ORDER BY strategy_id
-		),
-		
-		strategy_sequence AS (
-			SELECT (FLOOR((ROWNUM - 1) / v_tournament_player_count) + 1) tournament_group,
-				   strategy_id
-			FROM   strategy_ids
-		)
-		
-		SELECT ROWNUM seat_number,
-			   strategy_id
-		FROM   strategy_sequence
-		WHERE  tournament_group = p_tournament_group_number
-		ORDER BY strategy_id;
-		
+	v_purge_options DBMS_AQADM.AQ$_PURGE_OPTIONS_T;
 BEGIN
-
-	-- create initial generation of random strategies
-	pkg_poker_ai.log(p_message => 'evolver: begin creation of initial generation of random strategies');
-	DELETE FROM strategy_fitness;
-	DELETE FROM strategy;
-	FOR v_i IN 1 .. v_generation_size LOOP
-		-- generate random chromosome
-		SELECT pkg_ga_util.get_random_bit_string(p_length => pkg_ga_player.v_strat_chromosome_metadata.chromosome_bit_length) strategy_chromosome
-		INTO   v_chromosome
-		FROM   DUAL;
-		
-		v_strategy_proc := pkg_ga_player.get_strategy_procedure(p_strategy_chromosome => v_chromosome);
-	
-		INSERT INTO strategy (
-			strategy_id,
-			generation,
-			strategy_chromosome,
-			strategy_procedure
-		) VALUES (
-			pai_seq_stratid.NEXTVAL,
-			1,
-			v_chromosome,
-			v_strategy_proc
-		);
-	END LOOP;
-	COMMIT;
-	pkg_poker_ai.log(p_message => 'evolver: end creation of initial generation of random strategies');
-
-	-- evolve to maximum generation
-	pkg_poker_ai.log(p_message => 'evolver: begin generation evolution');
-	FOR v_current_generation IN 1 .. v_max_generations LOOP
-	
-		pkg_poker_ai.log(p_message => 'evolver: begin fitness test for generation ' || v_current_generation);
-		
-		-- Evaluate fitness of current generation by playing them in tournaments against each other.  Break up the current generation
-		-- into groups of reasonable size for tournament play.
-		FOR v_tournament_group IN 1 .. v_tournament_groups LOOP
-		
-			-- setup tournament group
-			v_strategy_ids.DELETE;
-			FOR v_strategy_rec IN v_tournament_group_set(
-				p_generation              => v_current_generation,
-				p_tournament_group_number => v_tournament_group
-			) LOOP
-				v_strategy_record.value := v_strategy_rec.strategy_id;
-				v_strategy_ids.EXTEND;
-				v_strategy_ids(v_strategy_rec.seat_number) := v_strategy_record;
-			END LOOP;
-			
-			-- play tournaments
-			FOR v_tournament_rec IN (
-				SELECT ROWNUM tournament_number
-				FROM   DUAL
-				CONNECT BY ROWNUM <= v_tournament_play_count
-				ORDER BY tournament_number
-			) LOOP
-			
-				pkg_poker_ai.log(p_message => 'evolver: begin play of generation ' || v_current_generation
-					|| ' tournament group ' || v_tournament_group
-					|| ' tournament number ' || v_tournament_rec.tournament_number
-				);
-
-				-- play tournament
-				pkg_poker_ai.play_tournament(
-					p_strategy_ids              => v_strategy_ids,
-					p_buy_in_amount             => v_tournament_buy_in,
-					p_initial_small_blind_value => v_initial_small_blind_value,
-					p_double_blinds_interval    => v_double_blinds_interval,
-					p_perform_state_logging     => 'N'
-				);
-				
-				pkg_poker_ai.log(p_message => 'evolver: end play of generation ' || v_current_generation
-					|| ' tournament group ' || v_tournament_group
-					|| ' tournament number ' || v_tournament_rec.tournament_number
-				);
-
-			END LOOP;
-		
-		END LOOP;
-		pkg_poker_ai.log(p_message => 'evolver: end fitness test for generation ' || v_current_generation);
-
-		-- all tournaments have been played for current generation, generate next generation
-		IF v_current_generation != v_max_generations THEN
-			pkg_poker_ai.log(p_message => 'evolver: begin next generation creation');
-			pkg_ga_player.create_new_generation(
-				p_from_generation     => v_current_generation,
-				p_fitness_test_id     => v_tournament_player_count || '_PLAYER_' || v_tournament_buy_in || '_BUYIN',
-				p_new_generation_size => v_generation_size,
-				p_crossover_rate      => v_crossover_rate,
-				p_crossover_point     => v_crossover_point,
-				p_mutation_rate       => v_mutation_rate
-			);
-			COMMIT;
-			pkg_poker_ai.log(p_message => 'evolver: end next generation creation');
-		END IF;
-
-	END LOOP;
-	pkg_poker_ai.log(p_message => 'evolver: end generation evolution');
-	
+	DBMS_AQADM.PURGE_QUEUE_TABLE('ev_trial_work_queue_tbl', NULL, v_purge_options);
 END;
+COMMIT;
+
+BEGIN
+	pkg_ga_evolver.init_evolution_trial(
+		p_trial_id                  => 'TEST_TRIAL',
+		p_generation_size           => 100,
+		p_max_generations           => 2,
+		p_crossover_rate            => 0.85,
+		p_crossover_point           => NULL,
+		p_mutation_rate             => NULL,
+		p_players_per_tournament    => 10,
+		p_tournament_play_count     => 2,
+		p_tournament_buy_in         => 500,
+		p_initial_small_blind_value => 5,
+		p_double_blinds_interval    => 5
+	);
+END;
+SELECT * FROM evolution_trial;
+SELECT * FROM evolution_trial_work;
+
+WITH tournaments AS (
+	SELECT DISTINCT
+		   tournament_id,
+		   played
+	FROM   evolution_trial_work
+)
+
+SELECT SUM(CASE WHEN played = 'Y' THEN 1 ELSE 0 END) tournaments_played,
+	   COUNT(*) total_tournaments,
+	   ROUND((SUM(CASE WHEN played = 'Y' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) * 100), 2) percent_complete
+FROM   tournaments;
+
+SELECT * FROM ev_trial_work_queue_tbl;
+SELECT * FROM strategy;
+SELECT * FROM strategy_fitness;
+
+-- step generation worker
+DECLARE
+	v_response VARCHAR2(200);
+BEGIN
+	v_response := pkg_ga_evolver.step_generation(p_trial_id => 'TEST_TRIAL');
+	DBMS_OUTPUT.PUT_LINE('v_response = ' || v_response);
+END;
+
+-- step tournament worker
+DECLARE
+	v_response VARCHAR2(200);
+BEGIN
+	FOR v_i IN 1 .. 20 LOOP
+		v_response := pkg_ga_evolver.step_tournament_work(p_trial_id => 'TEST_TRIAL', p_worker_id => 'TOURNAMENT_WORKER_1');
+		DBMS_OUTPUT.PUT_LINE('v_response = ' || v_response);
+	END LOOP;
+END;
+
 
 -- monitor progress
 SELECT log_record_number,
@@ -188,5 +109,3 @@ FROM   strategy s,
 WHERE  s.strategy_id = sf.strategy_id
 GROUP BY s.generation
 ORDER BY generation;
-
-
