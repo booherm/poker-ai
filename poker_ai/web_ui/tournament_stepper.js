@@ -193,13 +193,13 @@ TournamentStepper.initTournamentPanel = function(){
 	var initInternalTournamentButton = Ext.create("Ext.Button", {
         text: "Init Int. Tournament",
         width: 150,
-        handler: function(){ TournamentStepper.initTournament("INTERNAL"); }
+        handler: function(){ TournamentStepper.initTournament(0); }
     });
 	
 	var initExternalTournamentButton = Ext.create("Ext.Button", {
         text: "Init Ext. Tournament",
         width: 150,
-        handler: function(){ TournamentStepper.initTournament("EXTERNAL"); }
+        handler: function(){ TournamentStepper.initTournament(1); }
     });
 
 	TournamentStepper.stepPlayButton = Ext.create("Ext.Button", {
@@ -207,7 +207,7 @@ TournamentStepper.initTournamentPanel = function(){
         width: 150,
 		colspan: 2,
 		disabled: true,
-        handler: function() {TournamentStepper.stepPlay("AUTO", null);}
+        handler: function() {TournamentStepper.stepPlay(0, null);}
     });
 	
 	var tournamentFieldSet = Ext.create("Ext.form.FieldSet", {
@@ -584,13 +584,13 @@ TournamentStepper.refreshUi = function(uiData){
 		document.getElementById("seat_" + seatNumber + "_hole_card_2").src = TournamentStepper.getCardImage(playerData.hole_card_2);
 		
 		// set best hand rank
-		TournamentStepper["playerBestHandRank_" + seatNumber].setValue(playerData.best_hand_rank);
+		TournamentStepper["playerBestHandRank_" + seatNumber].setValue(playerData.best_hand_classification);
 		
 		// set best hand cards
 		for(var c = 1; c <= 5; c++){
 			var cardSlot = document.getElementById("seat_" + seatNumber + "_best_hand_" + c);
 			cardSlot.src = TournamentStepper.getCardImage(playerData["best_hand_card_" + c]);
-			cardSlot.style.border = playerData["best_hand_card_" + c + "_is_hole_card"] == "Y" ? TournamentStepper.holeCardBorderStyle : TournamentStepper.nonHoleCardBorderStyle;
+			cardSlot.style.border = playerData["best_hand_card_" + c + "_is_hole_card"] ? TournamentStepper.holeCardBorderStyle : TournamentStepper.nonHoleCardBorderStyle;
 		}
 		
 		// other generic attributes
@@ -612,13 +612,13 @@ TournamentStepper.refreshUi = function(uiData){
 		TournamentStepper["seatPanel_" + seatNumber].setBodyStyle("background-color", playerColor);
 
 		// player control buttons
-		if(playerData.can_fold == "Y")
+		if(playerData.can_fold)
 			TournamentStepper["playerButtonFold_" + seatNumber].setDisabled(false);
-		if(playerData.can_check == "Y")
+		if(playerData.can_check)
 			TournamentStepper["playerButtonCheck_" + seatNumber].setDisabled(false);
-		if(playerData.can_call == "Y")
+		if(playerData.can_call)
 			TournamentStepper["playerButtonCall_" + seatNumber].setDisabled(false);
-		if(playerData.can_bet == "Y"){
+		if(playerData.can_bet){
 			TournamentStepper["playerButtonBet_" + seatNumber].setDisabled(false);
 			TournamentStepper["playerBetAmount_" + seatNumber].setDisabled(false);
 			TournamentStepper["playerBetAmount_" + seatNumber].setValue(playerData.min_bet_amount);
@@ -626,7 +626,7 @@ TournamentStepper.refreshUi = function(uiData){
 			TournamentStepper["playerBetAmount_" + seatNumber].setMaxValue(playerData.max_bet_amount);
 			TournamentStepper["playerBetAmount_" + seatNumber].clearInvalid();
 		}
-		if(playerData.can_raise == "Y"){
+		if(playerData.can_raise){
 			TournamentStepper["playerButtonBet_" + seatNumber].setText("Raise");
 			TournamentStepper["playerButtonBet_" + seatNumber].setDisabled(false);
 			TournamentStepper["playerBetAmount_" + seatNumber].setDisabled(false);
@@ -662,7 +662,7 @@ TournamentStepper.refreshUi = function(uiData){
 	// status messages
 	var message = "";
 	for(var i = 0; i < uiData.statusMessage.length; i++){
-		message += uiData.statusMessage[i].message + "\n";
+		message += uiData.statusMessage[i] + "\n";
 	}
 	TournamentStepper.statusTextArea.setValue(message);
 	TournamentStepper.statusTextArea.getEl().down("textarea").dom.scrollTop = 99999;
@@ -691,22 +691,22 @@ TournamentStepper.stepPlay = function(playerMove, playerMoveAmount){
 };
 
 TournamentStepper.playerFold = function(seatNumber){
-	TournamentStepper.stepPlay("FOLD", null);
+	TournamentStepper.stepPlay(1, null);
 };
 
 TournamentStepper.playerCheck = function(seatNumber){
-	TournamentStepper.stepPlay("CHECK", null);
+	TournamentStepper.stepPlay(2, null);
 };
 
 TournamentStepper.playerBet = function(seatNumber){
 	if(TournamentStepper["playerButtonBet_" + seatNumber].getText() == "Bet")
-		TournamentStepper.stepPlay("BET", TournamentStepper["playerBetAmount_" + seatNumber].getValue());
+		TournamentStepper.stepPlay(4, TournamentStepper["playerBetAmount_" + seatNumber].getValue());
 	else
-		TournamentStepper.stepPlay("RAISE", TournamentStepper["playerBetAmount_" + seatNumber].getValue());
+		TournamentStepper.stepPlay(5, TournamentStepper["playerBetAmount_" + seatNumber].getValue());
 };
 
 TournamentStepper.playerCall = function(seatNumber){
-	TournamentStepper.stepPlay("CALL", null);
+	TournamentStepper.stepPlay(3, null);
 };
 
 TournamentStepper.betValueValidityChange = function(seatNumber, isValid){

@@ -2,11 +2,15 @@
 
 PokerAiController::PokerAiController() {
 
+	srand((unsigned int) time(NULL));
+
 	databaseId = "ORACLENODE1";
-	tournamentStepperDbInterface = new TournamentStepperDbInterface(databaseId);
+	ocilib::Environment::Initialize(ocilib::Environment::EnvironmentFlagsValues::Threaded);
+
+	tournamentController = new TournamentController(databaseId);
 	gaEvolverController = new GaEvolverController(databaseId);
 
-	uiWindow = new PokerAiUiWindow(tournamentStepperDbInterface, gaEvolverController);
+	uiWindow = new PokerAiUiWindow(tournamentController, gaEvolverController);
 	uiWindow->threadStart();
 
 	uiWindow->threadJoin();
@@ -14,6 +18,6 @@ PokerAiController::PokerAiController() {
 
 PokerAiController::~PokerAiController() {
 	delete uiWindow;
-	delete tournamentStepperDbInterface;
+	delete tournamentController;
 	delete gaEvolverController;
 }

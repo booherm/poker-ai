@@ -131,6 +131,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>external\boost_1_60_0\lib32-msvc-14.0\libboost_thread-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_date_time-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_system-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_chrono-vc140-mt-1_60.lib;external\awesomium-1.7.5.1\lib\awesomium.lib;external\ocilib-4.2.1-windows\lib32\ociliba.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -156,8 +157,11 @@
     <ClCompile Include="AwesomiumMessageDispatcher.cpp" />
     <ClCompile Include="AwesomiumUiWindow.cpp" />
     <ClCompile Include="Deck.cpp" />
+    <ClCompile Include="Logger.cpp" />
     <ClCompile Include="Player.cpp" />
-    <ClCompile Include="PokerController.cpp" />
+    <ClCompile Include="PlayerState.cpp" />
+    <ClCompile Include="PokerState.cpp" />
+    <ClCompile Include="TournamentController.cpp" />
     <ClCompile Include="PotController.cpp" />
     <ClCompile Include="TournamentStepperDbInterface.cpp" />
     <ClCompile Include="GaEvolverController.cpp">
@@ -170,13 +174,18 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="PokerAiController.cpp" />
     <ClCompile Include="PokerAiUiWindow.cpp" />
+    <ClCompile Include="Util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AwesomiumJsDelegate.hpp" />
     <ClInclude Include="AwesomiumUiWindow.hpp" />
     <ClInclude Include="Deck.hpp" />
+    <ClInclude Include="Logger.hpp" />
     <ClInclude Include="Player.hpp" />
-    <ClInclude Include="PokerController.hpp" />
+    <ClInclude Include="PlayerState.hpp" />
+    <ClInclude Include="PokerEnumerations.hpp" />
+    <ClInclude Include="PokerState.hpp" />
+    <ClInclude Include="TournamentController.hpp" />
     <ClInclude Include="PotController.hpp" />
     <ClInclude Include="TournamentStepperDbInterface.hpp" />
     <ClInclude Include="GaEvolverController.hpp" />
@@ -186,6 +195,7 @@
     <ClInclude Include="json.hpp" />
     <ClInclude Include="PokerAiController.hpp" />
     <ClInclude Include="PokerAiUiWindow.hpp" />
+    <ClInclude Include="Util.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

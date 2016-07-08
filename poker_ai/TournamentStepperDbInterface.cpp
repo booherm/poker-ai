@@ -3,7 +3,6 @@
 #include <string>
 
 TournamentStepperDbInterface::TournamentStepperDbInterface(const std::string& databaseId) {
-	ocilib::Environment::Initialize(ocilib::Environment::EnvironmentFlagsValues::Threaded);
 	con.Open(databaseId, "poker_ai", "poker_ai");
 }
 

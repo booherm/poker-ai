@@ -2,7 +2,7 @@
 #define POKERAICONTROLLER_HPP
 
 #include "PokerAiUiWindow.hpp"
-#include "TournamentStepperDbInterface.hpp"
+#include "TournamentController.hpp"
 #include "GaEvolverController.hpp"
 
 class PokerAiController {
@@ -12,7 +12,7 @@ public:
 private:
 	std::string databaseId;
 	PokerAiUiWindow* uiWindow;
-	TournamentStepperDbInterface* tournamentStepperDbInterface;
+	TournamentController* tournamentController;
 	GaEvolverController* gaEvolverController;
 };
 

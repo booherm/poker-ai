@@ -2,14 +2,14 @@
 #define POKERAIUIWINDOW_HPP
 
 #include "AwesomiumUiWindow.hpp"
-#include "TournamentStepperDbInterface.hpp"
+#include "TournamentController.hpp"
 #include "GaEvolverController.hpp"
 
 class PokerAiUiWindow : public AwesomiumUiWindow
 {
 
 public:
-	PokerAiUiWindow(TournamentStepperDbInterface* tournamentStepperDbInterface, GaEvolverController* gaEvolverController);
+	PokerAiUiWindow(TournamentController* tournamentController, GaEvolverController* gaEvolverController);
 
 private:
 	void initTournament(WebView* caller, const JSArray& args);
@@ -22,7 +22,7 @@ private:
 	void performEvolutionTrial(WebView* caller, const JSArray& args);
 	void bindJsFunctions();
 
-	TournamentStepperDbInterface* tournamentStepperDbInterface;
+	TournamentController* tournamentController;
 	GaEvolverController* gaEvolverController;
 };
 

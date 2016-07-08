@@ -1,0 +1,105 @@
+possible_action_set_1 decision procedure
+
+<input> := HOLE_CARD_1 | HOLE_CARD_2 | COMMUNITY_CARD_1 | PLAYER_1_STATE | PLAYER_2_STATE | MY_STATE | PLAYER_1_MONEY | GAME_NUMBER | PLAYER_1_FOLD_COUNT | ......
+8 bits = (0 - 255) input IDs
+
+<expression_operator> := '+' | '-' | '*' | '/'
+2 bits = (0 - 3) expression operator IDs
+
+<max_expression_depth> = 3
+<expression> := <input> | (<expression> <expression_operator> <expression>)
+             ------------------------------------------------------------------
+			       8    |       n                 2                 n
+				   
+depth 0: E1 = (PLAYER_1_STATE + PLAYER_1_MONEY)      (8 bit + 2 bit + 8 bit)
+depth 1: E2 = E1 * GAME_NUMBER
+depth 2: E3 = E2 * E2
+
+
+
+				   
+<boolean_operator> := '<' | '<=' | '=' | '>=' | '>' | '!=' | 'IS NULL' | 'IS NOT NULL'
+3 bits = (0 - 7) boolean operator IDs
+
+<amount_multiplier> := unsigned int >= 0, <= 255
+
+BOOLEAN_OPERATOR_SLOT_COUNT  = 2^(stack depth - 1) - 1
+EXPRESSION_SLOT_COUNT        = 2 * (2^(stack depth - 1) - 1)
+AMOUNT_MULTIPLIER_SLOT_COUNT = 2 * (2^(stack depth - 1) - 1)
+
+If expression operand ID <= 255, lookup value from variable and constants table
+Else, evaluate expression ID matching expression operand ID - 256.  If circular dependency detected, replaced deepest expression with legal expression
+replace re-referenced operand with 0 when operator is - or +, 1 when * or /.  Both operands may need to be replaced.
+Amount multiplier
+
+
+------------------------------------------------------------------------------------------------------------------------------------
+gene | type                   | translation                                        | grouping
+------------------------------------------------------------------------------------------------------------------------------------
+ 032 | expression operand ID  | player_1_money                                     |--
+ 003 | expression operator ID | *                                                    |--- expression 0
+ 352 | expression operand ID  | [expression 96]                                    |--
+ 018 | expression operand ID  | player_2_fold_ratio                                |--
+ 002 | expression operator ID | -                                                    |--- expression 1
+ 300 | expression operand ID  | [expression 44]                                    |--
+ 256 | expression operand ID  | [expression 0] (player_1_money * [expression 96])  |--
+ 001 | expression operator ID | +                                                    |--- expression 2
+ 101 | expression operand ID  | hole_card_1_id                                     |--
+ .
+ .
+ .
+ 088 | expression operand ID  | community_card_2                                   |--
+ 001 | expression operator ID | +                                                    |--- expression EXPRESSION_SLOT_COUNT
+ 101 | expression operand ID  | hole_card_1_id                                     |--
+ 
+ 003 | boolean operator ID    | >=                                                 | boolean operator 0
+ 000 | boolean operator ID    | <                                                  | boolean operator 1
+ 007 | boolean operator ID    | IS NOT NULL                                        | boolean operator 2
+ .
+ .
+ .
+ 002 | boolean operator ID    | =                                                  | boolean operator BOOLEAN_OPERATOR_SLOT_COUNT
+
+
+
+ Stack depth 4:
+ 
+L0:                            E0 O0 E1
+					              /\
+					             /  \
+					            /    \
+					           /      \
+					          /        \
+					         /          \
+					       AM0          AM1
+					       /              \
+                          /                \
+                         /                  \
+                        /                    \
+                       /                      \ 
+                      /                        \
+L1:               E2 O1 E3                   E4 O2 E5
+			         / \                       / \
+                    /   \                     /   \
+                   /     \                   /     \
+                 AM2     AM3               AM4     AM5
+                 /         \               /         \
+                /           \             /           \
+L2:         E6 O3 E7     E8 O4 E9    E10 O5 E11   E12 O6 E13
+		       /\           /\           /\           /\
+             AM6 AM7      AM8 AM9     AM10 AM11    AM12 AM13
+		     /    \       /    \	   /    \       /    \
+L3:		   CALL RAISE  CHECK   BET   FOLD  FOLD  CHECK  RAISE         
+                0.5            0.25                      0.65
+			 
+
+decision_type:
+TYPE_ID CAN_FOLD CAN_CHECK CAN_CALL CAN_BET CAN_RAISE
+-----------------------------------------------------
+      0        Y         Y        N       Y         N
+      1        Y         Y        N       N         Y
+      2        Y         Y        N       N         N
+      3        Y         N        Y       N         Y
+      4        Y         N        Y       N         N
+      5        N         N        N       N         N
+    

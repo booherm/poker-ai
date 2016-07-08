@@ -1,28 +1,16 @@
-#ifndef POKERCONTROLLER_HPP
-#define POKERCONTROLLER_HPP
+#ifndef POKERSTATE_HPP
+#define POKERSTATE_HPP
 
-#include <string>
-#include <vector>
+#include "PokerEnumerations.hpp"
 #include "Deck.hpp"
-#include "Player.hpp"
 #include "PotController.hpp"
 
-class PokerController {
+class PokerState {
 public:
-	enum TournamentMode {
-		INTERNAL = 0,
-		EXTERNAL = 1
-	};
-
-	PokerController();
-
-private:
+	void load(ocilib::Resultset& pokerStateRs);
 
 	// tournament attributes
-	unsigned int tournamentId;
-	TournamentMode tournamentMode;
 	unsigned int currentStateId;
-	std::string evolutionTrialId;
 	unsigned int playerCount;
 	unsigned int buyInAmount;
 	bool tournamentInProgress;
@@ -35,19 +23,14 @@ private:
 	unsigned int turnSeatNumber;
 	unsigned int smallBlindValue;
 	unsigned int bigBlindValue;
-	unsigned int bettingRoundNumber;
+	PokerEnums::BettingRound currentBettingRound;
 	bool bettingRoundInProgress;
 	unsigned int lastToRaiseSeatNumber;
 	unsigned int minRaiseAmount;
 	std::vector<Deck::Card> communityCards;
 
-	std::vector<Player> players;
 	Deck deck;
 	PotController potController;
-
-
-
-
 };
 
 #endif

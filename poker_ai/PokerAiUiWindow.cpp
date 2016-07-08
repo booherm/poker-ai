@@ -1,19 +1,19 @@
 #include "PokerAiUiWindow.hpp"
 
-PokerAiUiWindow::PokerAiUiWindow(TournamentStepperDbInterface* tournamentStepperDbInterface, GaEvolverController* gaEvolverController)
+PokerAiUiWindow::PokerAiUiWindow(TournamentController* tournamentController, GaEvolverController* gaEvolverController)
 	: AwesomiumUiWindow(1500, 550, "Poker AI", "file:///c:/projects/vs_workspace/poker_ai/poker_ai/web_ui/poker_ai.html")
 {
-	this->tournamentStepperDbInterface = tournamentStepperDbInterface;
+	this->tournamentController = tournamentController;
 	this->gaEvolverController = gaEvolverController;
 }
 
 void PokerAiUiWindow::initTournament(WebView* caller, const JSArray& args) {
 	
-	std::string tournamentMode = Awesomium::ToString(args.At(0).ToString());
+	TournamentController::TournamentMode tournamentMode = (TournamentController::TournamentMode) args.At(0).ToInteger();
 	unsigned int playerCount = args.At(1).ToInteger();
 	unsigned int buyInAmount = args.At(2).ToInteger();
 
-	unsigned int stateId = tournamentStepperDbInterface->initTournament(tournamentMode, playerCount, buyInAmount);
+	unsigned int stateId = tournamentController->initNonAutomatedTournament(tournamentMode, playerCount, buyInAmount);
 	refreshUi(stateId);
 }
 
@@ -21,10 +21,10 @@ void PokerAiUiWindow::stepPlay(WebView* caller, const JSArray& args) {
 	
 	unsigned int stateId = args.At(0).ToInteger();
 	unsigned int smallBlindAmount = args.At(1).ToInteger();
-	std::string playerMove = Awesomium::ToString(args.At(2).ToString());
+	PokerEnums::PlayerMove playerMove = (PokerEnums::PlayerMove) args.At(2).ToInteger();
 	unsigned int playerMoveAmount = args.At(3).ToInteger();
 
-	stateId = tournamentStepperDbInterface->stepPlay(stateId, smallBlindAmount, playerMove, playerMoveAmount);
+	stateId = tournamentController->stepPlay(stateId, smallBlindAmount, playerMove, playerMoveAmount);
 	refreshUi(stateId);
 }
 
@@ -36,7 +36,7 @@ void PokerAiUiWindow::editCard(WebView* caller, const JSArray& args) {
 	unsigned int cardSlot = args.At(3).ToInteger();
 	unsigned int cardId = args.At(4).ToInteger();
 
-	stateId = tournamentStepperDbInterface->editCard(stateId, cardType, seatNumber, cardSlot, cardId);
+	//stateId = tournamentStepperDbInterface->editCard(stateId, cardType, seatNumber, cardSlot, cardId);
 	refreshUi(stateId);
 }
 
@@ -47,19 +47,19 @@ void PokerAiUiWindow::loadState(WebView* caller, const JSArray& args) {
 
 void PokerAiUiWindow::loadPreviousState(WebView* caller, const JSArray& args) {
 	unsigned int stateId = args.At(0).ToInteger();
-	stateId = tournamentStepperDbInterface->getPreviousStateId(stateId);
+	stateId = tournamentController->getPreviousStateId(stateId);
 	refreshUi(stateId);
 }
 
 void PokerAiUiWindow::loadNextState(WebView* caller, const JSArray& args) {
 	unsigned int stateId = args.At(0).ToInteger();
-	stateId = tournamentStepperDbInterface->getNextStateId(stateId);
+	stateId = tournamentController->getNextStateId(stateId);
 	refreshUi(stateId);
 }
 
 void PokerAiUiWindow::refreshUi(unsigned int stateId) {
 	Json::Value uiData(Json::objectValue);
-	tournamentStepperDbInterface->getUiState(stateId, uiData);
+	tournamentController->getUiState(stateId, uiData);
 	//std::cout << uiData.toStyledString() << std::endl;
 	executeJs("TournamentStepper.refreshUi(" + uiData.toStyledString() + ");");
 }
