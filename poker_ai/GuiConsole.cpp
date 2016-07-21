@@ -15,4 +15,5 @@ void startConsole() {
 	hConsole = _open_osfhandle((long) stdHandle, _O_TEXT);
 	fp = _fdopen(hConsole, "w");
 	freopen_s(&fp, "CONOUT$", "w", stdout);
+
 }

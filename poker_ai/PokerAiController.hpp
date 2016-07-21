@@ -3,6 +3,7 @@
 
 #include "PokerAiUiWindow.hpp"
 #include "TournamentController.hpp"
+#include "StrategyManager.hpp"
 #include "GaEvolverController.hpp"
 
 class PokerAiController {
@@ -12,6 +13,8 @@ public:
 private:
 	std::string databaseId;
 	PokerAiUiWindow* uiWindow;
+	PythonManager* pythonManager;
+	StrategyManager* strategyManager;
 	TournamentController* tournamentController;
 	GaEvolverController* gaEvolverController;
 };

@@ -57,17 +57,23 @@ Deck::Deck() {
 	unkownCard = {0, Deck::Suit::UNKNOWN, 0, false};
 }
 
-void Deck::initialize() {
+void Deck::initialize(Util::RandomNumberGenerator* randomNumberGenerator) {
+	this->randomNumberGenerator = randomNumberGenerator;
 	for (unsigned int i = 0; i < cards.size(); i++) {
 		cards[i].dealt = false;
 	}
 }
 
-Deck::Card Deck::getCardById(unsigned int cardId) {
+Deck::Card Deck::getCardById(unsigned int cardId) const {
 	return cards[cardId - 1];
 }
 
-Deck::Card Deck::drawCard() {
+Deck::Card Deck::drawCardById(unsigned int cardId) {
+	cards[cardId - 1].dealt = true;
+	return cards[cardId - 1];
+}
+
+Deck::Card Deck::drawRandomCard() {
 	std::vector<unsigned int> undealtCards;
 	for (unsigned int i = 0; i < cards.size(); i++) {
 		if (!cards[i].dealt)
@@ -77,7 +83,7 @@ Deck::Card Deck::drawCard() {
 	if (undealtCards.size() == 0)
 		return unkownCard;
 
-	unsigned int randomCardIndex = undealtCards[rand() % undealtCards.size()];
+	unsigned int randomCardIndex = undealtCards[randomNumberGenerator->getRandomUnsignedInt(0, undealtCards.size() - 1)];
 	cards[randomCardIndex].dealt = true;
 
 	return cards[randomCardIndex];

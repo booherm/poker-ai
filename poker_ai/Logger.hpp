@@ -13,8 +13,10 @@ public:
 	void getLogMessages(Json::Value& logMessagesJsonArray);
 	void clearLogMessages();
 	void loadMessage(const std::string& message);
+	void setLoggingEnabled(bool enabled);
 
 private:
+	bool loggingEnabled;
 	ocilib::Connection con;
 	std::vector<std::string> logMessages;
 };

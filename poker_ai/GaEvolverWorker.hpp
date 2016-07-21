@@ -4,6 +4,9 @@
 #include <ocilib.hpp>
 #include <boost/thread.hpp>
 #include <windows.h>
+#include "PythonManager.hpp"
+#include "StrategyManager.hpp"
+#include "Logger.hpp"
 
 class GaEvolverWorker {
 public:
@@ -12,7 +15,14 @@ public:
 		GENERATION_RUNNER = 1
 	};
 
-	GaEvolverWorker(const std::string& databaseId, const std::string& trialId, const std::string& workerId, GaEvoloverWorkerType workerType);
+	GaEvolverWorker(
+		const std::string& databaseId,
+		PythonManager* pythonManager,
+		unsigned int trialId,
+		const std::string& workerId,
+		GaEvoloverWorkerType workerType,
+		StrategyManager* strategyManager
+	);
 	~GaEvolverWorker();
 	void startThread();
 	void threadJoin();
@@ -20,13 +30,19 @@ public:
 private:
 	void threadLoop();
 	void generationRunnerThreadLoop();
+	void createNextGeneration();
 	void tournamentRunnerThreadLoop();
 
-	std::string trialId;
+	bool verboseOutput = true;
+	std::string databaseId;
+	PythonManager* pythonManager;
+	unsigned int trialId;
 	std::string workerId;
 	GaEvoloverWorkerType workerType;
 	ocilib::Connection con;
+	Logger logger;
 	boost::thread workerThread;
+	StrategyManager* strategyManager;
 };
 
 #endif

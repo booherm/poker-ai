@@ -366,25 +366,29 @@ TournamentStepper.initSeatPanel = function(seatNumber){
 
 	TournamentStepper["playerHandShowingLabel_" + seatNumber] = Ext.create("Ext.form.field.Display", {
 		labelWidth: 100,
-		fieldLabel: "Hand Showing",
-		colspan: "2"
+		fieldLabel: "Hand Showing"
 	});
 
 	TournamentStepper["playerTournamentRank_" + seatNumber] = Ext.create("Ext.form.field.Display", {
-		labelWidth: 150,
+		labelWidth: 125,
 		fieldLabel: "Tournament Rank"
 	});
 
 	TournamentStepper["playerGameRank_" + seatNumber] = Ext.create("Ext.form.field.Display", {
-		labelWidth: 150,
+		labelWidth: 125,
 		fieldLabel: "Game Rank"
 	});
 	
 	TournamentStepper["playerTotalPotContribution_" + seatNumber] = Ext.create("Ext.form.field.Display", {
-		labelWidth: 150,
+		labelWidth: 125,
 		fieldLabel: "Total Pot Contribution"
 	});
 
+	TournamentStepper["playerStrategyId_" + seatNumber] = Ext.create("Ext.form.field.Display", {
+		labelWidth: 125,
+		fieldLabel: "Strategy ID"
+	});
+	
 	TournamentStepper["playerHoleCards_" + seatNumber] = Ext.create("Ext.form.field.Display", {
 		fieldLabel: "Hole Cards",
 		labelWidth: 100,
@@ -476,9 +480,10 @@ TournamentStepper.initSeatPanel = function(seatNumber){
 			TournamentStepper["playerGameRank_" + seatNumber],
 			
 			TournamentStepper["playerStateLabel_" + seatNumber],
-			
 			TournamentStepper["playerTotalPotContribution_" + seatNumber],
+			
 			TournamentStepper["playerHandShowingLabel_" + seatNumber],
+			TournamentStepper["playerStrategyId_" + seatNumber],
 			
 			TournamentStepper["playerHoleCards_" + seatNumber],
 			playerControlsContainer,
@@ -565,6 +570,38 @@ TournamentStepper.refreshUi = function(uiData){
 	}
 	
 	// players state
+	// clear player seat for seats not returned
+	for(var seatNumber = 1; seatNumber < TournamentStepper.maxPlayerCount; seatNumber++){
+		if(!uiData.playerState[seatNumber - 1]){
+				
+			TournamentStepper["playerButtonFold_" + seatNumber].setDisabled(true);
+			TournamentStepper["playerButtonCheck_" + seatNumber].setDisabled(true);
+			TournamentStepper["playerButtonCall_" + seatNumber].setDisabled(true);
+			TournamentStepper["playerButtonBet_" + seatNumber].setDisabled(true);
+			TournamentStepper["playerBetAmount_" + seatNumber].setDisabled(true);
+			TournamentStepper["playerButtonBet_" + seatNumber].setText("Bet");
+			document.getElementById("seat_" + seatNumber + "_hole_card_1").src = TournamentStepper.getCardImage(null);
+			document.getElementById("seat_" + seatNumber + "_hole_card_2").src = TournamentStepper.getCardImage(null);
+			TournamentStepper["playerBestHandRank_" + seatNumber].setValue(null);
+
+			for(var c = 1; c <= 5; c++){
+				var cardSlot = document.getElementById("seat_" + seatNumber + "_best_hand_" + c);
+				cardSlot.src = TournamentStepper.getCardImage(null);
+				cardSlot.style.border = TournamentStepper.nonHoleCardBorderStyle;
+			}
+
+			TournamentStepper["playerHandShowingLabel_" + seatNumber].setValue(null);
+			TournamentStepper["playerStrategyId_" + seatNumber].setValue(null);
+			TournamentStepper["playerMoneyLabel_" + seatNumber].setValue(null);
+			TournamentStepper["playerStateLabel_" + seatNumber].setValue("No Player");
+			TournamentStepper["playerGameRank_" + seatNumber].setValue(null);
+			TournamentStepper["playerTournamentRank_" + seatNumber].setValue(null);
+			TournamentStepper["playerTotalPotContribution_" + seatNumber].setValue(null);
+			TournamentStepper["seatPanel_" + seatNumber].setBodyStyle("background-color", "gray");
+			
+		}
+	}
+		
 	for(var i = 0; i < uiData.playerState.length; i++){
 		
 		var playerData = uiData.playerState[i];
@@ -595,6 +632,7 @@ TournamentStepper.refreshUi = function(uiData){
 		
 		// other generic attributes
 		TournamentStepper["playerHandShowingLabel_" + seatNumber].setValue(playerData.hand_showing);
+		TournamentStepper["playerStrategyId_" + seatNumber].setValue(playerData.strategy_id == 0 ? "0 - Random" : playerData.strategy_id);
 		TournamentStepper["playerMoneyLabel_" + seatNumber].setValue(playerData.money);
 		TournamentStepper["playerStateLabel_" + seatNumber].setValue(playerData.state);
 		TournamentStepper["playerGameRank_" + seatNumber].setValue(playerData.game_rank);

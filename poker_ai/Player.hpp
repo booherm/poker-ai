@@ -10,20 +10,29 @@
 #include "PlayerState.hpp"
 #include "json.hpp"
 #include "Logger.hpp"
+#include "Strategy.hpp"
 
 class Player {
 public:
+
 	void initialize(
 		ocilib::Connection& con,
 		Logger* logger,
 		PokerState* pokerState,
 		std::vector<PlayerState>* playerStates,
 		unsigned int seatNumber,
-		unsigned int strategyId,
+		Strategy* strategy,
 		unsigned int playerId,
 		unsigned int buyInAmount
 	);
-	void load(ocilib::Connection& con, Logger* logger, PokerState* pokerState, std::vector<PlayerState>* playerStates, ocilib::Resultset& playerStateRs);
+	void load(
+		ocilib::Connection& con,
+		Logger* logger,
+		PokerState* pokerState,
+		std::vector<PlayerState>* playerStates,
+		Strategy* strategy,
+		ocilib::Resultset& playerStateRs
+	);
 	bool getIsActive() const;
 	PokerEnums::State getState() const;
 	std::string getStateString() const;
@@ -43,6 +52,7 @@ public:
 	void resetGameState();
 	void resetBettingRoundState();
 	void insertStateLog();
+	void captureTournamentResults(unsigned int tournamentId, unsigned int evolutionTrialId);
 
 private:
 	struct Hand {
@@ -56,11 +66,10 @@ private:
 	inline bool getCanCall() const;
 	bool getCanBet() const;
 	bool getCanRaise() const;
-	inline unsigned int getMinBetAmount() const;
-	unsigned int getMaxBetAmount() const;
-	inline unsigned int getMinRaiseAmount() const;
-	unsigned int getMaxRaiseAmount() const;
+	Strategy::BetRaiseLimits Player::getBetRaiseLimits() const;
 	std::string getHandClassificationString(PokerEnums::HandClassification classification) const;
+	void clearHoleCards();
+	void pushHoleCard(const Deck::Card& card);
 	Hand Player::calculateHandAttributes(std::vector<Deck::Card> cards);
 	void performAutomaticPlayerMove();
 	void performExplicitPlayerMove(PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount);
@@ -70,7 +79,7 @@ private:
 	PokerState* pokerState;
 	std::vector<PlayerState>* playerStates;
 	PlayerState* thisPlayerState;
-	unsigned int currentStrategyId;
+	Strategy* currentStrategy;
 	std::vector<Deck::Card> holeCards;
 	Hand bestHand;
 	unsigned int bestHandRank;

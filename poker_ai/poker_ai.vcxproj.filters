@@ -42,9 +42,6 @@
     <ClCompile Include="GaEvolverWorker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TournamentStepperDbInterface.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Player.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -67,6 +64,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Logger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Strategy.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PythonManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StateVariableCollection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StrategyManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -98,9 +107,6 @@
     <ClInclude Include="GaEvolverWorker.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TournamentStepperDbInterface.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Deck.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -126,6 +132,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Logger.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Strategy.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PythonManager.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StateVariableCollection.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StrategyEvaluationDataProvider.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StrategyManager.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,15 +1,32 @@
 GaEvolver.init = function() {
 	
-	GaEvolver.trialIdTextBox = Ext.create("Ext.form.field.Text", {
+	GaEvolver.trialIdField = Ext.create("Ext.form.field.Number", {
 		fieldLabel: "Trial ID",
-		labelWidth: 200,
 		allowBlank: false,
-		allowOnlyWhitespace: false,
-		maxLength: 100,
-		value: "TEST_TRIAL",
+		repeatTriggerClick: false,
+		labelWidth: 200,
+		width: 280,
+		minValue: 1,
+		maxValue: 50000,
+		value: 1,
+		step: 1,
+		decimalPrecision: 0,
 		padding: "10 0 0 0"
 	});
-	
+
+	GaEvolver.startFromGenerationField = Ext.create("Ext.form.field.Number", {
+		fieldLabel: "Start From Generation",
+		allowBlank: false,
+		repeatTriggerClick: false,
+		labelWidth: 200,
+		width: 280,
+		minValue: 1,
+		maxValue: 50000,
+		value: 0,
+		step: 1,
+		decimalPrecision: 0
+	});
+
 	GaEvolver.generationSizeField = Ext.create("Ext.form.field.Number", {
 		fieldLabel: "Generation Size",
 		allowBlank: false,
@@ -157,6 +174,13 @@ GaEvolver.init = function() {
 		margin: "10 0 0 100",
 		handler: GaEvolver.performEvolutionTrial
     });
+
+	GaEvolver.joinEvolutionTrialButton = Ext.create("Ext.Button", {
+        text: "Join Evolution Trial",
+        width: 150,
+		margin: "10 0 0 100",
+		handler: GaEvolver.joinEvolutionTrial
+    });
 	
 	var gaEvolverTab = Ext.create("Sms.form.Panel", {
 		layout: { type: "table", columns: 1, tdAttrs: { style: { verticalAlign: "top", padding: "0 10 0 0"} } },
@@ -164,7 +188,8 @@ GaEvolver.init = function() {
 		title: "GA Evolver",
 		height: 1000,
 		items: [
-			GaEvolver.trialIdTextBox,
+			GaEvolver.trialIdField,
+			GaEvolver.startFromGenerationField,
 			GaEvolver.generationSizeField,
 			GaEvolver.maxGenerationsField,
 			GaEvolver.crossoverRateField,
@@ -176,7 +201,8 @@ GaEvolver.init = function() {
 			GaEvolver.tournamentBuyInField,
 			GaEvolver.initialSmallBlindValueField,
 			GaEvolver.doubleBlindsIntervalField,
-			GaEvolver.performEvolutionTrialButton
+			GaEvolver.performEvolutionTrialButton,
+			GaEvolver.joinEvolutionTrialButton
 		]
     });
 	
@@ -194,7 +220,8 @@ GaEvolver.performEvolutionTrial = function() {
 		mutationRate = -1;
 	
 	PokerAi.performEvolutionTrial(
-		GaEvolver.trialIdTextBox.getValue(),
+		GaEvolver.trialIdField.getValue(),
+		GaEvolver.startFromGenerationField.getValue(),
 		GaEvolver.generationSizeField.getValue(),
 		GaEvolver.maxGenerationsField.getValue(),
 		GaEvolver.crossoverRateField.getValue(),
@@ -206,5 +233,12 @@ GaEvolver.performEvolutionTrial = function() {
 		GaEvolver.tournamentBuyInField.getValue(),
 		GaEvolver.initialSmallBlindValueField.getValue(),
 		GaEvolver.doubleBlindsIntervalField.getValue()
+	);
+};
+
+GaEvolver.joinEvolutionTrial = function() {
+	PokerAi.joinEvolutionTrial(
+		GaEvolver.trialIdField.getValue(),
+		GaEvolver.tournamentWorkerThreadsField.getValue()
 	);
 };

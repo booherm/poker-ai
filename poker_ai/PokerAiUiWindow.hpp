@@ -19,7 +19,9 @@ private:
 	void loadPreviousState(WebView* caller, const JSArray& args);
 	void loadNextState(WebView* caller, const JSArray& args);
 	void refreshUi(unsigned int stateId);
+	void performTournamentTest(WebView* caller, const JSArray& args);
 	void performEvolutionTrial(WebView* caller, const JSArray& args);
+	void joinEvolutionTrial(WebView* caller, const JSArray& args);
 	void bindJsFunctions();
 
 	TournamentController* tournamentController;

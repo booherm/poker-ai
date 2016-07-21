@@ -2,9 +2,17 @@
 
 void Logger::initialize(ocilib::Connection& con) {
 	this->con = con;
+	loggingEnabled = true;
+}
+
+void Logger::setLoggingEnabled(bool enabled) {
+	loggingEnabled = enabled;
 }
 
 void Logger::log(unsigned int stateId, const std::string& message) {
+
+	if (!loggingEnabled)
+		return;
 
 	logMessages.push_back(message);
 

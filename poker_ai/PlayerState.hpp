@@ -2,17 +2,89 @@
 #define PLAYERSTATE_HPP
 
 #include "PokerEnumerations.hpp"
+#include "StateVariableCollection.hpp"
 
 class PlayerState {
 public:
 
-	PlayerState();
+	void initialize(unsigned int seatNumber, StateVariableCollection* stateVariables);
+	void setTournamentRank(unsigned int tournamentRank);
+	void setState(PokerEnums::State state);
+	void setSeatNumber(unsigned int seatNumber);
+	void setPlayerId(unsigned int playerId);
+	void setAssumedStrategyId(unsigned int assumedStrategyId);
+	void setMoney(unsigned int money);
+	void setHandShowing(bool handShowing);
+	void setPresentedBetOpportunity(bool presentedBetOpportunity);
+	void setGameRank(unsigned int gameRank);
+	void setEligibleToWinMoney(unsigned int eligibleToWinMoney);
+	void setTotalPotContribution(unsigned int totalPotContribution);
+	void setTotalPotDeficit(int totalPotDeficit);
+	void setAverageGameProfit(float averageGameProfit);
+	void setGamesPlayed(unsigned int gamesPlayed);
+	void setMainPotsWon(unsigned int mainPotsWon);
+	void setMainPotsSplit(unsigned int mainPotsSplit);
+	void setSidePotsWon(unsigned int sidePotsWon);
+	void setSidePotsSplit(unsigned int sidePotsSplit);
+	void setFlopsSeen(unsigned int flopsSeen);
+	void setTurnsSeen(unsigned int turnsSeen);
+	void setRiversSeen(unsigned int riversSeen);
+	void setPreFlopFolds(unsigned int preFlopFolds);
+	void setFlopFolds(unsigned int flopFolds);
+	void setTurnFolds(unsigned int turnFolds);
+	void setRiverFolds(unsigned int riverFolds);
+	void setTotalFolds(unsigned int totalFolds);
+	void setPreFlopChecks(unsigned int preFlopChecks);
+	void setFlopChecks(unsigned int flopChecks);
+	void setTurnChecks(unsigned int turnChecks);
+	void setRiverChecks(unsigned int riverChecks);
+	void setTotalChecks(unsigned int totalChecks);
+	void setPreFlopCalls(unsigned int preFlopCalls);
+	void setFlopCalls(unsigned int flopCalls);
+	void setTurnCalls(unsigned int turnCalls);
+	void setRiverCalls(unsigned int riverCalls);
+	void setTotalCalls(unsigned int totalCalls);
+	void setPreFlopBets(unsigned int preFlopBets);
+	void setFlopBets(unsigned int flopBets);
+	void setTurnBets(unsigned int turnBets);
+	void setRiverBets(unsigned int riverBets);
+	void setTotalBets(unsigned int totalBets);
+	void setPreFlopTotalBetAmount(unsigned int preFlopTotalBetAmount);
+	void setFlopTotalBetAmount(unsigned int flopTotalBetAmount);
+	void setTurnTotalBetAmount(unsigned int turnTotalBetAmount);
+	void setRiverTotalBetAmount(unsigned int riverTotalBetAmount);
+	void setTotalBetAmount(unsigned int totalBetAmount);
+	void setPreFlopRaises(unsigned int preFlopRaises);
+	void setFlopRaises(unsigned int flopRaises);
+	void setTurnRaises(unsigned int turnRaises);
+	void setRiverRaises(unsigned int riverRaises);
+	void setTotalRaises(unsigned int totalRaises);
+	void setPreFlopTotalRaiseAmount(unsigned int preFlopTotalRaiseAmount);
+	void setFlopTotalRaiseAmount(unsigned int flopTotalRaiseAmount);
+	void setTurnTotalRaiseAmount(unsigned int turnTotalRaiseAmount);
+	void setRiverTotalRaiseAmount(unsigned int riverTotalRaiseAmount);
+	void setTotalRaiseAmount(unsigned int totalRaiseAmount);
+	void setTimesAllIn(unsigned int timesAllIn);
+	void setTotalMoneyPlayed(unsigned int totalMoneyPlayed);
+	void setTotalMoneyWon(unsigned int totalMoneyWon);
+	void setPreFlopAverageBetAmount(float preFlopAverageBetAmount);
+	void setFlopAverageBetAmount(float flopAverageBetAmount);
+	void setTurnAverageBetAmount(float turnAverageBetAmount);
+	void setRiverAverageBetAmount(float riverAverageBetAmount);
+	void setAverageBetAmount(float averageBetAmount);
+	void setPreFlopAverageRaiseAmount(float preFlopAverageRaiseAmount);
+	void setFlopAverageRaiseAmount(float flopAverageRaiseAmount);
+	void setTurnAverageRaiseAmount(float turnAverageRaiseAmount);
+	void setRiverAverageRaiseAmount(float riverAverageRaiseAmount);
+	void setAverageRaiseAmount(float averageRaiseAmount);
+
 	void updateStatFold(PokerEnums::BettingRound bettingRound);
 	void updateStatCheck(PokerEnums::BettingRound bettingRound);
 	void updateStatCall(PokerEnums::BettingRound bettingRound);
 	void updateStatBet(PokerEnums::BettingRound bettingRound, unsigned int betAmount);
 	void updateStatRaise(PokerEnums::BettingRound bettingRound, unsigned int raiseAmount);
 
+	StateVariableCollection* stateVariables;
 	unsigned int seatNumber;
 	unsigned int playerId;
 	unsigned int assumedStrategyId;
@@ -22,6 +94,9 @@ public:
 	PokerEnums::State state;
 	unsigned int gameRank;
 	unsigned int tournamentRank;
+	unsigned int eligibleToWinMoney;
+	unsigned int totalPotContribution;
+	int totalPotDeficit;
 
 	// stats
 	unsigned int gamesPlayed;

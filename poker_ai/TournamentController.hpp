@@ -7,6 +7,7 @@
 #include "PokerEnumerations.hpp"
 #include "Player.hpp"
 #include "PokerState.hpp"
+#include "StrategyManager.hpp"
 #include "json.hpp"
 #include "Logger.hpp"
 
@@ -17,15 +18,27 @@ public:
 		EXTERNAL = 1
 	};
 
-	TournamentController(const std::string& databaseId);
+	void initialize(const std::string& databaseId, PythonManager* pythonManager, StrategyManager* strategyManager);
+	void testAutomatedTournament(
+		unsigned int evolutionTrialId,
+		unsigned int tournamentCount,
+		unsigned int playerCount,
+		unsigned int buyInAmount,
+		unsigned int initialSmallBlindValue,
+		unsigned int doubleBlindsInterval,
+		bool performStateLogging,
+		bool performGeneralLogging
+	);
 	void playAutomatedTournament(
 		unsigned int evolutionTrialId,
 		unsigned int tournamentId,
 		const std::vector<unsigned int>& strategyIds,
+		unsigned int playerCount,
 		unsigned int buyInAmount,
 		unsigned int initialSmallBlindValue,
 		unsigned int doubleBlindsInterval,
-		bool performStateLogging
+		bool performStateLogging,
+		bool performGeneralLogging
 	);
 	unsigned int initNonAutomatedTournament(TournamentMode tournamentMode, unsigned int playerCount, unsigned int buyInAmount);
 	unsigned int stepPlay(unsigned int stateId, unsigned int smallBlindValue, PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount);
@@ -38,7 +51,7 @@ private:
 	unsigned int getActivePlayerCount() const;
 	bool getIsActivePlayer(PokerEnums::State playerState, bool includeFoldedPlayers, bool includeAllInPlayers) const;
 	std::string getCurrentBettingRoundString() const;
-	unsigned int getRemainingPlayerCount() const;
+	bool TournamentController::getPlayersRemain() const;
 	unsigned int getNextActiveSeatNumber(unsigned int relativeToSeatNumber, bool includeRelativeSeat, bool includeFoldedPlayers, bool includeAllInPlayers) const;
 	bool getNotAllPresentedBetOpportunity() const;
 	void getNewStateId();
@@ -51,7 +64,8 @@ private:
 		const std::vector<unsigned int>& strategyIds,
 		unsigned int playerCount,
 		unsigned int buyInAmount,
-		bool performStateLogging
+		bool performStateLogging,
+		bool performGeneralLogging
 	);
 	void initializeGame();
 	void advanceBettingRound();
@@ -71,10 +85,12 @@ private:
 	TournamentMode tournamentMode;
 	unsigned int evolutionTrialId;
 	bool performStateLogging;
+	bool performGeneralLogging;
 	const unsigned int maxGamesInTournament = 10000;
 	PokerState pokerState;
 	std::vector<Player> players;
 	std::vector<PlayerState> playerStates;
+	StrategyManager* strategyManager;
 	Logger logger;
 	ocilib::Connection con;
 

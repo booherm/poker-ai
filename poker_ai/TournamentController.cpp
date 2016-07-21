@@ -3,45 +3,83 @@
 #include "Util.hpp"
 #include <iostream>
 
-TournamentController::TournamentController(const std::string& databaseId) {
-	ocilib::Environment::Initialize(ocilib::Environment::EnvironmentFlagsValues::Threaded);
+void TournamentController::initialize(const std::string& databaseId, PythonManager* pythonManager, StrategyManager* strategyManager) {
 	con.Open(databaseId, "poker_ai", "poker_ai");
 	logger.initialize(con);
+	pokerState.pythonManager = pythonManager;
+	this->strategyManager = strategyManager;
+}
+
+void TournamentController::testAutomatedTournament(
+	unsigned int evolutionTrialId,
+	unsigned int tournamentCount,
+	unsigned int playerCount,
+	unsigned int buyInAmount,
+	unsigned int initialSmallBlindValue,
+	unsigned int doubleBlindsInterval,
+	bool performStateLogging,
+	bool performGeneralLogging
+) {
+	
+	// setup dummy strategy IDs for tournament result logging
+	std::vector<unsigned int> strategyIds;
+	for (unsigned int i = 0; i < playerCount; i++) {
+		//strategyIds.push_back(0);  // random move strategy
+		strategyIds.push_back(i + 1);
+	}
+
+	for (unsigned int i = 1; i <= tournamentCount; i++) {
+		playAutomatedTournament(
+			evolutionTrialId,
+			i, // tournament id
+			strategyIds,
+			playerCount,
+			buyInAmount,
+			initialSmallBlindValue,
+			doubleBlindsInterval,
+			performStateLogging,
+			performGeneralLogging
+		);
+	}
 }
 
 void TournamentController::playAutomatedTournament(
 	unsigned int evolutionTrialId,
 	unsigned int tournamentId,
 	const std::vector<unsigned int>& strategyIds,
+	unsigned int playerCount,
 	unsigned int buyInAmount,
 	unsigned int initialSmallBlindValue,
 	unsigned int doubleBlindsInterval,
-	bool performStateLogging
+	bool performStateLogging,
+	bool performGeneralLogging
 ) {
+	
 	initializeTournament(
 		tournamentId,
 		TournamentMode::INTERNAL,
 		evolutionTrialId,
 		strategyIds,
-		strategyIds.size(),
+		playerCount,
 		buyInAmount,
-		performStateLogging
+		performStateLogging,
+		performGeneralLogging
 	);
 
-	logger.log(0, "automated tournament initialized");
+	logger.log(0, "automated tournament " + std::to_string(tournamentId)  + " initialized");
 
-	unsigned int previousIterationGameNumber = 0;
 	unsigned int maxSmallBlindValue = buyInAmount * pokerState.playerCount;
-	pokerState.smallBlindValue = initialSmallBlindValue;
+	pokerState.setSmallBlindValue(initialSmallBlindValue);
 	do {
 
-		if ((previousIterationGameNumber != pokerState.currentGameNumber) && (pokerState.currentGameNumber % doubleBlindsInterval == 0)) {
-			pokerState.smallBlindValue *= 2;
-			if (pokerState.smallBlindValue > maxSmallBlindValue)
-				pokerState.smallBlindValue = maxSmallBlindValue;
+		// double blinds if a game is about to start and will be on a blind doubling interval
+		if (doubleBlindsInterval != 0) {
+			if (!pokerState.gameInProgress && (pokerState.currentGameNumber + 1) % doubleBlindsInterval == 0) {
+				pokerState.setSmallBlindValue(pokerState.smallBlindValue * 2);
+				if (pokerState.smallBlindValue > maxSmallBlindValue)
+					pokerState.setSmallBlindValue(maxSmallBlindValue);
+			}
 		}
-
-		previousIterationGameNumber = pokerState.currentGameNumber;
 
 		stepPlay(PokerEnums::PlayerMove::AUTO, 0);
 
@@ -50,19 +88,22 @@ void TournamentController::playAutomatedTournament(
 	if (pokerState.currentGameNumber > maxGamesInTournament)
 		logger.log(0, "maximum number of games in tournament exceeded");
 
-	logger.log(0, "automated tournament complete");
+	logger.log(0, "automated tournament " + std::to_string(tournamentId) + " complete");
+
 }
 
 unsigned int TournamentController::initNonAutomatedTournament(TournamentMode tournamentMode, unsigned int playerCount, unsigned int buyInAmount) {
 	std::vector<unsigned int> emptyStrategyIdSet;
-	return initializeTournament(0, tournamentMode, 0, emptyStrategyIdSet, playerCount, buyInAmount, true);
+	return initializeTournament(0, tournamentMode, 0, emptyStrategyIdSet, playerCount, buyInAmount, true, true);
 }
 
 unsigned int TournamentController::stepPlay(unsigned int stateId, unsigned int smallBlindValue, PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount) {
 
 	loadState(stateId);
-	pokerState.smallBlindValue = smallBlindValue;
+	pokerState.setSmallBlindValue(smallBlindValue);
 	stepPlay(playerMove, playerMoveAmount);
+
+	pokerState.stateVariables.dumpData();
 
 	return pokerState.currentStateId;
 }
@@ -162,7 +203,6 @@ void TournamentController::getUiState(unsigned int stateId, Json::Value& uiData)
 		gameStateData["community_card_4"] = pokerState.communityCards[3].cardId;
 	if (communityCardCount > 4)
 		gameStateData["community_card_5"] = pokerState.communityCards[4].cardId;
-	//std::cout << gameStateData.toStyledString() << std::endl;
 	uiData["gameState"] = gameStateData;
 
 	// players state
@@ -232,15 +272,14 @@ std::string TournamentController::getCurrentBettingRoundString() const {
 
 }
 
-unsigned int TournamentController::getRemainingPlayerCount() const {
-
+bool TournamentController::getPlayersRemain() const {
 	unsigned int remainingPlayers = 0;
-	for (unsigned int i = 0; i < pokerState.playerCount; i++) {
+	for (unsigned int i = 0; i < pokerState.playerCount && remainingPlayers < 2; i++) {
 		if (players[i].getIsActive())
 			remainingPlayers++;
 	}
 
-	return remainingPlayers;
+	return remainingPlayers > 1;
 }
 
 unsigned int TournamentController::getNextActiveSeatNumber(
@@ -250,7 +289,7 @@ unsigned int TournamentController::getNextActiveSeatNumber(
 	bool includeAllInPlayers
 ) const {
 
-	unsigned int startingSeat = relativeToSeatNumber;
+	int startingSeat = relativeToSeatNumber;
 	if (includeRelativeSeat)
 		startingSeat--;
 
@@ -261,7 +300,7 @@ unsigned int TournamentController::getNextActiveSeatNumber(
 	}
 
 	// no active players clockwise of relativeToSeatNumber up to the end of the player vector, circle back to seat 1
-	for (unsigned int i = 0; i < startingSeat - 1; i++) {
+	for (int i = 0; i < startingSeat - 1; i++) {
 		if (getIsActivePlayer(players[i].getState(), includeFoldedPlayers, includeAllInPlayers))
 			return i + 1;
 	}
@@ -336,10 +375,11 @@ void TournamentController::loadState(unsigned int stateId) {
 		playerStates.resize(pokerState.playerCount);
 		for (unsigned int i = 0; i < pokerState.playerCount; i++) {
 			playerStateRs.Next();
-			players[i].load(con, &logger, &pokerState, &playerStates, playerStateRs);
+			unsigned int strategyId = playerStateRs.Get<unsigned int>("current_strategy_id");
+			players[i].load(con, &logger, &pokerState, &playerStates, strategyManager->getStrategy(strategyId), playerStateRs);
 		}
 
-		pokerState.potController.load(potStateRs, &logger, potContributionStateRs);
+		pokerState.potController.load(potStateRs, &logger, &playerStates, potContributionStateRs, &pokerState.stateVariables);
 
 		logger.clearLogMessages();
 		while (pokerAiLogRs.Next()) {
@@ -356,8 +396,10 @@ unsigned int TournamentController::initializeTournament(
 	const std::vector<unsigned int>& strategyIds,
 	unsigned int playerCount,
 	unsigned int buyInAmount,
-	bool performStateLogging
+	bool performStateLogging,
+	bool performGeneralLogging
 ) {
+	logger.setLoggingEnabled(performGeneralLogging);
 	getNewStateId();
 
 	std::string tournamentModeString = (tournamentMode == TournamentMode::INTERNAL ? "internal" : "external");
@@ -367,31 +409,34 @@ unsigned int TournamentController::initializeTournament(
 	this->tournamentMode = tournamentMode;
 	this->evolutionTrialId = evolutionTrialId;
 	this->performStateLogging = performStateLogging;
-	pokerState.playerCount = playerCount;
-	pokerState.buyInAmount = buyInAmount;
-	pokerState.currentBettingRound = PokerEnums::BettingRound::NO_BETTING_ROUND;
-	pokerState.communityCards.clear();
-	pokerState.tournamentInProgress = true;
-	pokerState.currentGameNumber = 0;
-	pokerState.gameInProgress = false;
-	pokerState.smallBlindSeatNumber = 0;
-	pokerState.bigBlindSeatNumber = 0;
-	pokerState.turnSeatNumber = 0;
-	pokerState.lastToRaiseSeatNumber = 0;
-	pokerState.minRaiseAmount = 0;
-	pokerState.smallBlindValue = 0;
-	pokerState.bigBlindValue = 0;
+	this->performGeneralLogging = performGeneralLogging;
+	pokerState.clearStateVariables();
+	pokerState.setPlayerCount(playerCount);
+	pokerState.setBuyInAmount(buyInAmount);
+	pokerState.setCurrentBettingRound(PokerEnums::BettingRound::NO_BETTING_ROUND);
+	pokerState.clearCommunityCards();
+	pokerState.setTournamentInProgress(true);
+	pokerState.setCurrentGameNumber(0);
+	pokerState.setGameInProgress(false);
+	pokerState.setSmallBlindSeatNumber(0);
+	pokerState.setBigBlindSeatNumber(0);
+	pokerState.setTurnSeatNumber(0);
+	pokerState.setLastToRaiseSeatNumber(0);
+	pokerState.setMinRaiseAmount(0);
+	pokerState.setSmallBlindValue(0);
+	pokerState.setBigBlindValue(0);
 
 	// initialize players
+	players.clear();
 	players.resize(playerCount);
 	playerStates.resize(playerCount);
 	for (unsigned int i = 0; i < playerCount; i++) {
 		unsigned int strategyId = strategyIds.size() == playerCount ? strategyIds[i] : 0;
-		players[i].initialize(con, &logger, &pokerState, &playerStates, i + 1, strategyId, 0, buyInAmount);
+		players[i].initialize(con, &logger, &pokerState, &playerStates, i + 1, strategyManager->getStrategy(strategyId), 0, buyInAmount);
 	}
 	
 	// initialize pot controller
-	pokerState.potController.initialize(con, &logger, &playerStates);
+	pokerState.potController.initialize(con, &logger, &playerStates, &pokerState.stateVariables);
 
 	captureStateLog();
 
@@ -402,36 +447,36 @@ void TournamentController::initializeGame() {
 
 	logger.log(pokerState.currentStateId, "initializing game start");
 
-	pokerState.potController.initialize(con, &logger, &playerStates);
-	pokerState.deck.initialize();
+	pokerState.potController.initialize(con, &logger, &playerStates, &pokerState.stateVariables);
+	pokerState.deck.initialize(&pokerState.randomNumberGenerator);
 	for (unsigned int i = 0; i < pokerState.playerCount; i++)
 		players[i].resetGameState();
 
-	pokerState.bigBlindSeatNumber = getNextActiveSeatNumber(pokerState.smallBlindSeatNumber, false, true, true);
-	pokerState.turnSeatNumber = getNextActiveSeatNumber(pokerState.bigBlindSeatNumber, false, true, true);
+	pokerState.setBigBlindSeatNumber(getNextActiveSeatNumber(pokerState.smallBlindSeatNumber, false, true, true));
+	pokerState.setTurnSeatNumber(getNextActiveSeatNumber(pokerState.bigBlindSeatNumber, false, true, true));
 	logger.log(pokerState.currentStateId, "small blind = " + std::to_string(pokerState.smallBlindSeatNumber)
 		+ ", big blind = " + std::to_string(pokerState.bigBlindSeatNumber)
 		+ ", UTG = " + std::to_string(pokerState.turnSeatNumber));
 
-	pokerState.currentBettingRound = PokerEnums::BettingRound::PRE_FLOP;
-	pokerState.bettingRoundInProgress = false;
-	pokerState.bigBlindValue = pokerState.smallBlindValue * 2;
-	pokerState.minRaiseAmount = pokerState.bigBlindValue;
-	pokerState.lastToRaiseSeatNumber = 0;
-	pokerState.communityCards.clear();
+	pokerState.setCurrentBettingRound(PokerEnums::BettingRound::PRE_FLOP);
+	pokerState.setBettingRoundInProgress(false);
+	pokerState.setBigBlindValue(pokerState.smallBlindValue * 2);
+	pokerState.setMinRaiseAmount(pokerState.bigBlindValue);
+	pokerState.setLastToRaiseSeatNumber(0);
+	pokerState.clearCommunityCards();
 
 	logger.log(pokerState.currentStateId, "game initialized");
 }
 
 void TournamentController::advanceBettingRound() {
 	if (pokerState.currentBettingRound == PokerEnums::BettingRound::PRE_FLOP)
-		pokerState.currentBettingRound = PokerEnums::BettingRound::FLOP;
+		pokerState.setCurrentBettingRound(PokerEnums::BettingRound::FLOP);
 	else if (pokerState.currentBettingRound == PokerEnums::BettingRound::FLOP)
-		pokerState.currentBettingRound = PokerEnums::BettingRound::TURN;
+		pokerState.setCurrentBettingRound(PokerEnums::BettingRound::TURN);
 	else if (pokerState.currentBettingRound == PokerEnums::BettingRound::TURN)
-		pokerState.currentBettingRound = PokerEnums::BettingRound::RIVER;
+		pokerState.setCurrentBettingRound(PokerEnums::BettingRound::RIVER);
 	else if (pokerState.currentBettingRound == PokerEnums::BettingRound::RIVER)
-		pokerState.currentBettingRound = PokerEnums::BettingRound::SHOWDOWN;
+		pokerState.setCurrentBettingRound(PokerEnums::BettingRound::SHOWDOWN);
 }
 
 void TournamentController::calculateBestHands() {
@@ -591,18 +636,22 @@ void TournamentController::captureStateLog() {
 }
 
 void TournamentController::captureTournamentResults() {
-	// debug need to implement
+	if (tournamentId != 0) {
+		for (unsigned int i = 0; i < pokerState.playerCount; i++) {
+			players[i].captureTournamentResults(tournamentId, evolutionTrialId);
+		}
+		con.Commit();
+	}
 }
 
 void TournamentController::dealCommunityCards() {
 
 	if (pokerState.currentBettingRound == PokerEnums::BettingRound::FLOP) {
-		pokerState.communityCards.resize(3);
 		for (unsigned int i = 0; i < 3; i++)
-			pokerState.communityCards[i] = pokerState.deck.drawCard();
+			pokerState.pushCommunityCard(pokerState.deck.drawRandomCard());
 	}
 	else
-		pokerState.communityCards.push_back(pokerState.deck.drawCard());
+		pokerState.pushCommunityCard(pokerState.deck.drawRandomCard());
 
 }
 
@@ -611,7 +660,7 @@ void TournamentController::dealHoleCards() {
 	if (tournamentMode == TournamentMode::INTERNAL) {
 		for (unsigned int i = 0; i < players.size(); i++) {
 			if (players[i].getIsActive()) {
-				players[i].setHoleCards(pokerState.deck.drawCard(), pokerState.deck.drawCard());
+				players[i].setHoleCards(pokerState.deck.drawRandomCard(), pokerState.deck.drawRandomCard());
 			}
 		}
 	}
@@ -630,13 +679,13 @@ void TournamentController::postBlinds() {
 
 	// post small blind
 	int smallBlindPlayerMoney = players[pokerState.smallBlindSeatNumber - 1].getMoney();
-	int smallBlindPostAmount = (smallBlindPlayerMoney - pokerState.smallBlindValue < 0) ? smallBlindPlayerMoney : pokerState.smallBlindValue;
+	int smallBlindPostAmount = (smallBlindPlayerMoney < (int) pokerState.smallBlindValue) ? smallBlindPlayerMoney : pokerState.smallBlindValue;
 	pokerState.potController.contributeToPot(pokerState.smallBlindSeatNumber, smallBlindPostAmount, pokerState.currentBettingRound, pokerState.currentStateId);
 	playerStates[pokerState.smallBlindSeatNumber - 1].updateStatBet(PokerEnums::BettingRound::PRE_FLOP, smallBlindPostAmount);
 
 	// post big blind
 	int bigBlindPlayerMoney = players[pokerState.bigBlindSeatNumber - 1].getMoney();
-	int bigBlindPostAmount = (bigBlindPlayerMoney - pokerState.bigBlindValue < 0) ? bigBlindPlayerMoney : pokerState.bigBlindValue;
+	int bigBlindPostAmount = (bigBlindPlayerMoney < (int) pokerState.bigBlindValue) ? bigBlindPlayerMoney : pokerState.bigBlindValue;
 	pokerState.potController.contributeToPot(pokerState.bigBlindSeatNumber, bigBlindPostAmount, pokerState.currentBettingRound, pokerState.currentStateId);
 	int postDifference = bigBlindPostAmount - smallBlindPostAmount;
 	if(postDifference > 0)
@@ -669,7 +718,7 @@ void TournamentController::processGameResults() {
 
 		// last player to bet or raise on the river round must show first.  If no one, first player in showdown clockwise from small blind, including small blind
 		unsigned int firstToShowSeatNumber;
-		if(pokerState.lastToRaiseSeatNumber == 0)
+		if(pokerState.lastToRaiseSeatNumber == 0 || players[pokerState.lastToRaiseSeatNumber - 1].getState() == PokerEnums::State::FOLDED)
 			firstToShowSeatNumber = getNextActiveSeatNumber(pokerState.smallBlindSeatNumber, true, false, true);
 		else
 			firstToShowSeatNumber = pokerState.lastToRaiseSeatNumber;
@@ -768,7 +817,33 @@ void TournamentController::processGameResults() {
 			unsigned int oddSplitRecipient = 0;
 			if (oddSplit) {
 				oddSplitBalance = potValue - (perPlayerAmount * winnerCount);
-				oddSplitRecipient = 1; // debug
+
+				// the first player in the set of winning players for this pot clockwise of the small blind (including the small blind)
+				// receives the odd split balance
+				for (unsigned int snIndex = pokerState.smallBlindSeatNumber - 1; snIndex < pokerState.playerCount; snIndex++) {
+					// look for this seat number in the set of winners
+					for (unsigned int winnerSeatNumberIndex = 0; winnerSeatNumberIndex < winners.size(); winnerSeatNumberIndex++) {
+						if (snIndex + 1 == winners[winnerSeatNumberIndex]) {
+							oddSplitRecipient = snIndex + 1;
+							break;
+						}
+					}
+				}
+
+				if (oddSplitRecipient == 0) {
+					// no winners clockwise of small blind seat number up to the end of the player vector, circle back to seat 1
+					for (unsigned int snIndex = 0; snIndex < pokerState.smallBlindSeatNumber - 1; snIndex++) {
+						for (unsigned int winnerSeatNumberIndex = 0; winnerSeatNumberIndex < winners.size(); winnerSeatNumberIndex++) {
+							if (snIndex + 1 == winners[winnerSeatNumberIndex]) {
+								oddSplitRecipient = snIndex + 1;
+								break;
+							}
+						}
+					}
+				}
+
+				logger.log(pokerState.currentStateId, "odd split occurred, odd split balance recipient seat = " + std::to_string(oddSplitRecipient));
+
 			}
 
 			// distribute winnings
@@ -799,8 +874,8 @@ void TournamentController::processGameResults() {
 		players[i].processGameResults(tournamentRank);
 	}
 
-	pokerState.gameInProgress = false;
-	pokerState.bettingRoundInProgress = false;
+	pokerState.setGameInProgress(false);
+	pokerState.setBettingRoundInProgress(false);
 
 	logger.log(pokerState.currentStateId, "game over");
 }
@@ -811,13 +886,13 @@ void TournamentController::processTournamentResults() {
 	for (unsigned int i = 0; i < pokerState.playerCount; i++) {
 		PlayerState* playerState = &playerStates[i];
 		if (playerState->state != PokerEnums::State::OUT_OF_TOURNAMENT) {
-			playerState->tournamentRank = 1;
-			playerState->state = PokerEnums::State::OUT_OF_TOURNAMENT;
+			playerState->setTournamentRank(1);
+			playerState->setState(PokerEnums::State::OUT_OF_TOURNAMENT);
 			break;
 		}
 	}
 
-	pokerState.tournamentInProgress = false;
+	pokerState.setTournamentInProgress(false);
 	captureTournamentResults();
 
 	logger.log(pokerState.currentStateId, "tournament over");
@@ -829,41 +904,41 @@ void TournamentController::resetPlayerBettingRoundState() {
 	for (unsigned int i = 0; i < pokerState.playerCount; i++) {
 		players[i].resetBettingRoundState();
 	}
-
 }
 
 void TournamentController::stepPlay(PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount) {
 
 	getNewStateId();
 
-	if (getRemainingPlayerCount() > 1) {
+	if (getPlayersRemain()) {
 		if (!pokerState.gameInProgress) {
 			// start a new game
 			if (pokerState.currentGameNumber == 0)
-				pokerState.smallBlindSeatNumber = 1;
+				pokerState.setSmallBlindSeatNumber(1);
 			else {
 				logger.log(pokerState.currentStateId, "advancing small blind seat");
-				pokerState.smallBlindSeatNumber = getNextActiveSeatNumber(pokerState.smallBlindSeatNumber, false, true, true);
+				pokerState.setSmallBlindSeatNumber(getNextActiveSeatNumber(pokerState.smallBlindSeatNumber, false, true, true));
 			}
 
 			initializeGame();
-			pokerState.currentGameNumber++;
-			pokerState.gameInProgress = true;
+			pokerState.setCurrentGameNumber(pokerState.currentGameNumber + 1);
+			pokerState.setGameInProgress(true);
 		}
 		else {
 			// game is currently in progress
 			if (!pokerState.bettingRoundInProgress) {
 
 				// no betting round currently in progress, start a new betting round or enter showdown
-				pokerState.minRaiseAmount = pokerState.bigBlindValue;
+				pokerState.setMinRaiseAmount(pokerState.bigBlindValue);
 
 				if (pokerState.currentBettingRound == PokerEnums::BettingRound::PRE_FLOP) {
 					postBlinds();
 					dealHoleCards();
+					pokerState.setTurnSeatNumber(getNextActiveSeatNumber(pokerState.bigBlindSeatNumber, false, false, false));
 				}
 				else if (pokerState.currentBettingRound < PokerEnums::BettingRound::SHOWDOWN) {
 					resetPlayerBettingRoundState();
-					pokerState.turnSeatNumber = getNextActiveSeatNumber(pokerState.smallBlindSeatNumber, true, false, false);
+					pokerState.setTurnSeatNumber(getNextActiveSeatNumber(pokerState.smallBlindSeatNumber, true, false, false));
 					dealCommunityCards();
 					calculateBestHands();
 				}
@@ -878,16 +953,17 @@ void TournamentController::stepPlay(PokerEnums::PlayerMove playerMove, unsigned 
 					// if no players can make a move, explicitly state that to the log and increment the betting round
 					if (pokerState.turnSeatNumber == 0) {
 						logger.log(pokerState.currentStateId, "no players can make a move");
-						pokerState.bettingRoundInProgress = false;
+						logger.log(pokerState.currentStateId, "betting round over");
+						pokerState.setBettingRoundInProgress(false);
 						advanceBettingRound();
 					}
 					else
-						pokerState.bettingRoundInProgress = true;
+						pokerState.setBettingRoundInProgress(true);
 				}
 				else {
 					// showdown processing complete, reset betting round state
-					pokerState.bettingRoundInProgress = false;
-					pokerState.currentBettingRound = PokerEnums::BettingRound::PRE_FLOP;
+					pokerState.setBettingRoundInProgress(false);
+					pokerState.setCurrentBettingRound(PokerEnums::BettingRound::PRE_FLOP);
 				}
 			}
 			else {
@@ -900,6 +976,7 @@ void TournamentController::stepPlay(PokerEnums::PlayerMove playerMove, unsigned 
 					if (newPlayerState == PokerEnums::State::FOLDED) {
 						pokerState.potController.issueApplicablePotRefunds(pokerState.currentStateId);
 						pokerState.potController.issueDefaultPotWins(pokerState.currentStateId);
+						pokerState.potController.calculateDeficitsAndPotentials();
 					}
 				}
 
@@ -918,12 +995,12 @@ void TournamentController::stepPlay(PokerEnums::PlayerMove playerMove, unsigned 
 
 					if (unevenPot || betOpportunityNotPresented) {
 						// betting continues, advance player turn
-						pokerState.turnSeatNumber = getNextActiveSeatNumber(pokerState.turnSeatNumber, false, false, false);
+						pokerState.setTurnSeatNumber(getNextActiveSeatNumber(pokerState.turnSeatNumber, false, false, false));
 					}
 					else {
 						// betting round over
 						logger.log(pokerState.currentStateId, "betting round over");
-						pokerState.bettingRoundInProgress = false;
+						pokerState.setBettingRoundInProgress(false);
 						advanceBettingRound();
 					}
 				}

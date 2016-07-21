@@ -89,13 +89,13 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;OCI_API=__stdcall;OCI_CHARSET_ANSI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\projects\vs_workspace\poker_ai\poker_ai\external\boost_1_60_0;C:\projects\vs_workspace\poker_ai\poker_ai\external\awesomium-1.7.5.1\include;C:\projects\vs_workspace\poker_ai\poker_ai\external\ocilib-4.2.1-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\projects\vs_workspace\poker_ai\poker_ai\external\boost_1_60_0;C:\projects\vs_workspace\poker_ai\poker_ai\external\awesomium-1.7.5.1\include;C:\projects\vs_workspace\poker_ai\poker_ai\external\ocilib-4.2.1-windows\include;C:\projects\vs_workspace\poker_ai\poker_ai\external\Python27\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>external\boost_1_60_0\lib32-msvc-14.0\libboost_thread-vc140-mt-gd-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_date_time-vc140-mt-gd-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_system-vc140-mt-gd-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_chrono-vc140-mt-gd-1_60.lib;external\awesomium-1.7.5.1\lib\awesomium.lib;external\ocilib-4.2.1-windows\lib32\ociliba.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>external\boost_1_60_0\lib32-msvc-14.0\libboost_thread-vc140-mt-gd-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_date_time-vc140-mt-gd-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_system-vc140-mt-gd-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_chrono-vc140-mt-gd-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_timer-vc140-mt-gd-1_60.lib;external\awesomium-1.7.5.1\lib\awesomium.lib;external\ocilib-4.2.1-windows\lib32\ociliba.lib;external\Python27\libs\python27.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -123,7 +123,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\projects\vs_workspace\poker_ai\poker_ai\external\boost_1_60_0;C:\projects\vs_workspace\poker_ai\poker_ai\external\awesomium-1.7.5.1\include;C:\projects\vs_workspace\poker_ai\poker_ai\external\ocilib-4.2.1-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\projects\vs_workspace\poker_ai\poker_ai\external\boost_1_60_0;C:\projects\vs_workspace\poker_ai\poker_ai\external\awesomium-1.7.5.1\include;C:\projects\vs_workspace\poker_ai\poker_ai\external\ocilib-4.2.1-windows\include;C:\projects\vs_workspace\poker_ai\poker_ai\external\Python27\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
@@ -131,7 +131,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>external\boost_1_60_0\lib32-msvc-14.0\libboost_thread-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_date_time-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_system-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_chrono-vc140-mt-1_60.lib;external\awesomium-1.7.5.1\lib\awesomium.lib;external\ocilib-4.2.1-windows\lib32\ociliba.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>external\boost_1_60_0\lib32-msvc-14.0\libboost_thread-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_date_time-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_system-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_chrono-vc140-mt-1_60.lib;external\boost_1_60_0\lib32-msvc-14.0\libboost_timer-vc140-mt-1_60.lib;external\awesomium-1.7.5.1\lib\awesomium.lib;external\ocilib-4.2.1-windows\lib32\ociliba.lib;external\Python27\libs\python27.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -161,9 +161,12 @@
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="PlayerState.cpp" />
     <ClCompile Include="PokerState.cpp" />
+    <ClCompile Include="PythonManager.cpp" />
+    <ClCompile Include="StateVariableCollection.cpp" />
+    <ClCompile Include="Strategy.cpp" />
+    <ClCompile Include="StrategyManager.cpp" />
     <ClCompile Include="TournamentController.cpp" />
     <ClCompile Include="PotController.cpp" />
-    <ClCompile Include="TournamentStepperDbInterface.cpp" />
     <ClCompile Include="GaEvolverController.cpp">
       <SubType>
       </SubType>
@@ -185,9 +188,13 @@
     <ClInclude Include="PlayerState.hpp" />
     <ClInclude Include="PokerEnumerations.hpp" />
     <ClInclude Include="PokerState.hpp" />
+    <ClInclude Include="PythonManager.hpp" />
+    <ClInclude Include="StateVariableCollection.hpp" />
+    <ClInclude Include="Strategy.hpp" />
+    <ClInclude Include="StrategyEvaluationDataProvider.hpp" />
+    <ClInclude Include="StrategyManager.hpp" />
     <ClInclude Include="TournamentController.hpp" />
     <ClInclude Include="PotController.hpp" />
-    <ClInclude Include="TournamentStepperDbInterface.hpp" />
     <ClInclude Include="GaEvolverController.hpp" />
     <ClInclude Include="GaEvolverWorker.hpp" />
     <ClInclude Include="GuiConsole.hpp" />

@@ -1,4 +1,5 @@
 #include "PokerAiUiWindow.hpp"
+#include <boost/timer/timer.hpp>
 
 PokerAiUiWindow::PokerAiUiWindow(TournamentController* tournamentController, GaEvolverController* gaEvolverController)
 	: AwesomiumUiWindow(1500, 550, "Poker AI", "file:///c:/projects/vs_workspace/poker_ai/poker_ai/web_ui/poker_ai.html")
@@ -64,21 +65,47 @@ void PokerAiUiWindow::refreshUi(unsigned int stateId) {
 	executeJs("TournamentStepper.refreshUi(" + uiData.toStyledString() + ");");
 }
 
+void PokerAiUiWindow::performTournamentTest(WebView* caller, const JSArray& args) {
+
+	boost::timer::auto_cpu_timer timer;
+	tournamentController->testAutomatedTournament(
+		args.At(0).ToInteger(), // evolution trial id
+		args.At(1).ToInteger(), // tournament count
+		args.At(2).ToInteger(), // player count
+		args.At(3).ToInteger(), // tournament buy in
+		args.At(4).ToInteger(), // initial small blind value
+		args.At(5).ToInteger(), // double blinds interval
+		true,                   // perform state logging
+		true                    // perform general logging
+	);
+
+}
+
 void PokerAiUiWindow::performEvolutionTrial(WebView* caller, const JSArray& args) {
 
 	gaEvolverController->performEvolutionTrial(
-		Awesomium::ToString(args.At(0).ToString()), // trial id
-		args.At(1).ToInteger(),                     // generation size
-		args.At(2).ToInteger(),                     // max generations
-		(float) args.At(3).ToDouble(),              // crossover rate
-		args.At(4).ToInteger(),                     // crossover point
-		(float) args.At(5).ToDouble(),              // mutation rate
-		args.At(6).ToInteger(),                     // players per tournament
-		args.At(7).ToInteger(),                     // tournament worker threads
-		args.At(8).ToInteger(),                     // tournament play count
-		args.At(9).ToInteger(),                     // tournament buy in
-		args.At(10).ToInteger(),                    // initial small blind value
-		args.At(11).ToInteger()                     // double blinds interval
+		args.At(0).ToInteger(),        // trial id
+		args.At(1).ToInteger(),        // start from generation number
+		args.At(2).ToInteger(),        // generation size
+		args.At(3).ToInteger(),        // max generations
+		(float) args.At(4).ToDouble(), // crossover rate
+		args.At(5).ToInteger(),        // crossover point
+		(float) args.At(6).ToDouble(), // mutation rate
+		args.At(7).ToInteger(),        // players per tournament
+		args.At(8).ToInteger(),        // tournament worker threads
+		args.At(9).ToInteger(),        // tournament play count
+		args.At(10).ToInteger(),       // tournament buy in
+		args.At(11).ToInteger(),       // initial small blind value
+		args.At(12).ToInteger()        // double blinds interval
+	);
+
+}
+
+void PokerAiUiWindow::joinEvolutionTrial(WebView* caller, const JSArray& args) {
+
+	gaEvolverController->joinEvolutionTrial(
+		args.At(0).ToInteger(), // trial id
+		args.At(1).ToInteger()  // tournament worker threads
 	);
 
 }
@@ -91,5 +118,7 @@ void PokerAiUiWindow::bindJsFunctions() {
 	bindJsFunction(scopeObj, std::string("loadState"), JSDelegate(this, &PokerAiUiWindow::loadState));
 	bindJsFunction(scopeObj, std::string("loadPreviousState"), JSDelegate(this, &PokerAiUiWindow::loadPreviousState));
 	bindJsFunction(scopeObj, std::string("loadNextState"), JSDelegate(this, &PokerAiUiWindow::loadNextState));
+	bindJsFunction(scopeObj, std::string("performTournamentTest"), JSDelegate(this, &PokerAiUiWindow::performTournamentTest));
 	bindJsFunction(scopeObj, std::string("performEvolutionTrial"), JSDelegate(this, &PokerAiUiWindow::performEvolutionTrial));
+	bindJsFunction(scopeObj, std::string("joinEvolutionTrial"), JSDelegate(this, &PokerAiUiWindow::joinEvolutionTrial));
 }

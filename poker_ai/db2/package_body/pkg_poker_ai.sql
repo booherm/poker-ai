@@ -140,6 +140,9 @@ PROCEDURE insert_player_state_log(
 	p_state                       player_state_log.state%TYPE,
 	p_game_rank                   player_state_log.game_rank%TYPE,
 	p_tournament_rank             player_state_log.tournament_rank%TYPE,
+	p_eligible_to_win_money       player_state_log.eligible_to_win_money%TYPE,
+	p_total_pot_deficit           player_state_log.total_pot_deficit%TYPE,
+	p_total_pot_contribution      player_state_log.total_pot_contribution%TYPE,
 	p_games_played                player_state_log.games_played%TYPE,
 	p_main_pots_won               player_state_log.main_pots_won%TYPE,
 	p_main_pots_split             player_state_log.main_pots_split%TYPE,
@@ -222,6 +225,9 @@ BEGIN
 		state,
 		game_rank,
 		tournament_rank,
+		eligible_to_win_money,
+		total_pot_deficit,
+		total_pot_contribution,
 		games_played,
 		main_pots_won,
 		main_pots_split,
@@ -301,6 +307,9 @@ BEGIN
 		p_state,
 		p_game_rank,
 		p_tournament_rank,
+		p_eligible_to_win_money,
+		p_total_pot_deficit,
+		p_total_pot_contribution,
 		p_games_played,
 		p_main_pots_won,
 		p_main_pots_split,
@@ -409,6 +418,199 @@ BEGIN
 	
 END insert_pot_contribution_log;
 
+PROCEDURE insert_tournament_result(
+	p_strategy_id                 tournament_result.strategy_id%TYPE,
+	p_tournament_id               tournament_result.tournament_id%TYPE,
+	p_evolution_trial_id          tournament_result.evolution_trial_id%TYPE,
+	p_tournament_rank             tournament_result.tournament_rank%TYPE,
+	p_games_played                tournament_result.games_played%TYPE,
+	p_main_pots_won               tournament_result.main_pots_won%TYPE,
+	p_main_pots_split             tournament_result.main_pots_split%TYPE,
+	p_side_pots_won               tournament_result.side_pots_won%TYPE,
+	p_side_pots_split             tournament_result.side_pots_split%TYPE,
+	p_average_game_profit         tournament_result.average_game_profit%TYPE,
+	p_flops_seen                  tournament_result.flops_seen%TYPE,
+	p_turns_seen                  tournament_result.turns_seen%TYPE,
+	p_rivers_seen                 tournament_result.rivers_seen%TYPE,
+	p_pre_flop_folds              tournament_result.pre_flop_folds%TYPE,
+	p_flop_folds                  tournament_result.flop_folds%TYPE,
+	p_turn_folds                  tournament_result.turn_folds%TYPE,
+	p_river_folds                 tournament_result.river_folds%TYPE,
+	p_total_folds                 tournament_result.total_folds%TYPE,
+	p_pre_flop_checks             tournament_result.pre_flop_checks%TYPE,
+	p_flop_checks                 tournament_result.flop_checks%TYPE,
+	p_turn_checks                 tournament_result.turn_checks%TYPE,
+	p_river_checks                tournament_result.river_checks%TYPE,
+	p_total_checks                tournament_result.total_checks%TYPE,
+	p_pre_flop_calls              tournament_result.pre_flop_calls%TYPE,
+	p_flop_calls                  tournament_result.flop_calls%TYPE,
+	p_turn_calls                  tournament_result.turn_calls%TYPE,
+	p_river_calls                 tournament_result.river_calls%TYPE,
+	p_total_calls                 tournament_result.total_calls%TYPE,
+	p_pre_flop_bets               tournament_result.pre_flop_bets%TYPE,
+	p_flop_bets                   tournament_result.flop_bets%TYPE,
+	p_turn_bets                   tournament_result.turn_bets%TYPE,
+	p_river_bets                  tournament_result.river_bets%TYPE,
+	p_total_bets                  tournament_result.total_bets%TYPE,
+	p_pre_flop_total_bet_amount   tournament_result.pre_flop_total_bet_amount%TYPE,
+	p_flop_total_bet_amount       tournament_result.flop_total_bet_amount%TYPE,
+	p_turn_total_bet_amount       tournament_result.turn_total_bet_amount%TYPE,
+	p_river_total_bet_amount      tournament_result.river_total_bet_amount%TYPE,
+	p_total_bet_amount            tournament_result.total_bet_amount%TYPE,
+	p_pre_flop_average_bet_amount tournament_result.pre_flop_average_bet_amount%TYPE,
+	p_flop_average_bet_amount     tournament_result.flop_average_bet_amount%TYPE,
+	p_turn_average_bet_amount     tournament_result.turn_average_bet_amount%TYPE,
+	p_river_average_bet_amount    tournament_result.river_average_bet_amount%TYPE,
+	p_average_bet_amount          tournament_result.average_bet_amount%TYPE,
+	p_pre_flop_raises             tournament_result.pre_flop_raises%TYPE,
+	p_flop_raises                 tournament_result.flop_raises%TYPE,
+	p_turn_raises                 tournament_result.turn_raises%TYPE,
+	p_river_raises                tournament_result.river_raises%TYPE,
+	p_total_raises                tournament_result.total_raises%TYPE,
+	p_pre_flop_total_raise_amount tournament_result.pre_flop_total_raise_amount%TYPE,
+	p_flop_total_raise_amount     tournament_result.flop_total_raise_amount%TYPE,
+	p_turn_total_raise_amount     tournament_result.turn_total_raise_amount%TYPE,
+	p_river_total_raise_amount    tournament_result.river_total_raise_amount%TYPE,
+	p_total_raise_amount          tournament_result.total_raise_amount%TYPE,
+	p_pre_flop_average_raise_amt  tournament_result.pre_flop_average_raise_amount%TYPE,
+	p_flop_average_raise_amount   tournament_result.flop_average_raise_amount%TYPE,
+	p_turn_average_raise_amount   tournament_result.turn_average_raise_amount%TYPE,
+	p_river_average_raise_amount  tournament_result.river_average_raise_amount%TYPE,
+	p_average_raise_amount        tournament_result.average_raise_amount%TYPE,
+	p_times_all_in                tournament_result.times_all_in%TYPE,
+	p_total_money_played          tournament_result.total_money_played%TYPE,
+	p_total_money_won             tournament_result.total_money_won%TYPE
+) IS
+BEGIN
+
+	INSERT INTO tournament_result (
+		strategy_id,
+		tournament_id,
+		evolution_trial_id,
+		tournament_rank,
+		games_played,
+		main_pots_won,
+		main_pots_split,
+		side_pots_won,
+		side_pots_split,
+		average_game_profit,
+		flops_seen,
+		turns_seen,
+		rivers_seen,
+		pre_flop_folds,
+		flop_folds,
+		turn_folds,
+		river_folds,
+		total_folds,
+		pre_flop_checks,
+		flop_checks,
+		turn_checks,
+		river_checks,
+		total_checks,
+		pre_flop_calls,
+		flop_calls,
+		turn_calls,
+		river_calls,
+		total_calls,
+		pre_flop_bets,
+		flop_bets,
+		turn_bets,
+		river_bets,
+		total_bets,
+		pre_flop_total_bet_amount,
+		flop_total_bet_amount,
+		turn_total_bet_amount,
+		river_total_bet_amount,
+		total_bet_amount,
+		pre_flop_average_bet_amount,
+		flop_average_bet_amount,
+		turn_average_bet_amount,
+		river_average_bet_amount,
+		average_bet_amount,
+		pre_flop_raises,
+		flop_raises,
+		turn_raises,
+		river_raises,
+		total_raises,
+		pre_flop_total_raise_amount,
+		flop_total_raise_amount,
+		turn_total_raise_amount,
+		river_total_raise_amount,
+		total_raise_amount,
+		pre_flop_average_raise_amount,
+		flop_average_raise_amount,
+		turn_average_raise_amount,
+		river_average_raise_amount,
+		average_raise_amount,
+		times_all_in,
+		total_money_played,
+		total_money_won
+	) VALUES (
+		p_strategy_id,
+		p_tournament_id,
+		p_evolution_trial_id,
+		p_tournament_rank,
+		p_games_played,
+		p_main_pots_won,
+		p_main_pots_split,
+		p_side_pots_won,
+		p_side_pots_split,
+		p_average_game_profit,
+		p_flops_seen,
+		p_turns_seen,
+		p_rivers_seen,
+		p_pre_flop_folds,
+		p_flop_folds,
+		p_turn_folds,
+		p_river_folds,
+		p_total_folds,
+		p_pre_flop_checks,
+		p_flop_checks,
+		p_turn_checks,
+		p_river_checks,
+		p_total_checks,
+		p_pre_flop_calls,
+		p_flop_calls,
+		p_turn_calls,
+		p_river_calls,
+		p_total_calls,
+		p_pre_flop_bets,
+		p_flop_bets,
+		p_turn_bets,
+		p_river_bets,
+		p_total_bets,
+		p_pre_flop_total_bet_amount,
+		p_flop_total_bet_amount,
+		p_turn_total_bet_amount,
+		p_river_total_bet_amount,
+		p_total_bet_amount,
+		p_pre_flop_average_bet_amount,
+		p_flop_average_bet_amount,
+		p_turn_average_bet_amount,
+		p_river_average_bet_amount,
+		p_average_bet_amount,
+		p_pre_flop_raises,
+		p_flop_raises,
+		p_turn_raises,
+		p_river_raises,
+		p_total_raises,
+		p_pre_flop_total_raise_amount,
+		p_flop_total_raise_amount,
+		p_turn_total_raise_amount,
+		p_river_total_raise_amount,
+		p_total_raise_amount,
+		p_pre_flop_average_raise_amt,
+		p_flop_average_raise_amount,
+		p_turn_average_raise_amount,
+		p_river_average_raise_amount,
+		p_average_raise_amount,
+		p_times_all_in,
+		p_total_money_played,
+		p_total_money_won
+	);
+	
+END insert_tournament_result;
+
 PROCEDURE select_state(
 	p_state_id                   poker_state_log.state_id%TYPE,
 	p_poker_state            OUT t_rc_generic,
@@ -468,6 +670,9 @@ BEGIN
 			   state,
 			   game_rank,
 			   tournament_rank,
+			   eligible_to_win_money,
+			   total_pot_deficit,
+			   total_pot_contribution,
 			   games_played,
 			   main_pots_won,
 			   main_pots_split,
@@ -556,7 +761,7 @@ BEGIN
 			   message
 		FROM   poker_ai_log
 		WHERE  state_id = p_state_id
-		ORDER BY log_record_number DESC;
+		ORDER BY log_record_number;
 			
 	EXCEPTION WHEN OTHERS THEN
 		IF p_poker_state%ISOPEN THEN
@@ -618,5 +823,62 @@ BEGIN
 	RETURN pai_seq_sid.NEXTVAL;
 	
 END get_new_state_id;
+
+FUNCTION get_new_strategy_id RETURN strategy.strategy_id%TYPE IS
+BEGIN
+
+	RETURN pai_seq_stratid.NEXTVAL;
+	
+END get_new_strategy_id;
+
+PROCEDURE upsert_strategy (
+	p_strategy_id         strategy.strategy_id%TYPE,
+	p_generation          strategy.generation%TYPE,
+	p_strategy_chromosome strategy.strategy_chromosome%TYPE,
+	p_strategy_procedure  strategy.strategy_procedure%TYPE
+) IS
+BEGIN
+
+	MERGE INTO strategy s USING (SELECT dummy FROM DUAL) d ON (
+		s.strategy_id = p_strategy_id
+	) WHEN MATCHED THEN UPDATE SET
+		s.generation = p_generation,
+		s.strategy_chromosome = p_strategy_chromosome,
+		s.strategy_procedure = p_strategy_procedure
+	WHEN NOT MATCHED THEN INSERT (
+		strategy_id,
+		generation,
+		strategy_chromosome,
+		strategy_procedure
+	) VALUES (
+		p_strategy_id,
+		p_generation,
+		p_strategy_chromosome,
+		p_strategy_procedure
+	);
+		
+END upsert_strategy;
+
+PROCEDURE select_strategy (
+	p_strategy_id strategy.strategy_id%TYPE,
+	p_result      OUT t_rc_generic
+) IS
+BEGIN
+
+	OPEN p_result FOR
+		SELECT strategy_id,
+			   generation,
+			   strategy_chromosome,
+			   strategy_procedure
+		FROM   strategy
+		WHERE  strategy_id = p_strategy_id;
+	
+	EXCEPTION WHEN OTHERS THEN
+		IF p_result%ISOPEN THEN
+			CLOSE p_result;
+		END IF;
+		RAISE;
+		
+END select_strategy;
 
 END pkg_poker_ai;

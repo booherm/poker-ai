@@ -2,6 +2,7 @@
 #define DECK_HPP
 
 #include <vector>
+#include "Util.hpp"
 
 class Deck {
 public:
@@ -21,12 +22,14 @@ public:
 	};
 
 	Deck();
-	void initialize();
-	Card getCardById(unsigned int cardId);
+	void initialize(Util::RandomNumberGenerator* randomNumberGenerator);
 	Card getUnknownCard() const;
-	Card drawCard();
+	Card getCardById(unsigned int cardId) const;
+	Card drawCardById(unsigned int cardId);
+	Card drawRandomCard();
 
 private:
+	Util::RandomNumberGenerator* randomNumberGenerator;
 	Card unkownCard;
 	std::vector<Card> cards;
 };
