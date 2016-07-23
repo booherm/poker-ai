@@ -30,7 +30,6 @@ protected:
 	void bindJsFunction(JSObject& scopeObject, const std::string& jsFunctionName, JSDelegate cppCallback);
 
 	virtual void bindJsFunctions();
-	// AwesomiumUiWindow::WebViewListener::View interface implementation functions
 	virtual void OnChangeTitle(WebView* caller, const WebString& title);
 	virtual void OnChangeAddressBar(WebView* caller, const WebURL& url);
 	virtual void OnChangeTooltip(WebView* caller, const WebString& tooltip);

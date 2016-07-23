@@ -1,4 +1,5 @@
 #include "PythonManager.hpp"
+#include "StrategyEvaluationDataProvider.hpp"
 
 PythonManager::PlayerMoveResult PythonManager::executionResult;
 StrategyEvaluationDataProvider* PythonManager::stratEvalDataProvider;
@@ -68,14 +69,24 @@ PythonManager::~PythonManager() {
 
 PythonManager::PlayerMoveResult PythonManager::executeDecisionProcedure(StrategyEvaluationDataProvider* stratEvalDataProvider, PyObject* decisionProcedure) {
 
-	this->stratEvalDataProvider = stratEvalDataProvider;
-
 	pythonMutex.lock();
+	PyGILState_STATE gilState = PyGILState_Ensure();
+	this->stratEvalDataProvider = stratEvalDataProvider;
 	PyObject* exeuctionResultObject = PyEval_EvalCode((PyCodeObject*) decisionProcedure, mainDictionary, mainDictionary);
 	decreaseReferenceCount(exeuctionResultObject);
+	if ((executionResult.move == PokerEnums::PlayerMove::BET || executionResult.move == PokerEnums::PlayerMove::RAISE) && executionResult.moveAmount > 5000) {
+		int x = 0;
+	}
+	PlayerMoveResult playerMoveResult = executionResult;
+	PyGILState_Release(gilState);
 	pythonMutex.unlock();
 
-	return executionResult;
+	if ((playerMoveResult.move == PokerEnums::PlayerMove::BET || playerMoveResult.move == PokerEnums::PlayerMove::RAISE) && playerMoveResult.moveAmount > 5000) {
+		int x = 0;
+
+	}
+
+	return playerMoveResult;
 }
 
 PyObject* PythonManager::compileDecisionProcedure(const std::string& procedureText) {

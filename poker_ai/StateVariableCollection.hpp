@@ -172,7 +172,7 @@ public:
 	float getPokerStateVariableValue(PokerStateVariable variableId);
 	float getPrivatePlayerStateVariableValue(PrivatePlayerStateVariable variableId, unsigned int seatNumber);
 	float getPublicPlayerStateVariableValue(PublicPlayerStateVariable variableId);
-	void dumpData() const;
+	void dumpData();
 	void clear();
 	void setPokerStateVariableValue(PokerStateVariable variableId, float variableValue);
 	void setPrivatePlayerStateVariableValue(PrivatePlayerStateVariable variableId, unsigned int seatNumber, float variableValue);
@@ -210,13 +210,13 @@ private:
 
 	const unsigned int maxPlayerCount = 10;
 	VariableSectionBoundaries variableSectionBoundaries;
-	static std::map<Constant, float> constantData;
-	static std::map<PokerStateVariable, float> pokerStateData;
-	static std::map<PrivatePlayerStateKey, float, PrivatePlayerStateKeyComparator> privatePlayerStateData;
-	static std::map<PublicPlayerStateKey, float, PublicPlayerStateKeyComparator> publicPlayerStateData;
-	static std::vector<std::string> pokerStateVariableNames;
-	static std::vector<std::string> privatePlayerStateVariableNames;
-	static std::vector<std::string> publicPlayerStateVariableNames;
+	std::map<Constant, float> constantData;
+	std::map<PokerStateVariable, float> pokerStateData;
+	std::map<PrivatePlayerStateKey, float, PrivatePlayerStateKeyComparator> privatePlayerStateData;
+	std::map<PublicPlayerStateKey, float, PublicPlayerStateKeyComparator> publicPlayerStateData;
+	std::vector<std::string> pokerStateVariableNames;
+	std::vector<std::string> privatePlayerStateVariableNames;
+	std::vector<std::string> publicPlayerStateVariableNames;
 };
 
 #endif

@@ -1,6 +1,6 @@
 #include "Logger.hpp"
 
-void Logger::initialize(ocilib::Connection& con) {
+void Logger::initialize(oracle::occi::Connection* con) {
 	this->con = con;
 	loggingEnabled = true;
 }
@@ -17,16 +17,14 @@ void Logger::log(unsigned int stateId, const std::string& message) {
 	logMessages.push_back(message);
 
 	std::string procCall = "BEGIN pkg_poker_ai.log(";
-	procCall.append("p_state_id => :stateId, ");
-	procCall.append("p_message  => :message");
+	procCall.append("p_state_id => :1, ");
+	procCall.append("p_message  => :2");
 	procCall.append("); END; ");
-
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
-	ocilib::ostring messageOString(message);
-	st.Bind("stateId", stateId, ocilib::BindInfo::In);
-	st.Bind("message", messageOString, static_cast<unsigned int>(messageOString.size()), ocilib::BindInfo::In);
-	st.ExecutePrepared();
+	oracle::occi::Statement* statement = con->createStatement(procCall);
+	statement->setUInt(1, stateId);
+	statement->setString(2, message);
+	statement->execute();
+	con->terminateStatement(statement);
 
 }
 

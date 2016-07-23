@@ -28,7 +28,8 @@ BEGIN
 		tournament_buy_in,
 		initial_small_blind_value,
 		double_blinds_interval,
-		current_generation
+		current_generation,
+		trial_complete
 	) VALUES (
 		p_trial_id,
 		p_generation_size,
@@ -41,7 +42,8 @@ BEGIN
 		p_tournament_buy_in,
 		p_initial_small_blind_value,
 		p_double_blinds_interval,
-		p_current_generation
+		p_current_generation,
+		'N'
 	);
 	COMMIT;
 	
@@ -192,20 +194,10 @@ FUNCTION select_tournament_work (
 	v_message_handle            RAW(16);
 	v_player_count_sanity_check evolution_trial.players_per_tournament%TYPE;
 	v_ppt_sanity_check          evolution_trial.players_per_tournament%TYPE;
-	v_work_remains              VARCHAR2(1);
+	v_trial_complete            evolution_trial.trial_complete%TYPE;
 	v_work_to_perform           BOOLEAN := TRUE;
 	
 BEGIN
-
-	-- check if trial is complete
-	SELECT CASE WHEN current_generation >= max_generations THEN 'N' ELSE 'Y' END work_remains
-	INTO   v_work_remains
-	FROM   evolution_trial
-	WHERE  trial_id = p_trial_id;
-	IF v_work_remains = 'N' THEN
-		-- all generations complete, no work to perform
-		RETURN -1;
-	END IF;
 	
 	-- attempt to dequeue a message
 	BEGIN
@@ -269,12 +261,21 @@ BEGIN
 		RETURN 0;
 				   
 	ELSE
-		-- empty queue, no work to perform
-		RETURN 1;
-		-- debug - need to open?
-		--OPEN p_tournament_work FOR SELECT dummy FROM DUAL WHERE 1 = 2;
-		--OPEN p_tournament_work_strategies FOR SELECT dummy FROM DUAL WHERE 1 = 2;
+	
+		-- empty queue, check if trial is complete
+		SELECT trial_complete
+		INTO   v_trial_complete
+		FROM   evolution_trial
+		WHERE  trial_id = p_trial_id;
 
+		IF v_trial_complete = 'Y' THEN
+			-- all generations complete, no work to perform
+			RETURN -1;
+		ELSE
+			-- there is no tournament work to perform, but generation work remains
+			RETURN 1;
+		END IF;
+		
 	END IF;
 	
 	EXCEPTION WHEN OTHERS THEN
@@ -287,5 +288,45 @@ BEGIN
 		RAISE;
 		
 END select_tournament_work;
+
+PROCEDURE set_current_generation(
+	p_trial_id           evolution_trial.trial_id%TYPE,
+	p_current_generation evolution_trial.current_generation%TYPE
+) IS
+BEGIN
+
+	UPDATE evolution_trial
+	SET    current_generation = p_current_generation
+	WHERE  trial_id = p_trial_id;
+
+	pkg_ga_evolver.enqueue_tournaments(p_trial_id => p_trial_id);
+
+END set_current_generation;
+
+PROCEDURE select_parent_generation(
+	p_trial_id   evolution_trial.trial_id%TYPE,
+	p_generation strategy.generation%TYPE,
+	p_parents    OUT t_rc_generic
+) IS
+BEGIN
+
+	OPEN p_parents FOR
+		SELECT generation_size
+		FROM   evolution_trial
+		WHERE  trial_id = p_trial_id;
+		
+END select_parent_generation;
+
+PROCEDURE mark_trial_complete(
+	p_trial_id evolution_trial.trial_id%TYPE
+) IS
+BEGIN
+
+	UPDATE evolution_trial
+	SET    trial_complete = 'Y'
+	WHERE  trial_id = p_trial_id;
+	COMMIT;
+	
+END mark_trial_complete;
 
 END pkg_ga_evolver;

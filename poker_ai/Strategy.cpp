@@ -1,70 +1,67 @@
 #include "Strategy.hpp"
 
-void Strategy::initialize(ocilib::Connection& con,
-	Logger* logger,
+void Strategy::initialize(
+	oracle::occi::StatelessConnectionPool* connectionPool,
 	PythonManager* pythonManager,
-	Util::RandomNumberGenerator* randomNumberGenerator
+	bool loggingEnabled
 ) {
-	this->con = con;
-	this->logger = logger;
+	this->connectionPool = connectionPool;
+	con = connectionPool->getConnection();
+	logger.initialize(con);
+	logger.setLoggingEnabled(loggingEnabled);
 	this->pythonManager = pythonManager;
-	this->randomNumberGenerator = randomNumberGenerator;
 }
 
 void Strategy::loadById(unsigned int loadStrategyId) {
 
 	std::string procCall = "BEGIN pkg_poker_ai.select_strategy(";
-	procCall.append("p_strategy_id => :strategyId, ");
-	procCall.append("p_result      => :result");
+	procCall.append("p_strategy_id => :1, ");
+	procCall.append("p_result      => :2");
 	procCall.append("); END;");
-	ocilib::Statement st(con);
-	ocilib::Statement resultBind(con);
-	st.Prepare(procCall);
-
-	st.Bind("strategyId", loadStrategyId, ocilib::BindInfo::In);
-	st.Bind("result", resultBind, ocilib::BindInfo::Out);
-	st.ExecutePrepared();
+	oracle::occi::Statement* statement = con->createStatement(procCall);
+	statement->setUInt(1, loadStrategyId);
+	statement->registerOutParam(2, oracle::occi::OCCICURSOR);
+	statement->execute();
+	oracle::occi::ResultSet* resultSet = statement->getCursor(2);
 	
-	ocilib::Resultset resultRs = resultBind.GetResultset();
-	if (resultRs.Next()) {
-
-		strategyId = resultRs.Get<unsigned int>("strategy_id");
-		generation = resultRs.Get<unsigned int>("generation");
-
+	if (resultSet->next()) {
+		strategyId = resultSet->getUInt(1);
+		generation = resultSet->getUInt(2);
+		
 		// strategy chromosome
-		ocilib::Clob strategyChromosomeClob = resultRs.Get<ocilib::Clob>("strategy_chromosome");
-		ocilib::ostring strategyChromosomeOString = strategyChromosomeClob.Read((unsigned int) strategyChromosomeClob.GetLength());
+		std::string strategyChromosomeClobString;
+		Util::clobToString(resultSet->getClob(3), strategyChromosomeClobString);
 		chromosome.clear();
-		unsigned int strategyChromosomeLength = strategyChromosomeOString.length();
+		unsigned int strategyChromosomeLength = strategyChromosomeClobString.length();
 		for (unsigned int i = 0; i < strategyChromosomeLength; i++) {
-			chromosome.push_back(strategyChromosomeOString[i] == '1');
+			chromosome.push_back(strategyChromosomeClobString[i] == '1');
 		}
 
 		// rebuild decision unit tree
 		setDecisionTreeAttributes();
 
 		// strategy procedure
-		ocilib::Clob strategyProcedureClob = resultRs.Get<ocilib::Clob>("strategy_procedure");
-		ocilib::ostring strategyProcedureOString = strategyProcedureClob.Read((unsigned int) strategyProcedureClob.GetLength());
-		decisionProcedure = std::string(strategyProcedureOString);
+		Util::clobToString(resultSet->getClob(4), decisionProcedure);
 		compiledDecisionProcedure = pythonManager->compileDecisionProcedure(decisionProcedure);
 
-		logger->log(0, "Strategy " + std::to_string(strategyId) + " loaded from database");
+		logger.log(0, "Strategy " + std::to_string(strategyId) + " loaded from database");
 	}
 	else {
 		// strategy not found, generate from random
 		strategyId = loadStrategyId;
-		generateFromRandom();
-		logger->log(0, "Strategy " + std::to_string(strategyId) + " not found on database, generated from random");
+		generateFromRandom(1);
+		logger.log(0, "Strategy " + std::to_string(strategyId) + " not found on database, generated from random");
 	}
 
+	statement->closeResultSet(resultSet);
+	con->terminateStatement(statement);
 }
 
-unsigned int Strategy::generateFromRandom() {
+unsigned int Strategy::generateFromRandom(unsigned int generation) {
 
 	chromosome.clear();
 	for (unsigned int i = 0; i < chromosomeBitLength; i++) {
-		chromosome.push_back(randomNumberGenerator->getRandomBool());
+		chromosome.push_back(randomNumberGenerator.getRandomBool());
 	}
 
 	if (compiledDecisionProcedure != nullptr) {
@@ -74,15 +71,15 @@ unsigned int Strategy::generateFromRandom() {
 	compiledDecisionProcedure = pythonManager->compileDecisionProcedure(decisionProcedure);
 
 	// call for a new unique strategy id
-	unsigned int freshStrategyId;
-	std::string procCall = "BEGIN :freshStrategyId := pkg_poker_ai.get_new_strategy_id; END;";
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
-	st.Bind("freshStrategyId", freshStrategyId, ocilib::BindInfo::Out);
-	st.ExecutePrepared();
+	std::string procCall = "BEGIN :1 := pkg_poker_ai.get_new_strategy_id; END;";
+	oracle::occi::Statement* statement = con->createStatement(procCall);
+	statement->registerOutParam(1, oracle::occi::OCCIUNSIGNED_INT);
+	statement->execute();
+	unsigned int freshStrategyId = statement->getUInt(1);
+	con->terminateStatement(statement);
 
 	strategyId = freshStrategyId;
-	generation = 1;
+	this->generation = generation;
 
 	save();
 
@@ -91,198 +88,42 @@ unsigned int Strategy::generateFromRandom() {
 
 void Strategy::save() {
 
-	ocilib::ostring strategyChromosomeOString = "";
+	// strategy chromosome
+	std::string strategyChromosomeString = "";
 	for (unsigned int i = 0; i < chromosome.size(); i++) {
-		strategyChromosomeOString.append(chromosome[i] ? "1" : "0");
+		strategyChromosomeString.append(chromosome[i] ? "1" : "0");
 	}
-	ocilib::Clob strategyChromosomeClob = ocilib::Clob(con);
-	strategyChromosomeClob.Write(strategyChromosomeOString);
 
-	ocilib::Clob strategyProcedureClob = ocilib::Clob(con);
-	strategyProcedureClob.Write(ocilib::ostring(decisionProcedure));
+	std::string procCall = "BEGIN DBMS_LOB.CREATETEMPORARY(:1, FALSE); END;";
+	oracle::occi::Statement* statement = con->createStatement(procCall);
+	statement->registerOutParam(1, oracle::occi::OCCICLOB);
+	statement->execute();
+	oracle::occi::Clob strategyChromosomeClob = statement->getClob(1);
+	strategyChromosomeClob.write(strategyChromosomeString.length(), (unsigned char*) &strategyChromosomeString[0], strategyChromosomeString.length());
 
-	std::string procCall = "BEGIN pkg_poker_ai.upsert_strategy(";
-	procCall.append("p_strategy_id         => :strategyId, ");
-	procCall.append("p_generation          => :generation, ");
-	procCall.append("p_strategy_chromosome => :strategyChromosome, ");
-	procCall.append("p_strategy_procedure  => :strategyProcedure");
+	// strategy procedure
+	statement->execute();
+	oracle::occi::Clob strategyProcedureClob = statement->getClob(1);
+	strategyProcedureClob.write(decisionProcedure.length(), (unsigned char*) &decisionProcedure[0], decisionProcedure.length());
+	con->terminateStatement(statement);
+
+	// save to database
+	procCall = "BEGIN pkg_poker_ai.upsert_strategy(";
+	procCall.append("p_strategy_id         => :1, ");
+	procCall.append("p_generation          => :2, ");
+	procCall.append("p_strategy_chromosome => :3, ");
+	procCall.append("p_strategy_procedure  => :4");
 	procCall.append("); END;");
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
-
-	st.Bind("strategyId", strategyId, ocilib::BindInfo::In);
-	st.Bind("generation", generation, ocilib::BindInfo::In);
-	st.Bind("strategyChromosome", strategyChromosomeClob, ocilib::BindInfo::In);
-	st.Bind("strategyProcedure", strategyProcedureClob, ocilib::BindInfo::In);
-	st.ExecutePrepared();
-	con.Commit();
-
-	logger->log(0, "Strategy " + std::to_string(strategyId) + " saved to database");
-}
-
-void Strategy::setPlayerSeatNumber(unsigned int playerSeatNumber) {
-	this->playerSeatNumber = playerSeatNumber;
-}
-
-void Strategy::setStateVariableCollection(StateVariableCollection* stateVariableCollection) {
-	this->stateVariableCollection = stateVariableCollection;
-	stateVariableCollection->getVariableSectionBoundaries(vsb);
-}
-
-PythonManager::PlayerMoveResult Strategy::executeDecisionProcedure(std::vector<PokerEnums::PlayerMove>* possiblePlayerMoves, BetRaiseLimits* betRaiseLimits) {
-	currentPossiblePlayerMoves = possiblePlayerMoves;
-	currentBetRaiseLimits = betRaiseLimits;
-	return pythonManager->executeDecisionProcedure(this, compiledDecisionProcedure);
-}
-
-PokerEnums::PlayerMove Strategy::getMoveForDecisionTreeUnit(unsigned int decisionTreeUnitId) {
-
-	unsigned int startingOutputSlotId = (unsigned int) pow(2, treeDepth - 1) - 1;
-	unsigned int outputSlotId = decisionTreeUnitId - startingOutputSlotId;
-	unsigned int outputSlotIdCount = startingOutputSlotId;
-	float location = (float) outputSlotId / outputSlotIdCount;
-	unsigned int possibleMoveCount = currentPossiblePlayerMoves->size();
-
-	// all player moves consist of either exactly 2 or 3 choices
-	if (possibleMoveCount == 2) {
-		if (location < 0.5f)
-			return currentPossiblePlayerMoves->at(0);
-		else
-			return currentPossiblePlayerMoves->at(1);
-	}
-	else {
-		if(location < 0.333f)
-			return currentPossiblePlayerMoves->at(0);
-		else if (location < 0.666f)
-			return currentPossiblePlayerMoves->at(1);
-		else
-			return currentPossiblePlayerMoves->at(2);
-	}
-
-}
-
-unsigned int Strategy::getMoveAmountForDecisionTreeUnit(float amountMultiplier) {
-
-	unsigned int moveAmount;
-
-	if (amountMultiplier >= 0.95f)
-		moveAmount = currentBetRaiseLimits->maxBetRaiseAmount;
-	else if (amountMultiplier <= 0.05f)
-		moveAmount = currentBetRaiseLimits->minBetRaiseAmount;
-	else {
-		moveAmount = currentBetRaiseLimits->minBetRaiseAmount
-			+ (unsigned int) ((amountMultiplier * (float) (currentBetRaiseLimits->maxBetRaiseAmount - currentBetRaiseLimits->minBetRaiseAmount)) + 0.5f);
-	}
-
-	if (moveAmount > currentBetRaiseLimits->maxBetRaiseAmount)
-		moveAmount = currentBetRaiseLimits->maxBetRaiseAmount;
-
-	if (moveAmount < currentBetRaiseLimits->minBetRaiseAmount)
-		moveAmount = currentBetRaiseLimits->minBetRaiseAmount;
-
-	return moveAmount;
-}
-
-float Strategy::getExpressionValue(unsigned int expressionId) {
-
-	// 10 bit, 0 <= expressionId <= 1023
-
-	// if expression id exceeds variables + expression slots, circle back around
-	// 754 + 254 = 1008, valid values are 0 <= expId <= 1007
-	unsigned int expId = expressionId % (vsb.publicPlayerStateUpperBound + valueExpressionSlotIdCount);
-
-	if (expId <= vsb.publicPlayerStateUpperBound) {
-		return getValueExpressionVariableValue(expId);
-	}
-	else {
-		// value is > vsb.publicPlayerStateUpperBound, references another expression
-		std::vector<unsigned int> leftReferencedIds;
-		std::vector<unsigned int> rightReferencedIds;
-		leftReferencedIds.push_back(expId);
-		rightReferencedIds.push_back(expId);
-		
-		return getSubExpressionValue(expId, leftReferencedIds, rightReferencedIds);
-	}
-
-}
-
-unsigned int Strategy::getStrategyId() const {
-	return strategyId;
-}
-
-float Strategy::getValueExpressionVariableValue(unsigned int valueExpressionVariableId) const {
-
-	if (valueExpressionVariableId >= vsb.constantLowerBound && valueExpressionVariableId <= vsb.constantUpperBound) {
-		return stateVariableCollection->getConstantValue((StateVariableCollection::Constant) valueExpressionVariableId);
-	}
-	else if (valueExpressionVariableId >= vsb.pokerStateLowerBound && valueExpressionVariableId <= vsb.pokerStateUpperBound) {
-		return stateVariableCollection->getPokerStateVariableValue((StateVariableCollection::PokerStateVariable) valueExpressionVariableId);
-	}
-	else if (valueExpressionVariableId >= vsb.privatePlayerStateLowerBound && valueExpressionVariableId <= vsb.privatePlayerStateUpperBound) {
-		return stateVariableCollection->getPrivatePlayerStateVariableValue((StateVariableCollection::PrivatePlayerStateVariable) valueExpressionVariableId, playerSeatNumber);
-	}
-	else {
-		return stateVariableCollection->getPublicPlayerStateVariableValue((StateVariableCollection::PublicPlayerStateVariable) valueExpressionVariableId);
-	}
-
-}
-
-float Strategy::getSubExpressionValue(unsigned int expressionSlotId, std::vector<unsigned int>& leftReferencedIds, std::vector<unsigned int>& rightReferencedIds) {
-
-	// if expression id exceeds variables + expression slots, circle back around
-	// 754 + 254 = 1008, valid values are 0 <= expId <= 1007
-	unsigned int expId = expressionSlotId % (vsb.publicPlayerStateUpperBound + valueExpressionSlotIdCount);
-	float leftOperandValue;
-	float rightOperandValue;
-
-	if (expId <= vsb.publicPlayerStateUpperBound) {
-		// id references a variable
-		return getValueExpressionVariableValue(expId);
-	}
-	else {
-
-		// value is > vsb.publicPlayerStateUpperBound, id references another expression
-
-		ValueExpression* valueExpression = getValueExpression(expId - vsb.publicPlayerStateUpperBound);
-		std::vector<unsigned int>::iterator it;
-		std::string expressionOp = getExpressionValueOperatorText(valueExpression->valueExpressionOperator.valueExpressionOperatorId);
-
-		it = std::find(leftReferencedIds.begin(), leftReferencedIds.end(), valueExpression->leftValueExpressionOperand.valueExpressionOperandId);
-		if (it != leftReferencedIds.end()) {
-			leftOperandValue = (expressionOp == "+" || expressionOp == "-") ? 0.0f : 1.0f;
-		}
-		else {
-			leftReferencedIds.push_back(valueExpression->leftValueExpressionOperand.valueExpressionOperandId);
-			leftOperandValue = getSubExpressionValue(valueExpression->leftValueExpressionOperand.valueExpressionOperandId, leftReferencedIds, rightReferencedIds);
-		}
-
-		it = std::find(rightReferencedIds.begin(), rightReferencedIds.end(), valueExpression->rightValueExpressionOperand.valueExpressionOperandId);
-		if (it != rightReferencedIds.end()) {	
-			rightOperandValue = (expressionOp == "+" || expressionOp == "-") ? 0.0f : 1.0f;
-		}
-		else {
-			rightReferencedIds.push_back(valueExpression->rightValueExpressionOperand.valueExpressionOperandId);
-			rightOperandValue = getSubExpressionValue(valueExpression->rightValueExpressionOperand.valueExpressionOperandId, leftReferencedIds, rightReferencedIds);
-		}
-
-		if (expressionOp == "+") {
-			return leftOperandValue + rightOperandValue;
-		}
-		else if (expressionOp == "-") {
-			return leftOperandValue - rightOperandValue;
-		}
-		else if (expressionOp == "*") {
-			return leftOperandValue * rightOperandValue;
-		}
-		else {
-			if (rightOperandValue == 0.0f)
-				return leftOperandValue;
-			else
-				return leftOperandValue / rightOperandValue;
-		}
-		
-	}
-
+	statement = con->createStatement(procCall);
+	statement->setUInt(1, strategyId);
+	statement->setUInt(2, generation);
+	statement->setClob(3, strategyChromosomeClob);
+	statement->setClob(4, strategyProcedureClob);
+	statement->execute();
+	con->terminateStatement(statement);
+	con->commit();
+	
+	logger.log(0, "Strategy " + std::to_string(strategyId) + " saved to database");
 }
 
 Strategy::ValueExpression* Strategy::getValueExpression(unsigned int expId) {
@@ -303,6 +144,7 @@ Strategy::~Strategy() {
 	if (compiledDecisionProcedure != nullptr) {
 		pythonManager->decreaseReferenceCount(compiledDecisionProcedure);
 	}
+	connectionPool->releaseConnection(con);
 }
 
 void Strategy::setDecisionTreeAttributes() {
@@ -487,6 +329,8 @@ std::vector<bool> Strategy::getChromosomeSection(unsigned int startIndex, unsign
 }
 
 unsigned int Strategy::getIdFromBitString(const std::vector<bool>& bitString) const {
+
+	// convert from bit string to unsigned int
 	unsigned int result = 0;
 	unsigned int stringLength = bitString.size();
 

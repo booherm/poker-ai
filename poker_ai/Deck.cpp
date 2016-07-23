@@ -74,6 +74,9 @@ Deck::Card Deck::drawCardById(unsigned int cardId) {
 }
 
 Deck::Card Deck::drawRandomCard() {
+
+	// debug - this could be better with a parallel array or something to hold drawn cards
+
 	std::vector<unsigned int> undealtCards;
 	for (unsigned int i = 0; i < cards.size(); i++) {
 		if (!cards[i].dealt)

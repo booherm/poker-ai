@@ -1,30 +1,36 @@
 #include "PokerAiController.hpp"
+#include <occi.h>
 
 PokerAiController::PokerAiController() {
 
-	srand((unsigned int) time(NULL));
+	// init db
+	oracle::occi::Environment* env = oracle::occi::Environment::createEnvironment(oracle::occi::Environment::THREADED_MUTEXED);
+	oracle::occi::StatelessConnectionPool* connectionPool = env->createStatelessConnectionPool("POKER_AI", "poker_ai",
+		"ORACLENODE1", 1000, 5, 5, oracle::occi::StatelessConnectionPool::HOMOGENEOUS);
 
-	databaseId = "ORACLENODE1";
-	ocilib::Environment::Initialize(ocilib::Environment::EnvironmentFlagsValues::Threaded);
-
+	// init main components
 	pythonManager = new PythonManager;
 	strategyManager = new StrategyManager;
-	strategyManager->initialize(databaseId, pythonManager);
-
+	strategyManager->initialize(connectionPool, pythonManager);
 	tournamentController = new TournamentController;
-	tournamentController->initialize(databaseId, pythonManager, strategyManager);
-	gaEvolverController = new GaEvolverController(databaseId, pythonManager, strategyManager);
+	tournamentController->initialize(connectionPool, pythonManager, strategyManager);
+	gaEvolverController = new GaEvolverController(connectionPool, pythonManager, strategyManager);
 
+	// init and start ui window
 	uiWindow = new PokerAiUiWindow(tournamentController, gaEvolverController);
 	uiWindow->threadStart();
 
+	// block until the ui window closes
 	uiWindow->threadJoin();
-}
 
-PokerAiController::~PokerAiController() {
+	// cleanup main components
 	delete uiWindow;
 	delete tournamentController;
 	delete gaEvolverController;
 	delete strategyManager;
 	delete pythonManager;
+
+	// cleanup db
+	env->terminateStatelessConnectionPool(connectionPool);
+	oracle::occi::Environment::terminateEnvironment(env);
 }

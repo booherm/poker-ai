@@ -1,14 +1,14 @@
 #ifndef LOGGER_HPP
 #define LOGGER_HPP
 
-#include <ocilib.hpp>
+#include <occi.h>
 #include <string>
 #include <vector>
 #include "json.hpp"
 
 class Logger {
 public:
-	void initialize(ocilib::Connection& con);
+	void initialize(oracle::occi::Connection* con);
 	void log(unsigned int stateId, const std::string& message);
 	void getLogMessages(Json::Value& logMessagesJsonArray);
 	void clearLogMessages();
@@ -17,7 +17,7 @@ public:
 
 private:
 	bool loggingEnabled;
-	ocilib::Connection con;
+	oracle::occi::Connection* con;
 	std::vector<std::string> logMessages;
 };
 

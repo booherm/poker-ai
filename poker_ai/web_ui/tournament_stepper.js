@@ -548,6 +548,11 @@ TournamentStepper.initTournament = function(tournamentMode){
 
 TournamentStepper.refreshUi = function(uiData){
 
+	if(uiData.stateNotFound){
+		Ext.Msg.alert("Error", "State not found");
+		return;
+	}
+	
 	// tournament state
 	TournamentStepper.playerCountField.setValue(uiData.tournamentState.player_count);
 	TournamentStepper.buyInAmountField.setValue(uiData.tournamentState.buy_in_amount);

@@ -1,8 +1,7 @@
 #include "StrategyManager.hpp"
 
-void StrategyManager::initialize(const std::string& databaseId, PythonManager* pythonManager) {
-	con.Open(databaseId, "poker_ai", "poker_ai");
-	logger.initialize(con);
+void StrategyManager::initialize(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager) {
+	this->connectionPool = connectionPool;
 	this->pythonManager = pythonManager;
 }
 
@@ -10,18 +9,19 @@ Strategy* StrategyManager::getStrategy(unsigned int strategyId) {
 
 	Strategy* s;
 
+	// look for strategy in the cache
 	strategyManagerMutex.lock();
 	unsigned int strategyCount = strategies.count(strategyId);
 
 	if (strategyCount == 0) {
-		logger.log(0, "Strategy manager is loading strategy " + std::to_string(strategyId));
+		// attempt load of strategy from database
 		s = new Strategy;
-		s->initialize(con, &logger, pythonManager, &randomNumberGenerator);
+		s->initialize(connectionPool, pythonManager, false);
 		s->loadById(strategyId);
 		strategies[strategyId] = s;
 	}
 	else {
-		logger.log(0, "Strategy manager returning cached strategy " + std::to_string(strategyId));
+		// cached copy found
 		s = strategies[strategyId];
 	}
 
@@ -30,11 +30,12 @@ Strategy* StrategyManager::getStrategy(unsigned int strategyId) {
 	return s;
 }
 
-unsigned int StrategyManager::generateRandomStrategy() {
+unsigned int StrategyManager::generateRandomStrategy(unsigned int generation) {
+
 	Strategy* s;
 	s = new Strategy;
-	s->initialize(con, &logger, pythonManager, &randomNumberGenerator);
-	unsigned int strategyId = s->generateFromRandom();
+	s->initialize(connectionPool, pythonManager, false);
+	unsigned int strategyId = s->generateFromRandom(generation);
 	strategyManagerMutex.lock();
 	strategies[strategyId] = s;
 	strategyManagerMutex.unlock();
@@ -42,8 +43,18 @@ unsigned int StrategyManager::generateRandomStrategy() {
 	return strategyId;
 }
 
-StrategyManager::~StrategyManager() {
+void StrategyManager::flush() {
+
+	// destruct strategies and clear out cache
+	strategyManagerMutex.lock();
 	for (std::map<unsigned int, Strategy*>::iterator it = strategies.begin(); it != strategies.end(); ++it) {
 		delete it->second;
 	}
+	strategies.clear();
+	strategyManagerMutex.unlock();
+
+}
+
+StrategyManager::~StrategyManager() {
+	flush();
 }

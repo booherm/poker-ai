@@ -9,9 +9,7 @@
 class PokerAiController {
 public:
 	PokerAiController();
-	~PokerAiController();
 private:
-	std::string databaseId;
 	PokerAiUiWindow* uiWindow;
 	PythonManager* pythonManager;
 	StrategyManager* strategyManager;

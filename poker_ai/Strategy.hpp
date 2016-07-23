@@ -1,38 +1,27 @@
 #ifndef STRATEGY_HPP
 #define STRATEGY_HPP
 
-#include <ocilib.hpp>
+#include <occi.h>
 #include <vector>
 #include "Logger.hpp"
 #include "Util.hpp"
-#include "StateVariableCollection.hpp"
-#include "StrategyEvaluationDataProvider.hpp"
 #include "PythonManager.hpp"
 
-class Strategy : public StrategyEvaluationDataProvider {
+class StrategyEvaluationDataProvider;
+
+class Strategy {
+
+	friend class StrategyEvaluationDataProvider;
+
 public:
-
-	struct BetRaiseLimits {
-		unsigned int minBetRaiseAmount;
-		unsigned int maxBetRaiseAmount;
-	};
-
 	void initialize(
-		ocilib::Connection& con,
-		Logger* logger,
+		oracle::occi::StatelessConnectionPool* connectionPool,
 		PythonManager* pythonManager,
-		Util::RandomNumberGenerator* randomNumberGenerator
+		bool loggingEnabled
 	);
 	void loadById(unsigned int loadStrategyId);
-	unsigned int generateFromRandom();
+	unsigned int generateFromRandom(unsigned int generation);
 	void save();
-	void setPlayerSeatNumber(unsigned int playerSeatNumber);
-	void setStateVariableCollection(StateVariableCollection* stateVariableCollection);
-	PythonManager::PlayerMoveResult executeDecisionProcedure(std::vector<PokerEnums::PlayerMove>* possiblePlayerMoves, BetRaiseLimits* betRaiseLimits);
-	PokerEnums::PlayerMove getMoveForDecisionTreeUnit(unsigned int decisionTreeUnitId);
-	unsigned int getMoveAmountForDecisionTreeUnit(float amountMultiplier);
-	float getExpressionValue(unsigned int expressionId);
-	unsigned int getStrategyId() const;
 	~Strategy();
 
 private:
@@ -87,8 +76,6 @@ private:
 	std::string getExpressionValueOperatorText(unsigned int expressionValueOperatorId) const;
 	std::string getDecisionOperatorText(unsigned int decisionOperatorId) const;
 	double getAmountMultiplierFromId(unsigned int amountMultiplierId) const;
-	float getValueExpressionVariableValue(unsigned int valueExpressionVariableId) const;
-	float getSubExpressionValue(unsigned int expressionSlotId, std::vector<unsigned int>& leftReferencedIds, std::vector<unsigned int>& rightReferencedIds);
 	ValueExpression* getValueExpression(unsigned int expId);
 	std::string indent(unsigned int tabCount) const;
 
@@ -110,14 +97,10 @@ private:
 	std::vector<DecisionTreeUnit> decisionTreeUnits;
 	PyObject* compiledDecisionProcedure = nullptr;
 	PythonManager* pythonManager;
-	ocilib::Connection con;
-	Logger* logger;
-	StateVariableCollection* stateVariableCollection;
-	std::vector<PokerEnums::PlayerMove>* currentPossiblePlayerMoves;
-	BetRaiseLimits* currentBetRaiseLimits;
-	unsigned int playerSeatNumber;
-	StateVariableCollection::VariableSectionBoundaries vsb;
-	Util::RandomNumberGenerator* randomNumberGenerator;
+	oracle::occi::StatelessConnectionPool* connectionPool;
+	oracle::occi::Connection* con;
+	Logger logger;
+	Util::RandomNumberGenerator randomNumberGenerator;
 };
 
 #endif

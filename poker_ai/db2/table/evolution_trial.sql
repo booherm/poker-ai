@@ -11,7 +11,8 @@ CREATE TABLE evolution_trial
 	tournament_buy_in         NUMBER(10, 0),
 	initial_small_blind_value NUMBER(10, 0),
 	double_blinds_interval    NUMBER(10, 0),
-	current_generation        NUMBER(10, 0)
+	current_generation        NUMBER(10, 0),
+	trial_complete            VARCHAR2(1)
 ) INMEMORY;
 
 ALTER TABLE evolution_trial ADD

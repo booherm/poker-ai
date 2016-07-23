@@ -61,7 +61,6 @@ void PokerAiUiWindow::loadNextState(WebView* caller, const JSArray& args) {
 void PokerAiUiWindow::refreshUi(unsigned int stateId) {
 	Json::Value uiData(Json::objectValue);
 	tournamentController->getUiState(stateId, uiData);
-	//std::cout << uiData.toStyledString() << std::endl;
 	executeJs("TournamentStepper.refreshUi(" + uiData.toStyledString() + ");");
 }
 

@@ -9,9 +9,9 @@
 	#include <Python.h>
 #endif
 #include "PokerEnumerations.hpp"
-#include "StrategyEvaluationDataProvider.hpp"
 #include <boost/thread.hpp>
 #include <string>
+class StrategyEvaluationDataProvider;
 
 class PythonManager {
 public:

@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include <ocilib.hpp>
+#include <occi.h>
 #include "PokerEnumerations.hpp"
 #include "PokerState.hpp"
 #include "Deck.hpp"
@@ -11,12 +11,13 @@
 #include "json.hpp"
 #include "Logger.hpp"
 #include "Strategy.hpp"
+#include "StrategyEvaluationDataProvider.hpp"
 
 class Player {
 public:
 
 	void initialize(
-		ocilib::Connection& con,
+		oracle::occi::Connection* con,
 		Logger* logger,
 		PokerState* pokerState,
 		std::vector<PlayerState>* playerStates,
@@ -26,12 +27,12 @@ public:
 		unsigned int buyInAmount
 	);
 	void load(
-		ocilib::Connection& con,
+		oracle::occi::Connection* con,
 		Logger* logger,
 		PokerState* pokerState,
 		std::vector<PlayerState>* playerStates,
 		Strategy* strategy,
-		ocilib::Resultset& playerStateRs
+		oracle::occi::ResultSet* playerStateRs
 	);
 	bool getIsActive() const;
 	PokerEnums::State getState() const;
@@ -66,7 +67,7 @@ private:
 	inline bool getCanCall() const;
 	bool getCanBet() const;
 	bool getCanRaise() const;
-	Strategy::BetRaiseLimits Player::getBetRaiseLimits() const;
+	StrategyEvaluationDataProvider::BetRaiseLimits Player::getBetRaiseLimits() const;
 	std::string getHandClassificationString(PokerEnums::HandClassification classification) const;
 	void clearHoleCards();
 	void pushHoleCard(const Deck::Card& card);
@@ -74,12 +75,12 @@ private:
 	void performAutomaticPlayerMove();
 	void performExplicitPlayerMove(PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount);
 
-	ocilib::Connection con;
+	oracle::occi::Connection* con;
 	Logger* logger;
 	PokerState* pokerState;
 	std::vector<PlayerState>* playerStates;
 	PlayerState* thisPlayerState;
-	Strategy* currentStrategy;
+	StrategyEvaluationDataProvider strategyEvaluationDataProvider;
 	std::vector<Deck::Card> holeCards;
 	Hand bestHand;
 	unsigned int bestHandRank;

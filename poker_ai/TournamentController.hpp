@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include <ocilib.hpp>
+#include <occi.h>
 #include "PokerEnumerations.hpp"
 #include "Player.hpp"
 #include "PokerState.hpp"
@@ -18,7 +18,7 @@ public:
 		EXTERNAL = 1
 	};
 
-	void initialize(const std::string& databaseId, PythonManager* pythonManager, StrategyManager* strategyManager);
+	void initialize(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager, StrategyManager* strategyManager);
 	void testAutomatedTournament(
 		unsigned int evolutionTrialId,
 		unsigned int tournamentCount,
@@ -56,7 +56,7 @@ private:
 	bool getNotAllPresentedBetOpportunity() const;
 	void getNewStateId();
 
-	void loadState(unsigned int stateId);
+	bool loadState(unsigned int stateId);
 	unsigned int initializeTournament(
 		unsigned int tournamentId,
 		TournamentMode tournamentMode,
@@ -92,7 +92,9 @@ private:
 	std::vector<PlayerState> playerStates;
 	StrategyManager* strategyManager;
 	Logger logger;
-	ocilib::Connection con;
+
+	oracle::occi::StatelessConnectionPool* connectionPool;
+	oracle::occi::Connection* con;
 
 };
 

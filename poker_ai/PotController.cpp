@@ -2,7 +2,7 @@
 #include <map>
 #include <set>
 
-void PotController::initialize(ocilib::Connection& con, Logger* logger, std::vector<PlayerState>* playerStates, StateVariableCollection* stateVariables) {
+void PotController::initialize(oracle::occi::Connection* con, Logger* logger, std::vector<PlayerState>* playerStates, StateVariableCollection* stateVariables) {
 	this->con = con;
 	this->logger = logger;
 	this->playerStates = playerStates;
@@ -11,10 +11,10 @@ void PotController::initialize(ocilib::Connection& con, Logger* logger, std::vec
 }
 
 void PotController::load(
-	ocilib::Resultset& potStateRs,
+	oracle::occi::ResultSet* potStateRs,
 	Logger* logger,
 	std::vector<PlayerState>* playerStates,
-	ocilib::Resultset& potContributionStateRs,
+	oracle::occi::ResultSet* potContributionStateRs,
 	StateVariableCollection* stateVariables
 ) {
 	this->logger = logger;
@@ -22,23 +22,23 @@ void PotController::load(
 	this->stateVariables = stateVariables;
 
 	pots.clear();
-	while (potStateRs.Next()) {
+	while (potStateRs->next()) {
 		Pot pot;
-		pot.potNumber = potStateRs.Get<unsigned int>("pot_number");
-		pot.bettingRound = (PokerEnums::BettingRound) potStateRs.Get<unsigned int>("betting_round_number");
-		pot.betValue = potStateRs.Get<unsigned int>("bet_value");
+		pot.potNumber = potStateRs->getUInt(2);
+		pot.bettingRound = (PokerEnums::BettingRound) potStateRs->getUInt(3);
+		pot.betValue = potStateRs->getUInt(4);
 		pots.push_back(pot);
 	}
 
-	while (potContributionStateRs.Next()) {
-		unsigned int seekingPotNumber = potContributionStateRs.Get<unsigned int>("pot_number");
-		PokerEnums::BettingRound seekingBettingRound = (PokerEnums::BettingRound) potContributionStateRs.Get<unsigned int>("betting_round_number");
+	while (potContributionStateRs->next()) {
+		unsigned int seekingPotNumber = potContributionStateRs->getUInt(2);
+		PokerEnums::BettingRound seekingBettingRound = (PokerEnums::BettingRound) potContributionStateRs->getUInt(3);
 		for (unsigned int i = 0; i < pots.size(); i++) {
 			Pot* pot = &pots[i];
 			if (pot->potNumber == seekingPotNumber && pot->bettingRound == seekingBettingRound) {
 				PotContribution potContribution;
-				potContribution.playerSeatNumber = potContributionStateRs.Get<unsigned int>("player_seat_number");
-				potContribution.contributionAmount = potContributionStateRs.Get<unsigned int>("pot_contribution");
+				potContribution.playerSeatNumber = potContributionStateRs->getUInt(4);
+				potContribution.contributionAmount = potContributionStateRs->getUInt(5);
 				pot->contributions.push_back(potContribution);
 				break;
 			}
@@ -58,8 +58,9 @@ bool PotController::getBetExists(PokerEnums::BettingRound bettingRound) const {
 
 unsigned int PotController::getEligibleToWinMoney(unsigned int playerSeatNumber) const {
 
+	// the amount the player is eligible to win is the sum of all the contributions of the pots
+	// that this player has contributed to
 	unsigned int eligibleToWin = 0;
-
 	std::set<unsigned int> eligibleToWinPots;
 	for (unsigned int p = 0; p < pots.size(); p++) {
 		
@@ -80,6 +81,7 @@ unsigned int PotController::getEligibleToWinMoney(unsigned int playerSeatNumber)
 
 std::vector<unsigned int> PotController::getPotIds() const {
 
+	// distinct pot IDs
 	std::vector<unsigned int> potIds;
 	unsigned int previousPotId = 0;
 	for (unsigned int p = 0; p < pots.size(); p++) {
@@ -94,6 +96,7 @@ std::vector<unsigned int> PotController::getPotIds() const {
 
 std::vector<unsigned int> PotController::getPotContributors(unsigned int potId) const {
 
+	// get contributores to a pot accross all betting rounds
 	std::set<unsigned int> contributorSeatNumbers;
 	for (unsigned int p = 0; p < pots.size(); p++) {
 		const Pot* pot = &pots[p];
@@ -115,6 +118,7 @@ std::vector<unsigned int> PotController::getPotContributors(unsigned int potId) 
 
 unsigned int PotController::getPotValue(unsigned int potId) const {
 
+	// sum of contributions to a pot accross all betting rounds
 	unsigned int potValue = 0;
 	for (unsigned int p = 0; p < pots.size(); p++) {
 		const Pot* pot = &pots[p];
@@ -131,6 +135,7 @@ unsigned int PotController::getPotValue(unsigned int potId) const {
 
 unsigned int PotController::getTotalValue() const {
 
+	// sum of all pots
 	unsigned int totalValue = 0;
 	for (unsigned int p = 0; p < pots.size(); p++) {
 		const Pot* pot = &pots[p];
@@ -142,28 +147,9 @@ unsigned int PotController::getTotalValue() const {
 	return totalValue;
 }
 
-/*
-unsigned int PotController::getTotalPotContribution(unsigned int seatNumber) const {
-
-	unsigned int totalContribution = 0;
-	for (unsigned int p = 0; p < pots.size(); p++) {
-		const Pot* pot = &pots[p];
-		for (unsigned int pc = 0; pc < pot->contributions.size(); pc++) {
-			const PotContribution* potContribution = &pot->contributions[pc];
-			if (potContribution->playerSeatNumber == seatNumber) {
-				totalContribution += potContribution->contributionAmount;
-				break;
-			}
-		}
-	}
-
-	return totalContribution;
-}
-*/
-
-
 bool PotController::getUnevenPotsExist() const {
 
+	// return whether or not all pots are squared up among qualifiying players
 	for (unsigned int i = 0; i < playerStates->size(); i++) {
 		PlayerState* playerState = &playerStates->at(i);
 		if (playerState->state != PokerEnums::State::OUT_OF_TOURNAMENT
@@ -189,8 +175,8 @@ void PotController::getUiState(Json::Value& potsArray) const {
 		std::set<unsigned int> potMembers;
 	};
 
+	// sum pot values
 	std::map<unsigned int, PotUiRecord> potUiRecords;
-
 	for (unsigned int p = 0; p < pots.size(); p++) {
 
 		const Pot* pot = &pots[p];
@@ -217,6 +203,7 @@ void PotController::getUiState(Json::Value& potsArray) const {
 		potUiRecords[pot->potNumber] = uiRec;
 	}
 
+	// build UI records
 	for (std::map<unsigned int, PotUiRecord>::iterator it = potUiRecords.begin(); it != potUiRecords.end(); ++it) {
 		Json::Value potData(Json::objectValue);
 		PotUiRecord uiRec = it->second;
@@ -280,8 +267,8 @@ void PotController::contributeToPot(unsigned int seatNumber, unsigned int amount
 		newPot.potNumber = overallHighestPotNumber;
 		newPot.bettingRound = bettingRound;
 		newPot.betValue = amount;
-		newPot.contributions.push_back(potContribution);
 		pots.push_back(newPot);
+		pots[pots.size() - 1].contributions.push_back(potContribution);
 	}
 	else {
 
@@ -335,12 +322,14 @@ void PotController::contributeToPot(unsigned int seatNumber, unsigned int amount
 				if (pot->potNumber == bettingRoundHighestPotNumber) {
 
 					if (playerContributionFound->contributionAmount < pot->betValue) {
+
 						// player is going all in and cannot cover the current bet, need to split pot
 						Pot newPot;
 						newPot.potNumber = bettingRoundHighestPotNumber + 1;
 						newPot.bettingRound = bettingRound;
 						newPot.betValue = pot->betValue - playerContributionFound->contributionAmount;
 						pots.push_back(newPot);
+						pot = &pots[p];  // mutation of vector will have invalidated the pointer, reestablish
 
 						// move balance of all other players in pot to new pot
 						for (unsigned int pc = 0; pc < pot->contributions.size(); pc++) {
@@ -348,10 +337,6 @@ void PotController::contributeToPot(unsigned int seatNumber, unsigned int amount
 							if (potContribution->playerSeatNumber != seatNumber && potContribution->contributionAmount > playerContributionFound->contributionAmount) {
 								PotContribution newPotContribution;
 								newPotContribution.playerSeatNumber = potContribution->playerSeatNumber;
-
-								if ((int) potContribution->contributionAmount - (int) playerContributionFound->contributionAmount < 0)
-									break;
-
 								newPotContribution.contributionAmount = potContribution->contributionAmount - playerContributionFound->contributionAmount;
 								pots[pots.size() - 1].contributions.push_back(newPotContribution);
 								potContribution->contributionAmount = playerContributionFound->contributionAmount;
@@ -362,6 +347,7 @@ void PotController::contributeToPot(unsigned int seatNumber, unsigned int amount
 						pot->betValue = playerContributionFound->contributionAmount;
 					}
 					else if (playerContributionFound->contributionAmount > pot->betValue) {
+
 						// player is increasing the bet value.  If any other contributors to this pot are all in, need to split pot
 						bool sidePotNeeded = false;
 						for (unsigned int pc = 0; pc < pot->contributions.size(); pc++) {
@@ -373,6 +359,7 @@ void PotController::contributeToPot(unsigned int seatNumber, unsigned int amount
 						}
 
 						if (sidePotNeeded) {
+
 							// create new pot
 							unsigned int potBalance = playerContributionFound->contributionAmount - pot->betValue;
 							Pot newPot;
@@ -380,19 +367,23 @@ void PotController::contributeToPot(unsigned int seatNumber, unsigned int amount
 							newPot.bettingRound = bettingRound;
 							newPot.betValue = potBalance;
 							pots.push_back(newPot);
+							pot = &pots[p];  // mutation of vector will have invalidated the pointer, reestablish
 
 							// move balance of player's contribution into new pot
 							PotContribution newPotContribution;
 							newPotContribution.playerSeatNumber = seatNumber;
 							newPotContribution.contributionAmount = potBalance;
 							pots[pots.size() - 1].contributions.push_back(newPotContribution);
-								
+
 							// update the player contribution on the old highest pot number to the contribution of the player going all in
 							playerContributionFound->contributionAmount = pot->betValue;
+
 						}
 						else {
+
 							// new pot not needed, just increase bet value of highest pot
 							pot->betValue = playerContributionFound->contributionAmount;
+
 						}
 					}
 				}
@@ -471,6 +462,7 @@ void PotController::issueApplicablePotRefunds(unsigned int stateId) {
 				pots.erase(pots.begin() + j);
 		}
 	}
+
 }
 
 void PotController::issueDefaultPotWins(unsigned int stateId) {
@@ -549,6 +541,8 @@ void PotController::issueDefaultPotWins(unsigned int stateId) {
 }
 
 void PotController::calculateDeficitsAndPotentials() {
+
+	// for each player, calculate their current deficits and potential winnings
 	for (unsigned int i = 0; i < playerStates->size(); i++) {
 		PlayerState* playerState = &playerStates->at(i);
 		if (playerState->state != PokerEnums::State::OUT_OF_TOURNAMENT) {
@@ -564,53 +558,57 @@ void PotController::calculateDeficitsAndPotentials() {
 
 void PotController::insertStateLog(unsigned int stateId) {
 
+	if (pots.size() == 0)
+		return;
+
 	std::string potProcCall = "BEGIN pkg_poker_ai.insert_pot_log(";
-	potProcCall.append("p_state_id             => :stateId, ");
-	potProcCall.append("p_pot_number           => :potNumber, ");
-	potProcCall.append("p_betting_round_number => :bettingRoundNumber, ");
-	potProcCall.append("p_bet_value            => :betValue");
+	potProcCall.append("p_state_id             => :1, ");
+	potProcCall.append("p_pot_number           => :2, ");
+	potProcCall.append("p_betting_round_number => :3, ");
+	potProcCall.append("p_bet_value            => :4");
 	potProcCall.append("); END;");
-	ocilib::Statement potSt(con);
+	oracle::occi::Statement* potStatement = con->createStatement();
+	potStatement->setSQL(potProcCall);
 
 	std::string potContributionProcCall = "BEGIN pkg_poker_ai.insert_pot_contribution_log(";
-	potContributionProcCall.append("p_state_id             => :stateId, ");
-	potContributionProcCall.append("p_pot_number           => :potNumber, ");
-	potContributionProcCall.append("p_betting_round_number => :bettingRoundNumber, ");
-	potContributionProcCall.append("p_player_seat_number   => :playerSeatNumber, ");
-	potContributionProcCall.append("p_pot_contribution     => :potContribution");
+	potContributionProcCall.append("p_state_id             => :1, ");
+	potContributionProcCall.append("p_pot_number           => :2, ");
+	potContributionProcCall.append("p_betting_round_number => :3, ");
+	potContributionProcCall.append("p_player_seat_number   => :4, ");
+	potContributionProcCall.append("p_pot_contribution     => :5");
 	potContributionProcCall.append("); END;");
-	ocilib::Statement potContributionSt(con);
+	oracle::occi::Statement* potContributionStatement = con->createStatement();
+	potContributionStatement->setSQL(potContributionProcCall);
 
 	for (unsigned int i = 0; i < pots.size(); i++) {
 		Pot* pot = &pots[i];
-		potSt.Prepare(potProcCall);
-		potSt.Bind("stateId", stateId, ocilib::BindInfo::In);
-		potSt.Bind("potNumber", pot->potNumber, ocilib::BindInfo::In);
-		unsigned int bettingRoundNumber = (unsigned int) pot->bettingRound;
-		potSt.Bind("bettingRoundNumber", bettingRoundNumber, ocilib::BindInfo::In);
-		potSt.Bind("betValue", pot->betValue, ocilib::BindInfo::In);
-		potSt.ExecutePrepared();
+		
+		potStatement->setUInt(1, stateId);
+		potStatement->setUInt(2, pot->potNumber);
+		potStatement->setUInt(3, pot->bettingRound);
+		potStatement->setUInt(4, pot->betValue);
+		potStatement->execute();
 
 		for (unsigned int j = 0; j < pot->contributions.size(); j++) {
-
-
+			
 			PotContribution* potContribution = &pot->contributions[j];
-			if (potContribution->contributionAmount > 5000)
-				break;
-			potContributionSt.Prepare(potContributionProcCall);
-			potContributionSt.Bind("stateId", stateId, ocilib::BindInfo::In);
-			potContributionSt.Bind("potNumber", pot->potNumber, ocilib::BindInfo::In);
-			potContributionSt.Bind("bettingRoundNumber", bettingRoundNumber, ocilib::BindInfo::In);
-			potContributionSt.Bind("playerSeatNumber", potContribution->playerSeatNumber, ocilib::BindInfo::In);
-			potContributionSt.Bind("potContribution", potContribution->contributionAmount, ocilib::BindInfo::In);
-			potContributionSt.ExecutePrepared();
+			potContributionStatement->setUInt(1, stateId);
+			potContributionStatement->setUInt(2, pot->potNumber);
+			potContributionStatement->setUInt(3, pot->bettingRound);
+			potContributionStatement->setUInt(4, potContribution->playerSeatNumber);
+			potContributionStatement->setUInt(5, potContribution->contributionAmount);
+			potContributionStatement->execute();
 		}
 	}
+
+	con->terminateStatement(potStatement);
+	con->terminateStatement(potContributionStatement);
 	
 }
 
 unsigned int PotController::getPotDeficit(unsigned int playerSeatNumber) const {
 
+	// calculate total deficit accross all pots for player
 	int totalDeficit = 0;
 	for (unsigned int p = 0; p < pots.size(); p++) {
 		const Pot* pot = &pots[p];

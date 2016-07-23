@@ -8,6 +8,19 @@ std::string Util::zeroPadNumber(unsigned int number) {
 	return stringStream.str();
 }
 
+void Util::clobToString(const oracle::occi::Clob& sourceClob, std::string& destinationString) {
+
+	if (sourceClob.isNull()) {
+		destinationString = "";
+		return;
+	}
+
+	unsigned int clobLength = sourceClob.length();
+	destinationString.resize(clobLength);
+	sourceClob.read(clobLength, (unsigned char*) &destinationString[0], clobLength);
+
+}
+
 Util::RandomNumberGenerator::RandomNumberGenerator() {
 	randomNumberEngine.seed(std::random_device()());
 }

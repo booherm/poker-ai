@@ -35,7 +35,7 @@ GaEvolver.init = function() {
 		width: 280,
 		minValue: 1,
 		maxValue: 5000,
-		value: 20,
+		value: 10,
 		step: 1,
 		decimalPrecision: 0
 	});
@@ -48,7 +48,7 @@ GaEvolver.init = function() {
 		width: 280,
 		minValue: 1,
 		maxValue: 1000000,
-		value: 3,
+		value: 1,
 		step: 1,
 		decimalPrecision: 0
 	});
@@ -111,7 +111,7 @@ GaEvolver.init = function() {
 		width: 280,
 		minValue: 1,
 		maxValue: 100,
-		value: 4,
+		value: 1,
 		step: 1,
 		decimalPrecision: 0
 	});
@@ -124,7 +124,7 @@ GaEvolver.init = function() {
 		width: 280,
 		minValue: 1,
 		maxValue: 5000,
-		value: 2,
+		value: 1,
 		step: 1,
 		decimalPrecision: 0
 	});

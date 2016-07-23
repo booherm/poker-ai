@@ -1,10 +1,10 @@
 #include "GaEvolverController.hpp"
 
-GaEvolverController::GaEvolverController(const std::string& databaseId, PythonManager* pythonManager, StrategyManager* strategyManager) {
-	this->databaseId = databaseId;
+GaEvolverController::GaEvolverController(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager, StrategyManager* strategyManager) {
+	this->connectionPool = connectionPool;
 	this->pythonManager = pythonManager;
 	this->strategyManager = strategyManager;
-	con.Open(databaseId, "poker_ai", "poker_ai");
+	con = connectionPool->getConnection();
 	logger.initialize(con);
 }
 
@@ -30,47 +30,47 @@ void GaEvolverController::performEvolutionTrial(
 	unsigned int currentGeneration = startFromGenerationNumber == 0 ? 1 : startFromGenerationNumber;
 
 	std::string procCall = "BEGIN pkg_ga_evolver.insert_evolution_trial(";
-	procCall.append("p_trial_id                  => :trialId, ");
-	procCall.append("p_generation_size           => :generationSize, ");
-	procCall.append("p_max_generations           => :maxGenerations, ");
-	procCall.append("p_crossover_rate            => :crossoverRate, ");
-	procCall.append("p_crossover_point           => :crossoverPoint, ");
-	procCall.append("p_mutation_rate             => :mutationRate, ");
-	procCall.append("p_players_per_tournament    => :playersPerTournament, ");
-	procCall.append("p_tournament_play_count     => :tournamentPlayCount, ");
-	procCall.append("p_tournament_buy_in         => :tournamentBuyIn, ");
-	procCall.append("p_initial_small_blind_value => :initialSmallBlindValue, ");
-	procCall.append("p_double_blinds_interval    => :doubleBlindsInterval, ");
-	procCall.append("p_current_generation        => :currentGeneration");
+	procCall.append("p_trial_id                  => :1, ");
+	procCall.append("p_generation_size           => :2, ");
+	procCall.append("p_max_generations           => :3, ");
+	procCall.append("p_crossover_rate            => :4, ");
+	procCall.append("p_crossover_point           => :5, ");
+	procCall.append("p_mutation_rate             => :6, ");
+	procCall.append("p_players_per_tournament    => :7, ");
+	procCall.append("p_tournament_play_count     => :8, ");
+	procCall.append("p_tournament_buy_in         => :9, ");
+	procCall.append("p_initial_small_blind_value => :10, ");
+	procCall.append("p_double_blinds_interval    => :11, ");
+	procCall.append("p_current_generation        => :12");
 	procCall.append("); END; ");
+	oracle::occi::Statement* statement = con->createStatement(procCall);
 
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
-	st.Bind("trialId", trialId, ocilib::BindInfo::In);
-	st.Bind("generationSize", generationSize, ocilib::BindInfo::In);
-	st.Bind("maxGenerations", maxGenerations, ocilib::BindInfo::In);
-	st.Bind("crossoverRate", crossoverRate, ocilib::BindInfo::In);
-	st.Bind("crossoverPoint", crossoverPoint, ocilib::BindInfo::In);
-	st.Bind("mutationRate", mutationRate, ocilib::BindInfo::In);
-	st.Bind("playersPerTournament", playersPerTournament, ocilib::BindInfo::In);
-	st.Bind("tournamentPlayCount", tournamentPlayCount, ocilib::BindInfo::In);
-	st.Bind("tournamentBuyIn", tournamentBuyIn, ocilib::BindInfo::In);
-	st.Bind("initialSmallBlindValue", initialSmallBlindValue, ocilib::BindInfo::In);
-	st.Bind("doubleBlindsInterval", doubleBlindsInterval, ocilib::BindInfo::In);
-	st.Bind("currentGeneration", currentGeneration, ocilib::BindInfo::In);
-	st.ExecutePrepared();
+	statement->setUInt(1, trialId);
+	statement->setUInt(2, generationSize);
+	statement->setUInt(3, maxGenerations);
+	statement->setFloat(4, crossoverRate);
+	statement->setUInt(5, crossoverPoint);
+	statement->setFloat(6, mutationRate);
+	statement->setUInt(7, playersPerTournament);
+	statement->setUInt(8, tournamentPlayCount);
+	statement->setUInt(9, tournamentBuyIn);
+	statement->setUInt(10, initialSmallBlindValue);
+	statement->setUInt(11, doubleBlindsInterval);
+	statement->setUInt(12, currentGeneration);
+	statement->execute();
+	con->terminateStatement(statement);
 
 	if (currentGeneration == 1)
 		createInitialGeneration(trialId, generationSize);
 
 	// start generation conroller thread
-	GaEvolverWorker* generationWorker = new GaEvolverWorker(
-		databaseId,
-		pythonManager,
+	GaEvolverGenerationWorker* generationWorker = new GaEvolverGenerationWorker(
+		connectionPool,
 		trialId,
 		"GENERATION_WORKER",
-		GaEvolverWorker::GaEvoloverWorkerType::GENERATION_RUNNER,
-		strategyManager
+		strategyManager,
+		currentGeneration,
+		false
 	);
 	logger.log(0, "starting generation worker thread");
 	generationWorker->startThread();
@@ -84,8 +84,8 @@ void GaEvolverController::performEvolutionTrial(
 	generationWorker->threadJoin();
 
 	// cleanup worker threads
-	for (unsigned int i = 0; i < evolverWorkers.size(); i++) {
-		delete evolverWorkers[i];
+	for (unsigned int i = 0; i < tournamentWorkers.size(); i++) {
+		delete tournamentWorkers[i];
 	}
 	delete generationWorker;
 
@@ -104,36 +104,36 @@ void GaEvolverController::joinEvolutionTrial(unsigned int trialId, unsigned int 
 	joinTournamentWorkers();
 
 	// cleanup worker threads
-	for (unsigned int i = 0; i < evolverWorkers.size(); i++) {
-		delete evolverWorkers[i];
+	for (unsigned int i = 0; i < tournamentWorkers.size(); i++) {
+		delete tournamentWorkers[i];
 	}
 
 	logger.log(0, "evolution trial " + std::to_string(trialId) + " complete");
 }
 
 void GaEvolverController::startTournamentWorkers(unsigned int trialId) {
-	evolverWorkers.resize(workerCount);
+	tournamentWorkers.resize(workerCount);
 	for (unsigned int i = 0; i < workerCount; i++) {
-		evolverWorkers[i] = new GaEvolverWorker(
-			databaseId,
+		tournamentWorkers[i] = new GaEvolverTournamentWorker(
+			connectionPool,
 			pythonManager,
 			trialId,
 			"TOURNAMENT_WORKER_" + std::to_string(i),
-			GaEvolverWorker::GaEvoloverWorkerType::TOURNAMENT_RUNNER,
-			strategyManager
+			strategyManager,
+			false
 		);
-		evolverWorkers[i]->startThread();
+		tournamentWorkers[i]->startThread();
 	}
 }
 
 void GaEvolverController::joinTournamentWorkers() {
 	for (unsigned int i = 0; i < workerCount; i++) {
-		evolverWorkers[i]->threadJoin();
+		tournamentWorkers[i]->threadJoin();
 	}
 }
 
 GaEvolverController::~GaEvolverController() {
-	con.Close();
+	connectionPool->releaseConnection(con);
 }
 
 void GaEvolverController::createInitialGeneration(unsigned int trialId, unsigned int generationSize) {
@@ -141,18 +141,16 @@ void GaEvolverController::createInitialGeneration(unsigned int trialId, unsigned
 	logger.log(0, "creating initial generation");
 
 	for (unsigned int i = 0; i < generationSize; i++) {
-		strategyManager->generateRandomStrategy();
+		strategyManager->generateRandomStrategy(1);
 	}
 
 	// enqueue tournaments
 	logger.log(0, "enqueing tournaments");
 	std::string procCall = "BEGIN pkg_ga_evolver.enqueue_tournaments(";
-	procCall.append("p_trial_id => :trialId");
+	procCall.append("p_trial_id => :1");
 	procCall.append("); END; ");
-
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
-	st.Bind("trialId", trialId, ocilib::BindInfo::In);
-	st.ExecutePrepared();
-
+	oracle::occi::Statement* statement = con->createStatement(procCall);
+	statement->setUInt(1, trialId);
+	statement->execute();
+	con->terminateStatement(statement);
 }

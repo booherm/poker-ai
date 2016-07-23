@@ -1,14 +1,14 @@
 #ifndef GAEVOLVERCONTROLLER_HPP
 #define GAEVOLVERCONTROLLER_HPP
 
-#include <ocilib.hpp>
-#include "GaEvolverWorker.hpp"
+#include "GaEvolverGenerationWorker.hpp"
+#include "GaEvolverTournamentWorker.hpp"
 #include "StrategyManager.hpp"
 
 class GaEvolverController
 {
 public:
-	GaEvolverController(const std::string& databaseId, PythonManager* pythonManager, StrategyManager* strategyManager);
+	GaEvolverController(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager, StrategyManager* strategyManager);
 	~GaEvolverController();
 	void performEvolutionTrial(
 		unsigned int trialId,
@@ -33,9 +33,9 @@ private:
 	void createInitialGeneration(unsigned int trialId, unsigned int generationSize);
 
 	StrategyManager* strategyManager;
-	std::string databaseId;
-	ocilib::Connection con;
-	std::vector<GaEvolverWorker*> evolverWorkers;
+	oracle::occi::StatelessConnectionPool* connectionPool;
+	oracle::occi::Connection* con;
+	std::vector<GaEvolverTournamentWorker*> tournamentWorkers;
 	unsigned int workerCount;
 	Logger logger;
 	PythonManager* pythonManager;

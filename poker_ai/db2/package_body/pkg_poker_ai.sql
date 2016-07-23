@@ -609,6 +609,11 @@ BEGIN
 		p_total_money_won
 	);
 	
+	UPDATE evolution_trial_work
+	SET    played = 'Y'
+	WHERE  trial_id = p_evolution_trial_id
+	   AND tournament_id = p_tournament_id;
+	
 END insert_tournament_result;
 
 PROCEDURE select_state(
@@ -729,7 +734,9 @@ BEGIN
 			   average_raise_amount,
 			   times_all_in,
 			   total_money_played,
-			   total_money_won
+			   total_money_won,
+			   -- occi error in debug mode reading string, pass as clob as well
+			   TO_CLOB(best_hand_comparator) best_hand_comparator_clob
 		FROM   player_state_log
 		WHERE  state_id = p_state_id
 		ORDER BY seat_number;
@@ -758,7 +765,9 @@ BEGIN
 			
 	OPEN p_poker_ai_log FOR
 		SELECT log_record_number,
-			   message
+			   message,
+			   -- occi error in debug mode reading string, pass as clob as well
+			   TO_CLOB(message) message_clob
 		FROM   poker_ai_log
 		WHERE  state_id = p_state_id
 		ORDER BY log_record_number;

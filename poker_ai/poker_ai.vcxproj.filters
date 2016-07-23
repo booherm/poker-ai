@@ -39,9 +39,6 @@
     <ClCompile Include="GaEvolverController.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GaEvolverWorker.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Player.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -78,6 +75,15 @@
     <ClCompile Include="StrategyManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GaEvolverTournamentWorker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GaEvolverGenerationWorker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StrategyEvaluationDataProvider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GuiConsole.hpp">
@@ -102,9 +108,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GaEvolverController.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GaEvolverWorker.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Deck.hpp">
@@ -147,6 +150,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="StrategyManager.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GaEvolverTournamentWorker.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GaEvolverGenerationWorker.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

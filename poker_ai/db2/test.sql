@@ -54,14 +54,19 @@ total_money AS (
 		   NVL(plm.total_player_money, 0) + NVL(pom.total_pot_money, 0) total_money
 	FROM   player_money plm
 		   FULL OUTER JOIN pot_money pom ON plm.state_id = pom.state_id
-)
+),
 
-SELECT tm.state_id,
-	   tm.total_player_money,
-	   tm.total_pot_money,
-	   tm.total_money
-FROM   total_money tm,
-	   poker_state_log psl
-WHERE  tm.state_id = psl.state_id
-   AND psl.game_in_progress = 1
-ORDER BY state_id DESC;
+detail AS (
+	SELECT tm.state_id,
+		   tm.total_player_money,
+		   tm.total_pot_money,
+		   tm.total_money
+	FROM   total_money tm,
+		   poker_state_log psl
+	WHERE  tm.state_id = psl.state_id
+	   AND psl.game_in_progress = 1
+	ORDER BY state_id DESC
+)
+--SELECT * FROM detail;
+SELECT * FROM detail WHERE total_money != 5000;
+

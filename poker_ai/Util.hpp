@@ -3,9 +3,11 @@
 
 #include <random>
 #include <string>
+#include <occi.h>
 
 namespace Util {
 	std::string zeroPadNumber(unsigned int number);
+	void clobToString(const oracle::occi::Clob& sourceClob, std::string& destinationString);
 
 	class RandomNumberGenerator {
 	public:

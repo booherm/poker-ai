@@ -10,7 +10,7 @@
 
 class PokerState {
 public:
-	void load(ocilib::Resultset& pokerStateRs);
+	void load(oracle::occi::ResultSet* pokerStateRs);
 	void clearStateVariables();
 	void setPlayerCount(unsigned int playerCount);
 	void setBuyInAmount(unsigned int buyInAmount);

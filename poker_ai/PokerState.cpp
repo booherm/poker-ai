@@ -1,41 +1,41 @@
 #include "PokerState.hpp"
 
-void PokerState::load(ocilib::Resultset& pokerStateRs) {
+void PokerState::load(oracle::occi::ResultSet* pokerStateRs) {
 	
 	clearStateVariables();
 
 	// tournament attributes
-	currentStateId = pokerStateRs.Get<unsigned int>("state_id");
-	setPlayerCount(pokerStateRs.Get<unsigned int>("player_count"));
-	setBuyInAmount(pokerStateRs.Get<unsigned int>("buy_in_amount"));
-	setTournamentInProgress(pokerStateRs.Get<unsigned int>("tournament_in_progress") == 1);
-	setCurrentGameNumber(pokerStateRs.Get<unsigned int>("current_game_number"));
-	setGameInProgress(pokerStateRs.Get<unsigned int>("game_in_progress") == 1);
+	currentStateId = pokerStateRs->getUInt(1);
+	setPlayerCount(pokerStateRs->getUInt(5));
+	setBuyInAmount(pokerStateRs->getUInt(6));
+	setTournamentInProgress(pokerStateRs->getUInt(7) == 1);
+	setCurrentGameNumber(pokerStateRs->getUInt(8));
+	setGameInProgress(pokerStateRs->getUInt(9) == 1);
 
 	// game attributes
-	setSmallBlindSeatNumber(pokerStateRs.Get<unsigned int>("small_blind_seat_number"));
-	setBigBlindSeatNumber(pokerStateRs.Get<unsigned int>("big_blind_seat_number"));
-	setTurnSeatNumber(pokerStateRs.Get<unsigned int>("turn_seat_number"));
-	setSmallBlindValue(pokerStateRs.Get<unsigned int>("small_blind_value"));
-	setBigBlindValue(pokerStateRs.Get<unsigned int>("big_blind_value"));
-	setCurrentBettingRound((PokerEnums::BettingRound) pokerStateRs.Get<unsigned int>("betting_round_number"));
-	setBettingRoundInProgress(pokerStateRs.Get<unsigned int>("betting_round_in_progress") == 1);
-	setLastToRaiseSeatNumber(pokerStateRs.Get<unsigned int>("last_to_raise_seat_number"));
-	setMinRaiseAmount(pokerStateRs.Get<unsigned int>("min_raise_amount"));
+	setSmallBlindSeatNumber(pokerStateRs->getUInt(10));
+	setBigBlindSeatNumber(pokerStateRs->getUInt(11));
+	setTurnSeatNumber(pokerStateRs->getUInt(12));
+	setSmallBlindValue(pokerStateRs->getUInt(13));
+	setBigBlindValue(pokerStateRs->getUInt(14));
+	setCurrentBettingRound((PokerEnums::BettingRound) pokerStateRs->getUInt(15));
+	setBettingRoundInProgress(pokerStateRs->getUInt(16) == 1);
+	setLastToRaiseSeatNumber(pokerStateRs->getUInt(17));
+	setMinRaiseAmount(pokerStateRs->getUInt(18));
 	deck.initialize(&randomNumberGenerator);
 
 	// community cards
 	clearCommunityCards();
-	int communityCard1 = pokerStateRs.Get<int>("community_card_1");
+	int communityCard1 = pokerStateRs->getUInt(19);
 	if (communityCard1 != 0) {
 		pushCommunityCard(deck.getCardById(communityCard1));
-		pushCommunityCard(deck.getCardById(pokerStateRs.Get<int>("community_card_2")));
-		pushCommunityCard(deck.getCardById(pokerStateRs.Get<int>("community_card_3")));
+		pushCommunityCard(deck.getCardById(pokerStateRs->getUInt(20)));
+		pushCommunityCard(deck.getCardById(pokerStateRs->getUInt(21)));
 	}
-	int communityCard4 = pokerStateRs.Get<int>("community_card_4");
+	int communityCard4 = pokerStateRs->getUInt(22);
 	if (communityCard4 != 0)
 		pushCommunityCard(deck.getCardById(communityCard4));
-	int communityCard5 = pokerStateRs.Get<int>("community_card_5");
+	int communityCard5 = pokerStateRs->getUInt(23);
 	if (communityCard5 != 0)
 		pushCommunityCard(deck.getCardById(communityCard5));
 

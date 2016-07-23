@@ -1,5 +1,5 @@
 CREATE TABLE evolution_trial_work (
-	trial_id            VARCHAR2(100),
+	trial_id            NUMBER(10, 0),
 	strategy_id         NUMBER(10, 0),
 	tournament_sequence NUMBER(10, 0),
 	tournament_id       NUMBER(10, 0),

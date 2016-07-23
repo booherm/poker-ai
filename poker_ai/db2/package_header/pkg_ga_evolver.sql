@@ -31,4 +31,19 @@ FUNCTION select_tournament_work (
 	p_tournament_work_strategies OUT t_rc_generic
 ) RETURN INTEGER;
 
+PROCEDURE set_current_generation(
+	p_trial_id           evolution_trial.trial_id%TYPE,
+	p_current_generation evolution_trial.current_generation%TYPE
+);
+
+PROCEDURE select_parent_generation(
+	p_trial_id   evolution_trial.trial_id%TYPE,
+	p_generation strategy.generation%TYPE,
+	p_parents    OUT t_rc_generic
+);
+
+PROCEDURE mark_trial_complete(
+	p_trial_id evolution_trial.trial_id%TYPE
+);
+
 END pkg_ga_evolver;

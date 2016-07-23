@@ -1,10 +1,10 @@
 #include "TournamentController.hpp"
 #include <algorithm>
 #include "Util.hpp"
-#include <iostream>
 
-void TournamentController::initialize(const std::string& databaseId, PythonManager* pythonManager, StrategyManager* strategyManager) {
-	con.Open(databaseId, "poker_ai", "poker_ai");
+void TournamentController::initialize(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager, StrategyManager* strategyManager) {
+	this->connectionPool = connectionPool;
+	con = connectionPool->getConnection();
 	logger.initialize(con);
 	pokerState.pythonManager = pythonManager;
 	this->strategyManager = strategyManager;
@@ -103,133 +103,134 @@ unsigned int TournamentController::stepPlay(unsigned int stateId, unsigned int s
 	pokerState.setSmallBlindValue(smallBlindValue);
 	stepPlay(playerMove, playerMoveAmount);
 
-	pokerState.stateVariables.dumpData();
-
 	return pokerState.currentStateId;
 }
 
 unsigned int TournamentController::getPreviousStateId(unsigned int stateId) const {
 
-	unsigned int returnStateId;
-	std::string procCall = "BEGIN :returnStateId := pkg_poker_ai.get_previous_state_id(";
-	procCall.append("p_state_id => :stateId");
+	std::string procCall = "BEGIN :1 := pkg_poker_ai.get_previous_state_id(";
+	procCall.append("p_state_id => :2");
 	procCall.append("); END;");
-
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
-	st.Bind("stateId", stateId, ocilib::BindInfo::In);
-	st.Bind("returnStateId", returnStateId, ocilib::BindInfo::Out);
-	st.ExecutePrepared();
+	oracle::occi::Statement* statement = con->createStatement(procCall);
+	statement->registerOutParam(1, oracle::occi::OCCIUNSIGNED_INT);
+	statement->setUInt(2, stateId);
+	statement->execute();
+	unsigned int returnStateId = statement->getUInt(1);
+	con->terminateStatement(statement);
 
 	return returnStateId;
 }
 
 unsigned int TournamentController::getNextStateId(unsigned int stateId) const {
 
-	unsigned int returnStateId;
-	std::string procCall = "BEGIN :returnStateId := pkg_poker_ai.get_next_state_id(";
-	procCall.append("p_state_id => :stateId");
+	std::string procCall = "BEGIN :1 := pkg_poker_ai.get_next_state_id(";
+	procCall.append("p_state_id => :2");
 	procCall.append("); END;");
-
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
-	st.Bind("stateId", stateId, ocilib::BindInfo::In);
-	st.Bind("returnStateId", returnStateId, ocilib::BindInfo::Out);
-	st.ExecutePrepared();
+	oracle::occi::Statement* statement = con->createStatement(procCall);
+	statement->setUInt(2, stateId);
+	statement->registerOutParam(1, oracle::occi::OCCIUNSIGNED_INT);
+	statement->execute();
+	unsigned int returnStateId = statement->getUInt(1);
+	con->terminateStatement(statement);
 
 	return returnStateId;
 }
 
 void TournamentController::getUiState(unsigned int stateId, Json::Value& uiData) {
 
-	loadState(stateId);
+	if (loadState(stateId)) {
 
-	// tournament state
-	Json::Value tournamentStateData(Json::objectValue);
-	tournamentStateData["player_count"] = pokerState.playerCount;
-	tournamentStateData["buy_in_amount"] = pokerState.buyInAmount;
-	if (pokerState.currentGameNumber == 0)
-		tournamentStateData["current_game_number"] = Json::Value::null;
-	else
-		tournamentStateData["current_game_number"] = pokerState.currentGameNumber;
-	tournamentStateData["game_in_progress"] = pokerState.gameInProgress ? "Yes" : "No";
-	tournamentStateData["current_state_id"] = pokerState.currentStateId;
-	uiData["tournamentState"] = tournamentStateData;
+		// tournament state
+		Json::Value tournamentStateData(Json::objectValue);
+		tournamentStateData["player_count"] = pokerState.playerCount;
+		tournamentStateData["buy_in_amount"] = pokerState.buyInAmount;
+		if (pokerState.currentGameNumber == 0)
+			tournamentStateData["current_game_number"] = Json::Value::null;
+		else
+			tournamentStateData["current_game_number"] = pokerState.currentGameNumber;
+		tournamentStateData["game_in_progress"] = pokerState.gameInProgress ? "Yes" : "No";
+		tournamentStateData["current_state_id"] = pokerState.currentStateId;
+		uiData["tournamentState"] = tournamentStateData;
 
-	// game state
-	Json::Value gameStateData(Json::objectValue);
-	if(pokerState.smallBlindSeatNumber == 0)
-		gameStateData["small_blind_seat_number"] = Json::Value::null;
-	else
-		gameStateData["small_blind_seat_number"] = pokerState.smallBlindSeatNumber;
-	if (pokerState.bigBlindSeatNumber == 0)
-		gameStateData["big_blind_seat_number"] = Json::Value::null;
-	else
-		gameStateData["big_blind_seat_number"] = pokerState.bigBlindSeatNumber;
-	if (pokerState.turnSeatNumber == 0)
-		gameStateData["turn_seat_number"] = Json::Value::null;
-	else
-		gameStateData["turn_seat_number"] = pokerState.turnSeatNumber;
-	if (pokerState.smallBlindValue == 0)
-		gameStateData["small_blind_value"] = Json::Value::null;
-	else
-		gameStateData["small_blind_value"] = pokerState.smallBlindValue;
-	if (pokerState.bigBlindValue == 0)
-		gameStateData["big_blind_value"] = Json::Value::null;
-	else
-		gameStateData["big_blind_value"] = pokerState.bigBlindValue;
-	if (pokerState.currentBettingRound == PokerEnums::BettingRound::NO_BETTING_ROUND)
-		gameStateData["betting_round_number"] = Json::Value::null;
-	else
-		gameStateData["betting_round_number"] = getCurrentBettingRoundString();
-	gameStateData["betting_round_in_progress"] = pokerState.bettingRoundInProgress ? "Yes" : "No";
-	if (pokerState.lastToRaiseSeatNumber == 0)
-		gameStateData["last_to_raise_seat_number"] = Json::Value::null;
-	else
-		gameStateData["last_to_raise_seat_number"] = pokerState.lastToRaiseSeatNumber;
-	gameStateData["community_card_1"] = Json::Value::null;
-	gameStateData["community_card_2"] = Json::Value::null;
-	gameStateData["community_card_3"] = Json::Value::null;
-	gameStateData["community_card_4"] = Json::Value::null;
-	gameStateData["community_card_5"] = Json::Value::null;
-	unsigned int communityCardCount = pokerState.communityCards.size();
-	if (communityCardCount > 0) {
-		gameStateData["community_card_1"] = pokerState.communityCards[0].cardId;
-		gameStateData["community_card_2"] = pokerState.communityCards[1].cardId;
-		gameStateData["community_card_3"] = pokerState.communityCards[2].cardId;
+		// game state
+		Json::Value gameStateData(Json::objectValue);
+		if (pokerState.smallBlindSeatNumber == 0)
+			gameStateData["small_blind_seat_number"] = Json::Value::null;
+		else
+			gameStateData["small_blind_seat_number"] = pokerState.smallBlindSeatNumber;
+		if (pokerState.bigBlindSeatNumber == 0)
+			gameStateData["big_blind_seat_number"] = Json::Value::null;
+		else
+			gameStateData["big_blind_seat_number"] = pokerState.bigBlindSeatNumber;
+		if (pokerState.turnSeatNumber == 0)
+			gameStateData["turn_seat_number"] = Json::Value::null;
+		else
+			gameStateData["turn_seat_number"] = pokerState.turnSeatNumber;
+		if (pokerState.smallBlindValue == 0)
+			gameStateData["small_blind_value"] = Json::Value::null;
+		else
+			gameStateData["small_blind_value"] = pokerState.smallBlindValue;
+		if (pokerState.bigBlindValue == 0)
+			gameStateData["big_blind_value"] = Json::Value::null;
+		else
+			gameStateData["big_blind_value"] = pokerState.bigBlindValue;
+		if (pokerState.currentBettingRound == PokerEnums::BettingRound::NO_BETTING_ROUND)
+			gameStateData["betting_round_number"] = Json::Value::null;
+		else
+			gameStateData["betting_round_number"] = getCurrentBettingRoundString();
+		gameStateData["betting_round_in_progress"] = pokerState.bettingRoundInProgress ? "Yes" : "No";
+		if (pokerState.lastToRaiseSeatNumber == 0)
+			gameStateData["last_to_raise_seat_number"] = Json::Value::null;
+		else
+			gameStateData["last_to_raise_seat_number"] = pokerState.lastToRaiseSeatNumber;
+		gameStateData["community_card_1"] = Json::Value::null;
+		gameStateData["community_card_2"] = Json::Value::null;
+		gameStateData["community_card_3"] = Json::Value::null;
+		gameStateData["community_card_4"] = Json::Value::null;
+		gameStateData["community_card_5"] = Json::Value::null;
+		unsigned int communityCardCount = pokerState.communityCards.size();
+		if (communityCardCount > 0) {
+			gameStateData["community_card_1"] = pokerState.communityCards[0].cardId;
+			gameStateData["community_card_2"] = pokerState.communityCards[1].cardId;
+			gameStateData["community_card_3"] = pokerState.communityCards[2].cardId;
+
+		}
+		if (communityCardCount > 3)
+			gameStateData["community_card_4"] = pokerState.communityCards[3].cardId;
+		if (communityCardCount > 4)
+			gameStateData["community_card_5"] = pokerState.communityCards[4].cardId;
+		uiData["gameState"] = gameStateData;
+
+		// players state
+		Json::Value playerArray(Json::arrayValue);
+		for (unsigned int i = 0; i < pokerState.playerCount; i++)
+		{
+			Json::Value playerStateData(Json::objectValue);
+			players[i].getUiState(playerStateData);
+			playerArray.append(playerStateData);
+		}
+		uiData["playerState"] = playerArray;
+
+		// pots state
+		Json::Value potsArray(Json::arrayValue);
+		pokerState.potController.getUiState(potsArray);
+		uiData["potState"] = potsArray;
+
+		// status messages
+		Json::Value statusMessageArray(Json::arrayValue);
+		logger.getLogMessages(statusMessageArray);
+		uiData["statusMessage"] = statusMessageArray;
 
 	}
-	if(communityCardCount > 3)
-		gameStateData["community_card_4"] = pokerState.communityCards[3].cardId;
-	if (communityCardCount > 4)
-		gameStateData["community_card_5"] = pokerState.communityCards[4].cardId;
-	uiData["gameState"] = gameStateData;
-
-	// players state
-	Json::Value playerArray(Json::arrayValue);
-	for (unsigned int i = 0; i < pokerState.playerCount; i++)
-	{
-		Json::Value playerStateData(Json::objectValue);
-		players[i].getUiState(playerStateData);
-		playerArray.append(playerStateData);
+	else {
+		// state not found
+		uiData["stateNotFound"] = true;
 	}
-	uiData["playerState"] = playerArray;
-
-	// pots state
-	Json::Value potsArray(Json::arrayValue);
-	pokerState.potController.getUiState(potsArray);
-	uiData["potState"] = potsArray;
-
-	// status messages
-	Json::Value statusMessageArray(Json::arrayValue);
-	logger.getLogMessages(statusMessageArray);
-	uiData["statusMessage"] = statusMessageArray;
 
 }
 
 TournamentController::~TournamentController() {
-	con.Close();
-	ocilib::Environment::Cleanup();
+	connectionPool->releaseConnection(con);
 }
 
 unsigned int TournamentController::getActivePlayerCount() const {
@@ -321,11 +322,12 @@ bool TournamentController::getNotAllPresentedBetOpportunity() const {
 
 void TournamentController::getNewStateId() {
 	if (performStateLogging) {
-		std::string procCall = "BEGIN :stateId := pkg_poker_ai.get_new_state_id; END;";
-		ocilib::Statement st(con);
-		st.Prepare(procCall);
-		st.Bind("stateId", pokerState.currentStateId, ocilib::BindInfo::Out);
-		st.ExecutePrepared();
+		std::string procCall = "BEGIN :1 := pkg_poker_ai.get_new_state_id; END;";
+		oracle::occi::Statement* statement = con->createStatement(procCall);
+		statement->registerOutParam(1, oracle::occi::OCCIUNSIGNED_INT);
+		statement->execute();
+		pokerState.currentStateId = statement->getUInt(1);
+		con->terminateStatement(statement);
 	}
 	else
 		pokerState.currentStateId = 0;
@@ -333,59 +335,74 @@ void TournamentController::getNewStateId() {
 	logger.clearLogMessages();
 }
 
-void TournamentController::loadState(unsigned int stateId) {
+bool TournamentController::loadState(unsigned int stateId) {
 
 	if (pokerState.currentStateId != stateId) {
 
 		std::string procCall = "BEGIN pkg_poker_ai.select_state(";
-		procCall.append("p_state_id               => :stateId, ");
-		procCall.append("p_poker_state            => :pokerStateRs, ");
-		procCall.append("p_player_state           => :playerStateRs, ");
-		procCall.append("p_pot_state              => :potStateRs, ");
-		procCall.append("p_pot_contribution_state => :potContributionStateRs, ");
-		procCall.append("p_poker_ai_log           => :pokerAiLogRs");
+		procCall.append("p_state_id               => :1, ");
+		procCall.append("p_poker_state            => :2, ");
+		procCall.append("p_player_state           => :3, ");
+		procCall.append("p_pot_state              => :4, ");
+		procCall.append("p_pot_contribution_state => :5, ");
+		procCall.append("p_poker_ai_log           => :6");
 		procCall.append("); END;");
-		ocilib::Statement st(con);
-		ocilib::Statement pokerStateBind(con);
-		ocilib::Statement playerStateBind(con);
-		ocilib::Statement potStateBind(con);
-		ocilib::Statement potContributionStateBind(con);
-		ocilib::Statement pokerAiLogBind(con);
-		st.Prepare(procCall);
-		st.Bind("stateId", stateId, ocilib::BindInfo::In);
-		st.Bind("pokerStateRs", pokerStateBind, ocilib::BindInfo::Out);
-		st.Bind("playerStateRs", playerStateBind, ocilib::BindInfo::Out);
-		st.Bind("potStateRs", potStateBind, ocilib::BindInfo::Out);
-		st.Bind("potContributionStateRs", potContributionStateBind, ocilib::BindInfo::Out);
-		st.Bind("pokerAiLogRs", pokerAiLogBind, ocilib::BindInfo::Out);
-		st.ExecutePrepared();
+		oracle::occi::Statement* statement = con->createStatement(procCall);
+		statement->setUInt(1, stateId);
+		statement->registerOutParam(2, oracle::occi::OCCICURSOR);
+		statement->registerOutParam(3, oracle::occi::OCCICURSOR);
+		statement->registerOutParam(4, oracle::occi::OCCICURSOR);
+		statement->registerOutParam(5, oracle::occi::OCCICURSOR);
+		statement->registerOutParam(6, oracle::occi::OCCICURSOR);
+		statement->execute();
+		oracle::occi::ResultSet* pokerStateRs = statement->getCursor(2);
+		oracle::occi::ResultSet* playerStateRs = statement->getCursor(3);
+		oracle::occi::ResultSet* potStateRs = statement->getCursor(4);
+		oracle::occi::ResultSet* potContributionStateRs = statement->getCursor(5);
+		oracle::occi::ResultSet* pokerAiLogRs = statement->getCursor(6);
 
-		ocilib::Resultset pokerStateRs = pokerStateBind.GetResultset();
-		ocilib::Resultset playerStateRs = playerStateBind.GetResultset();
-		ocilib::Resultset potStateRs = potStateBind.GetResultset();
-		ocilib::Resultset potContributionStateRs = potContributionStateBind.GetResultset();
-		ocilib::Resultset pokerAiLogRs = pokerAiLogBind.GetResultset();
+		if (pokerStateRs->next()) {
 
-		pokerStateRs.Next();
-		tournamentId = pokerStateRs.Get<unsigned int>("tournament_id");
-		tournamentMode = (TournamentMode) pokerStateRs.Get<unsigned int>("tournament_mode");
-		evolutionTrialId = pokerStateRs.Get<unsigned int>("evolution_trial_id");
-		pokerState.load(pokerStateRs);
-		players.resize(pokerState.playerCount);
-		playerStates.resize(pokerState.playerCount);
-		for (unsigned int i = 0; i < pokerState.playerCount; i++) {
-			playerStateRs.Next();
-			unsigned int strategyId = playerStateRs.Get<unsigned int>("current_strategy_id");
-			players[i].load(con, &logger, &pokerState, &playerStates, strategyManager->getStrategy(strategyId), playerStateRs);
+			tournamentId = pokerStateRs->getUInt(2);
+			tournamentMode = (TournamentMode) pokerStateRs->getUInt(3);
+			evolutionTrialId = pokerStateRs->getUInt(4);
+			pokerState.load(pokerStateRs);
+			players.resize(pokerState.playerCount);
+			playerStates.resize(pokerState.playerCount);
+			for (unsigned int i = 0; i < pokerState.playerCount; i++) {
+				playerStateRs->next();
+				unsigned int strategyId = playerStateRs->getUInt(4);
+				players[i].load(con, &logger, &pokerState, &playerStates, strategyManager->getStrategy(strategyId), playerStateRs);
+			}
+
+			pokerState.potController.load(potStateRs, &logger, &playerStates, potContributionStateRs, &pokerState.stateVariables);
+
+			logger.clearLogMessages();
+			while (pokerAiLogRs->next()) {
+				// occi assertion failure in debug build with resultset getString(), read char data as clob instead
+				// logger.loadMessage(pokerAiLogRs->getString(2));
+				std::string message;
+				Util::clobToString(pokerAiLogRs->getClob(3), message);
+				logger.loadMessage(message);
+			}
+
+			statement->closeResultSet(pokerStateRs);
+			statement->closeResultSet(playerStateRs);
+			statement->closeResultSet(potStateRs);
+			statement->closeResultSet(potContributionStateRs);
+			statement->closeResultSet(pokerAiLogRs);
+			con->terminateStatement(statement);
+
+			return true;
 		}
-
-		pokerState.potController.load(potStateRs, &logger, &playerStates, potContributionStateRs, &pokerState.stateVariables);
-
-		logger.clearLogMessages();
-		while (pokerAiLogRs.Next()) {
-			logger.loadMessage(pokerAiLogRs.Get<std::string>("message"));
+		else {
+			// state not found
+			return false;
 		}
 	}
+
+	// state is already loaded
+	return true;
 
 }
 
@@ -517,113 +534,118 @@ void TournamentController::calculateBestHands() {
 void TournamentController::captureStateLog() {
 	if (performStateLogging) {
 
-		std::string procCall = "BEGIN pkg_poker_ai.prepare_state_log(p_state_id => :stateId); END;";
-		ocilib::Statement st(con);
-		st.Prepare(procCall);
-		st.Bind("stateId", pokerState.currentStateId, ocilib::BindInfo::In);
-		st.ExecutePrepared();
+		std::string procCall = "BEGIN pkg_poker_ai.prepare_state_log(p_state_id => :1); END;";
+		oracle::occi::Statement* statement = con->createStatement(procCall);
+		statement->setUInt(1, pokerState.currentStateId);
+		statement->execute();
+		con->terminateStatement(statement);
 
 		procCall = "BEGIN pkg_poker_ai.insert_poker_state_log(";
-		procCall.append("p_state_id                  => :stateId, ");
-		procCall.append("p_tournament_id             => :tournamentId, ");
-		procCall.append("p_tournament_mode           => :tournamentMode, ");
-		procCall.append("p_evolution_trial_id        => :evolutionTrialId, ");
-		procCall.append("p_player_count              => :playerCount, ");
-		procCall.append("p_buy_in_amount             => :buyInAmount, ");
-		procCall.append("p_tournament_in_progress    => :tournamentInProgress, ");
-		procCall.append("p_current_game_number       => :currentGameNumber, ");
-		procCall.append("p_game_in_progress          => :gameInProgress, ");
-		procCall.append("p_small_blind_seat_number   => :smallBlindSeatNumber, ");
-		procCall.append("p_big_blind_seat_number     => :bigBlindSeatNumber, ");
-		procCall.append("p_turn_seat_number          => :turnSeatNumber, ");
-		procCall.append("p_small_blind_value         => :smallBlindValue, ");
-		procCall.append("p_big_blind_value           => :bigBlindValue, ");
-		procCall.append("p_betting_round_number      => :bettingRoundNumber, ");
-		procCall.append("p_betting_round_in_progress => :bettingRoundInProgress, ");
-		procCall.append("p_last_to_raise_seat_number => :lastToRaiseSeatNumber, ");
-		procCall.append("p_min_raise_amount          => :minRaiseAmount, ");
-		procCall.append("p_community_card_1          => :communityCard1, ");
-		procCall.append("p_community_card_2          => :communityCard2, ");
-		procCall.append("p_community_card_3          => :communityCard3, ");
-		procCall.append("p_community_card_4          => :communityCard4, ");
-		procCall.append("p_community_card_5          => :communityCard5");
+		procCall.append("p_state_id                  => :1, ");
+		procCall.append("p_tournament_id             => :2, ");
+		procCall.append("p_tournament_mode           => :3, ");
+		procCall.append("p_evolution_trial_id        => :4, ");
+		procCall.append("p_player_count              => :5, ");
+		procCall.append("p_buy_in_amount             => :6, ");
+		procCall.append("p_tournament_in_progress    => :7, ");
+		procCall.append("p_current_game_number       => :8, ");
+		procCall.append("p_game_in_progress          => :9, ");
+		procCall.append("p_small_blind_seat_number   => :10, ");
+		procCall.append("p_big_blind_seat_number     => :11, ");
+		procCall.append("p_turn_seat_number          => :12, ");
+		procCall.append("p_small_blind_value         => :13, ");
+		procCall.append("p_big_blind_value           => :14, ");
+		procCall.append("p_betting_round_number      => :15, ");
+		procCall.append("p_betting_round_in_progress => :16, ");
+		procCall.append("p_last_to_raise_seat_number => :17, ");
+		procCall.append("p_min_raise_amount          => :18, ");
+		procCall.append("p_community_card_1          => :19, ");
+		procCall.append("p_community_card_2          => :20, ");
+		procCall.append("p_community_card_3          => :21, ");
+		procCall.append("p_community_card_4          => :22, ");
+		procCall.append("p_community_card_5          => :23");
 		procCall.append("); END;");
-		st.Prepare(procCall);
-		st.Bind("stateId", pokerState.currentStateId, ocilib::BindInfo::In);
-		st.Bind("tournamentId", tournamentId, ocilib::BindInfo::In);
+		statement = con->createStatement(procCall);
+
+		statement->setUInt(1, pokerState.currentStateId);
 		if (tournamentId == 0)
-			st.GetBind("tournamentId").SetDataNull(true, 1);
-		unsigned int tournamentModeBind = (unsigned int) tournamentMode;
-		st.Bind("tournamentMode", tournamentModeBind, ocilib::BindInfo::In);
-		st.Bind("evolutionTrialId", evolutionTrialId, ocilib::BindInfo::In);
-		if (evolutionTrialId == 0)
-			st.GetBind("evolutionTrialId").SetDataNull(true, 1);
-		st.Bind("playerCount", pokerState.playerCount, ocilib::BindInfo::In);
-		st.Bind("buyInAmount", pokerState.buyInAmount, ocilib::BindInfo::In);
+			statement->setNull(2, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(2, tournamentId);
+		statement->setUInt(3, tournamentMode);
+		if(evolutionTrialId == 0)
+			statement->setNull(4, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(4, evolutionTrialId);
+		statement->setUInt(5, pokerState.playerCount);
+		statement->setUInt(6, pokerState.buyInAmount);
 		unsigned int tournamentInProgress = pokerState.tournamentInProgress ? 1 : 0;
-		st.Bind("tournamentInProgress", tournamentInProgress, ocilib::BindInfo::In);
-		st.Bind("currentGameNumber", pokerState.currentGameNumber, ocilib::BindInfo::In);
+		statement->setUInt(7, tournamentInProgress);
 		if (pokerState.currentGameNumber == 0)
-			st.GetBind("currentGameNumber").SetDataNull(true, 1);
+			statement->setNull(8, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(8, pokerState.currentGameNumber);
 		unsigned int gameInProgress = pokerState.gameInProgress ? 1 : 0;
-		st.Bind("gameInProgress", gameInProgress, ocilib::BindInfo::In);
-		st.Bind("smallBlindSeatNumber", pokerState.smallBlindSeatNumber, ocilib::BindInfo::In);
+		statement->setUInt(9, gameInProgress);
 		if (pokerState.smallBlindSeatNumber == 0)
-			st.GetBind("smallBlindSeatNumber").SetDataNull(true, 1);
-		st.Bind("bigBlindSeatNumber", pokerState.bigBlindSeatNumber, ocilib::BindInfo::In);
+			statement->setNull(10, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(10, pokerState.smallBlindSeatNumber);
 		if (pokerState.bigBlindSeatNumber == 0)
-			st.GetBind("bigBlindSeatNumber").SetDataNull(true, 1);
-		st.Bind("turnSeatNumber", pokerState.turnSeatNumber, ocilib::BindInfo::In);
+			statement->setNull(11, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(11, pokerState.bigBlindSeatNumber);
 		if (pokerState.turnSeatNumber == 0)
-			st.GetBind("turnSeatNumber").SetDataNull(true, 1);
-		st.Bind("smallBlindValue", pokerState.smallBlindValue, ocilib::BindInfo::In);
+			statement->setNull(12, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(12, pokerState.turnSeatNumber);
 		if (pokerState.smallBlindValue == 0)
-			st.GetBind("smallBlindValue").SetDataNull(true, 1);
-		st.Bind("bigBlindValue", pokerState.bigBlindValue, ocilib::BindInfo::In);
+			statement->setNull(13, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(13, pokerState.smallBlindValue);
 		if (pokerState.bigBlindValue == 0)
-			st.GetBind("bigBlindValue").SetDataNull(true, 1);
-		unsigned int currentBettingRound = (unsigned int) pokerState.currentBettingRound;
-		st.Bind("bettingRoundNumber", currentBettingRound, ocilib::BindInfo::In);
+			statement->setNull(14, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(14, pokerState.bigBlindValue);
 		if (pokerState.currentBettingRound == PokerEnums::BettingRound::NO_BETTING_ROUND)
-			st.GetBind("bettingRoundNumber").SetDataNull(true, 1);
+			statement->setNull(15, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(15, pokerState.currentBettingRound);
 		unsigned int bettingRoundInProgress = pokerState.bettingRoundInProgress ? 1 : 0;
-		st.Bind("bettingRoundInProgress", bettingRoundInProgress, ocilib::BindInfo::In);
-		st.Bind("lastToRaiseSeatNumber", pokerState.lastToRaiseSeatNumber, ocilib::BindInfo::In);
+		statement->setUInt(16, bettingRoundInProgress);
 		if (pokerState.lastToRaiseSeatNumber == 0)
-			st.GetBind("lastToRaiseSeatNumber").SetDataNull(true, 1);
-		st.Bind("minRaiseAmount", pokerState.minRaiseAmount, ocilib::BindInfo::In);
+			statement->setNull(17, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(17, pokerState.lastToRaiseSeatNumber);
 		if (pokerState.minRaiseAmount == 0)
-			st.GetBind("minRaiseAmount").SetDataNull(true, 1);
+			statement->setNull(18, oracle::occi::OCCIUNSIGNED_INT);
+		else
+			statement->setUInt(18, pokerState.minRaiseAmount);
 		unsigned int communityCardCount = pokerState.communityCards.size();
-		int nullCard = -1;
 		if (communityCardCount > 0) {
-			st.Bind("communityCard1", pokerState.communityCards[0].cardId, ocilib::BindInfo::In);
-			st.Bind("communityCard2", pokerState.communityCards[1].cardId, ocilib::BindInfo::In);
-			st.Bind("communityCard3", pokerState.communityCards[2].cardId, ocilib::BindInfo::In);
+			statement->setInt(19, pokerState.communityCards[0].cardId);
+			statement->setInt(20, pokerState.communityCards[1].cardId);
+			statement->setInt(21, pokerState.communityCards[2].cardId);
 		}
 		else {
-			st.Bind("communityCard1", nullCard, ocilib::BindInfo::In);
-			st.Bind("communityCard2", nullCard, ocilib::BindInfo::In);
-			st.Bind("communityCard3", nullCard, ocilib::BindInfo::In);
-			st.GetBind("communityCard1").SetDataNull(true, 1);
-			st.GetBind("communityCard2").SetDataNull(true, 1);
-			st.GetBind("communityCard3").SetDataNull(true, 1);
+			statement->setNull(19, oracle::occi::OCCIINT);
+			statement->setNull(20, oracle::occi::OCCIINT);
+			statement->setNull(21, oracle::occi::OCCIINT);
 		}
 		if (communityCardCount > 3) {
-			st.Bind("communityCard4", pokerState.communityCards[3].cardId, ocilib::BindInfo::In);
+			statement->setInt(22, pokerState.communityCards[3].cardId);
 		}
 		else {
-			st.Bind("communityCard4", nullCard, ocilib::BindInfo::In);
-			st.GetBind("communityCard4").SetDataNull(true, 1);
+			statement->setNull(22, oracle::occi::OCCIINT);
 		}
 		if (communityCardCount > 4) {
-			st.Bind("communityCard5", pokerState.communityCards[4].cardId, ocilib::BindInfo::In);
+			statement->setInt(23, pokerState.communityCards[4].cardId);
 		}
 		else {
-			st.Bind("communityCard5", nullCard, ocilib::BindInfo::In);
-			st.GetBind("communityCard5").SetDataNull(true, 1);
+			statement->setNull(23, oracle::occi::OCCIINT);
 		}
-		st.ExecutePrepared();
+
+		statement->execute();
 
 		for (unsigned int i = 0; i < pokerState.playerCount; i++) {
 			players[i].insertStateLog();
@@ -631,7 +653,9 @@ void TournamentController::captureStateLog() {
 
 		pokerState.potController.insertStateLog(pokerState.currentStateId);
 
-		con.Commit();
+		con->commit();
+		con->terminateStatement(statement);
+
 	}
 }
 
@@ -640,7 +664,7 @@ void TournamentController::captureTournamentResults() {
 		for (unsigned int i = 0; i < pokerState.playerCount; i++) {
 			players[i].captureTournamentResults(tournamentId, evolutionTrialId);
 		}
-		con.Commit();
+		con->commit();
 	}
 }
 

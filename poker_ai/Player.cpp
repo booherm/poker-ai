@@ -29,7 +29,7 @@ static const unsigned int possibleHandCombinations[21][5]  = {
 };
 
 void Player::initialize(
-	ocilib::Connection& con,
+	oracle::occi::Connection* con,
 	Logger* logger,
 	PokerState* pokerState,
 	std::vector<PlayerState>* playerStates,
@@ -43,7 +43,6 @@ void Player::initialize(
 	this->logger = logger;
 	this->pokerState = pokerState;
 	this->playerStates = playerStates;
-	currentStrategy = strategy;
 
 	thisPlayerState = &(playerStates->at(seatNumber - 1));
 	thisPlayerState->initialize(seatNumber, &pokerState->stateVariables);
@@ -54,19 +53,18 @@ void Player::initialize(
 	thisPlayerState->setTournamentRank(0);
 	resetGameState();
 
-	if (currentStrategy != nullptr) {
-		currentStrategy->setPlayerSeatNumber(seatNumber);
-		currentStrategy->setStateVariableCollection(&pokerState->stateVariables);
+	if (strategy != nullptr) {
+		strategyEvaluationDataProvider.initialize(seatNumber, &pokerState->stateVariables, strategy);
 	}
 }
 
 void Player::load(
-	ocilib::Connection& con,
+	oracle::occi::Connection* con,
 	Logger* logger,
 	PokerState* pokerState,
 	std::vector<PlayerState>* playerStates,
 	Strategy* strategy,
-	ocilib::Resultset& playerStateRs
+	oracle::occi::ResultSet* playerStateRs
 ) {
 
 	this->con = con;
@@ -75,106 +73,108 @@ void Player::load(
 	this->playerStates = playerStates;
 
 	// player attributes
-	unsigned int seatNumber = playerStateRs.Get<unsigned int>("seat_number");
+	unsigned int seatNumber = playerStateRs->getUInt(2);
 	thisPlayerState = &(playerStates->at(seatNumber - 1));
 	thisPlayerState->initialize(seatNumber, &pokerState->stateVariables);
-	currentStrategy = strategy;
 	clearHoleCards();
-	int holeCard1 = playerStateRs.Get<int>("hole_card_1");
+	int holeCard1 = playerStateRs->getUInt(6);
 	if (holeCard1 != 0)
 		pushHoleCard(pokerState->deck.drawCardById(holeCard1));
-	int holeCard2 = playerStateRs.Get<int>("hole_card_2");
+	int holeCard2 = playerStateRs->getUInt(7);
 	if (holeCard2 != 0)
 		pushHoleCard(pokerState->deck.drawCardById(holeCard2));
-	bestHand.classification = (PokerEnums::HandClassification) playerStateRs.Get<unsigned int>("best_hand_classification");
+	bestHand.classification = (PokerEnums::HandClassification) playerStateRs->getUInt(8);
 	pokerState->stateVariables.setPrivatePlayerStateVariableValue(StateVariableCollection::BEST_HAND_CLASSIFICATION, seatNumber, (float) bestHand.classification);
-	bestHand.comparator = playerStateRs.Get<std::string>("best_hand_comparator");
+
+	// occi assertion failure in debug build with resultset getString(), read char data as clob instead
+	// bestHand.comparator = playerStateRs->getString(9);
+	Util::clobToString(playerStateRs->getClob(82), bestHand.comparator);
+
 	bestHand.cards.clear();
-	int bestHandCard1 = playerStateRs.Get<int>("best_hand_card_1");
+	int bestHandCard1 = playerStateRs->getUInt(10);
 	if (bestHandCard1 != 0) {
 		bestHand.cards.push_back(pokerState->deck.getCardById(bestHandCard1));
-		bestHand.cards.push_back(pokerState->deck.getCardById(playerStateRs.Get<int>("best_hand_card_2")));
-		bestHand.cards.push_back(pokerState->deck.getCardById(playerStateRs.Get<int>("best_hand_card_3")));
-		bestHand.cards.push_back(pokerState->deck.getCardById(playerStateRs.Get<int>("best_hand_card_4")));
-		bestHand.cards.push_back(pokerState->deck.getCardById(playerStateRs.Get<int>("best_hand_card_5")));
-		bestHandRank = playerStateRs.Get<unsigned int>("best_hand_rank");
+		bestHand.cards.push_back(pokerState->deck.getCardById(playerStateRs->getUInt(11)));
+		bestHand.cards.push_back(pokerState->deck.getCardById(playerStateRs->getUInt(12)));
+		bestHand.cards.push_back(pokerState->deck.getCardById(playerStateRs->getUInt(13)));
+		bestHand.cards.push_back(pokerState->deck.getCardById(playerStateRs->getUInt(14)));
+		bestHandRank = playerStateRs->getUInt(15);
 	}
 	else
 		bestHandRank = 0;
 
 	// player state
-	thisPlayerState->setPlayerId(playerStateRs.Get<unsigned int>("player_id"));
-	thisPlayerState->setAssumedStrategyId(playerStateRs.Get<unsigned int>("assumed_strategy_id"));
-	thisPlayerState->setHandShowing(playerStateRs.Get<unsigned int>("hand_showing") == 1);
-	thisPlayerState->setPresentedBetOpportunity(playerStateRs.Get<unsigned int>("presented_bet_opportunity") == 1);
-	thisPlayerState->setMoney(playerStateRs.Get<unsigned int>("money"));
-	thisPlayerState->setState((PokerEnums::State) playerStateRs.Get<unsigned int>("state"));
-	thisPlayerState->setGameRank(playerStateRs.Get<unsigned int>("game_rank"));
-	thisPlayerState->setEligibleToWinMoney(playerStateRs.Get<unsigned int>("eligible_to_win_money"));
-	thisPlayerState->setTotalPotDeficit(playerStateRs.Get<unsigned int>("total_pot_deficit"));
-	thisPlayerState->setTotalPotContribution(playerStateRs.Get<unsigned int>("total_pot_contribution"));
-	thisPlayerState->setTournamentRank(playerStateRs.Get<unsigned int>("tournament_rank"));
-	thisPlayerState->setGamesPlayed(playerStateRs.Get<unsigned int>("games_played"));
-	thisPlayerState->setMainPotsWon(playerStateRs.Get<unsigned int>("main_pots_won"));
-	thisPlayerState->setMainPotsSplit(playerStateRs.Get<unsigned int>("main_pots_split"));
-	thisPlayerState->setSidePotsWon(playerStateRs.Get<unsigned int>("side_pots_won"));
-	thisPlayerState->setSidePotsSplit(playerStateRs.Get<unsigned int>("side_pots_split"));
-	thisPlayerState->setAverageGameProfit(playerStateRs.Get<float>("average_game_profit"));
-	thisPlayerState->setFlopsSeen(playerStateRs.Get<unsigned int>("flops_seen"));
-	thisPlayerState->setTurnsSeen(playerStateRs.Get<unsigned int>("turns_seen"));
-	thisPlayerState->setRiversSeen(playerStateRs.Get<unsigned int>("rivers_seen"));
-	thisPlayerState->setPreFlopFolds(playerStateRs.Get<unsigned int>("pre_flop_folds"));
-	thisPlayerState->setFlopFolds(playerStateRs.Get<unsigned int>("flop_folds"));
-	thisPlayerState->setTurnFolds(playerStateRs.Get<unsigned int>("turn_folds"));
-	thisPlayerState->setRiverFolds(playerStateRs.Get<unsigned int>("river_folds"));
-	thisPlayerState->setTotalFolds(playerStateRs.Get<unsigned int>("total_folds"));
-	thisPlayerState->setPreFlopChecks(playerStateRs.Get<unsigned int>("pre_flop_checks"));
-	thisPlayerState->setFlopChecks(playerStateRs.Get<unsigned int>("flop_checks"));
-	thisPlayerState->setTurnChecks(playerStateRs.Get<unsigned int>("turn_checks"));
-	thisPlayerState->setRiverChecks(playerStateRs.Get<unsigned int>("river_checks"));
-	thisPlayerState->setTotalChecks(playerStateRs.Get<unsigned int>("total_checks"));
-	thisPlayerState->setPreFlopCalls(playerStateRs.Get<unsigned int>("pre_flop_calls"));
-	thisPlayerState->setFlopCalls(playerStateRs.Get<unsigned int>("flop_calls"));
-	thisPlayerState->setTurnCalls(playerStateRs.Get<unsigned int>("turn_calls"));
-	thisPlayerState->setRiverCalls(playerStateRs.Get<unsigned int>("river_calls"));
-	thisPlayerState->setTotalCalls(playerStateRs.Get<unsigned int>("total_calls"));
-	thisPlayerState->setPreFlopBets(playerStateRs.Get<unsigned int>("pre_flop_bets"));
-	thisPlayerState->setFlopBets(playerStateRs.Get<unsigned int>("flop_bets"));
-	thisPlayerState->setTurnBets(playerStateRs.Get<unsigned int>("turn_bets"));
-	thisPlayerState->setRiverBets(playerStateRs.Get<unsigned int>("river_bets"));
-	thisPlayerState->setTotalBets(playerStateRs.Get<unsigned int>("total_bets"));
-	thisPlayerState->setPreFlopTotalBetAmount(playerStateRs.Get<unsigned int>("pre_flop_total_bet_amount"));
-	thisPlayerState->setFlopTotalBetAmount(playerStateRs.Get<unsigned int>("flop_total_bet_amount"));
-	thisPlayerState->setTurnTotalBetAmount(playerStateRs.Get<unsigned int>("turn_total_bet_amount"));
-	thisPlayerState->setRiverTotalBetAmount(playerStateRs.Get<unsigned int>("river_total_bet_amount"));
-	thisPlayerState->setTotalBetAmount(playerStateRs.Get<unsigned int>("total_bet_amount"));
-	thisPlayerState->setPreFlopAverageBetAmount(playerStateRs.Get<float>("pre_flop_average_bet_amount"));
-	thisPlayerState->setFlopAverageBetAmount(playerStateRs.Get<float>("flop_average_bet_amount"));
-	thisPlayerState->setTurnAverageBetAmount(playerStateRs.Get<float>("turn_average_bet_amount"));
-	thisPlayerState->setRiverAverageBetAmount(playerStateRs.Get<float>("river_average_bet_amount"));
-	thisPlayerState->setAverageBetAmount(playerStateRs.Get<float>("average_bet_amount"));
-	thisPlayerState->setPreFlopRaises(playerStateRs.Get<unsigned int>("pre_flop_raises"));
-	thisPlayerState->setFlopRaises(playerStateRs.Get<unsigned int>("flop_raises"));
-	thisPlayerState->setTurnRaises(playerStateRs.Get<unsigned int>("turn_raises"));
-	thisPlayerState->setRiverRaises(playerStateRs.Get<unsigned int>("river_raises"));
-	thisPlayerState->setTotalRaises(playerStateRs.Get<unsigned int>("total_raises"));
-	thisPlayerState->setPreFlopTotalRaiseAmount(playerStateRs.Get<unsigned int>("pre_flop_total_raise_amount"));
-	thisPlayerState->setFlopTotalRaiseAmount(playerStateRs.Get<unsigned int>("flop_total_raise_amount"));
-	thisPlayerState->setTurnTotalRaiseAmount(playerStateRs.Get<unsigned int>("turn_total_raise_amount"));
-	thisPlayerState->setRiverTotalRaiseAmount(playerStateRs.Get<unsigned int>("river_total_raise_amount"));
-	thisPlayerState->setTotalRaiseAmount(playerStateRs.Get<unsigned int>("total_raise_amount"));
-	thisPlayerState->setPreFlopAverageRaiseAmount(playerStateRs.Get<float>("pre_flop_average_raise_amount"));
-	thisPlayerState->setFlopAverageRaiseAmount(playerStateRs.Get<float>("flop_average_raise_amount"));
-	thisPlayerState->setTurnAverageRaiseAmount(playerStateRs.Get<float>("turn_average_raise_amount"));
-	thisPlayerState->setRiverAverageRaiseAmount(playerStateRs.Get<float>("river_average_raise_amount"));
-	thisPlayerState->setAverageRaiseAmount(playerStateRs.Get<float>("average_raise_amount"));
-	thisPlayerState->setTimesAllIn(playerStateRs.Get<unsigned int>("times_all_in"));
-	thisPlayerState->setTotalMoneyPlayed(playerStateRs.Get<unsigned int>("total_money_played"));
-	thisPlayerState->setTotalMoneyWon(playerStateRs.Get<unsigned int>("total_money_won"));
+	thisPlayerState->setPlayerId(playerStateRs->getUInt(3));
+	thisPlayerState->setAssumedStrategyId(playerStateRs->getUInt(5));
+	thisPlayerState->setHandShowing(playerStateRs->getUInt(16) == 1);
+	thisPlayerState->setPresentedBetOpportunity(playerStateRs->getUInt(17) == 1);
+	thisPlayerState->setMoney(playerStateRs->getUInt(18));
+	thisPlayerState->setState((PokerEnums::State) playerStateRs->getUInt(19));
+	thisPlayerState->setGameRank(playerStateRs->getUInt(20));
+	thisPlayerState->setEligibleToWinMoney(playerStateRs->getUInt(22));
+	thisPlayerState->setTotalPotDeficit(playerStateRs->getUInt(23));
+	thisPlayerState->setTotalPotContribution(playerStateRs->getUInt(24));
+	thisPlayerState->setTournamentRank(playerStateRs->getUInt(21));
+	thisPlayerState->setGamesPlayed(playerStateRs->getUInt(25));
+	thisPlayerState->setMainPotsWon(playerStateRs->getUInt(26));
+	thisPlayerState->setMainPotsSplit(playerStateRs->getUInt(27));
+	thisPlayerState->setSidePotsWon(playerStateRs->getUInt(28));
+	thisPlayerState->setSidePotsSplit(playerStateRs->getUInt(29));
+	thisPlayerState->setAverageGameProfit(playerStateRs->getFloat(30));
+	thisPlayerState->setFlopsSeen(playerStateRs->getUInt(31));
+	thisPlayerState->setTurnsSeen(playerStateRs->getUInt(32));
+	thisPlayerState->setRiversSeen(playerStateRs->getUInt(33));
+	thisPlayerState->setPreFlopFolds(playerStateRs->getUInt(34));
+	thisPlayerState->setFlopFolds(playerStateRs->getUInt(35));
+	thisPlayerState->setTurnFolds(playerStateRs->getUInt(36));
+	thisPlayerState->setRiverFolds(playerStateRs->getUInt(37));
+	thisPlayerState->setTotalFolds(playerStateRs->getUInt(38));
+	thisPlayerState->setPreFlopChecks(playerStateRs->getUInt(39));
+	thisPlayerState->setFlopChecks(playerStateRs->getUInt(40));
+	thisPlayerState->setTurnChecks(playerStateRs->getUInt(41));
+	thisPlayerState->setRiverChecks(playerStateRs->getUInt(42));
+	thisPlayerState->setTotalChecks(playerStateRs->getUInt(43));
+	thisPlayerState->setPreFlopCalls(playerStateRs->getUInt(44));
+	thisPlayerState->setFlopCalls(playerStateRs->getUInt(45));
+	thisPlayerState->setTurnCalls(playerStateRs->getUInt(46));
+	thisPlayerState->setRiverCalls(playerStateRs->getUInt(47));
+	thisPlayerState->setTotalCalls(playerStateRs->getUInt(48));
+	thisPlayerState->setPreFlopBets(playerStateRs->getUInt(49));
+	thisPlayerState->setFlopBets(playerStateRs->getUInt(50));
+	thisPlayerState->setTurnBets(playerStateRs->getUInt(51));
+	thisPlayerState->setRiverBets(playerStateRs->getUInt(52));
+	thisPlayerState->setTotalBets(playerStateRs->getUInt(53));
+	thisPlayerState->setPreFlopTotalBetAmount(playerStateRs->getUInt(54));
+	thisPlayerState->setFlopTotalBetAmount(playerStateRs->getUInt(55));
+	thisPlayerState->setTurnTotalBetAmount(playerStateRs->getUInt(56));
+	thisPlayerState->setRiverTotalBetAmount(playerStateRs->getUInt(57));
+	thisPlayerState->setTotalBetAmount(playerStateRs->getUInt(58));
+	thisPlayerState->setPreFlopAverageBetAmount(playerStateRs->getFloat(59));
+	thisPlayerState->setFlopAverageBetAmount(playerStateRs->getFloat(60));
+	thisPlayerState->setTurnAverageBetAmount(playerStateRs->getFloat(61));
+	thisPlayerState->setRiverAverageBetAmount(playerStateRs->getFloat(62));
+	thisPlayerState->setAverageBetAmount(playerStateRs->getFloat(63));
+	thisPlayerState->setPreFlopRaises(playerStateRs->getUInt(64));
+	thisPlayerState->setFlopRaises(playerStateRs->getUInt(65));
+	thisPlayerState->setTurnRaises(playerStateRs->getUInt(66));
+	thisPlayerState->setRiverRaises(playerStateRs->getUInt(67));
+	thisPlayerState->setTotalRaises(playerStateRs->getUInt(68));
+	thisPlayerState->setPreFlopTotalRaiseAmount(playerStateRs->getUInt(69));
+	thisPlayerState->setFlopTotalRaiseAmount(playerStateRs->getUInt(70));
+	thisPlayerState->setTurnTotalRaiseAmount(playerStateRs->getUInt(71));
+	thisPlayerState->setRiverTotalRaiseAmount(playerStateRs->getUInt(72));
+	thisPlayerState->setTotalRaiseAmount(playerStateRs->getUInt(73));
+	thisPlayerState->setPreFlopAverageRaiseAmount(playerStateRs->getFloat(74));
+	thisPlayerState->setFlopAverageRaiseAmount(playerStateRs->getFloat(75));
+	thisPlayerState->setTurnAverageRaiseAmount(playerStateRs->getFloat(76));
+	thisPlayerState->setRiverAverageRaiseAmount(playerStateRs->getFloat(77));
+	thisPlayerState->setAverageRaiseAmount(playerStateRs->getFloat(78));
+	thisPlayerState->setTimesAllIn(playerStateRs->getUInt(79));
+	thisPlayerState->setTotalMoneyPlayed(playerStateRs->getUInt(80));
+	thisPlayerState->setTotalMoneyWon(playerStateRs->getUInt(81));
 
-	if (currentStrategy != nullptr) {
-		currentStrategy->setPlayerSeatNumber(seatNumber);
-		currentStrategy->setStateVariableCollection(&pokerState->stateVariables);
+	if (strategy != nullptr) {
+		strategyEvaluationDataProvider.initialize(seatNumber, &pokerState->stateVariables, strategy);
 	}
 }
 
@@ -274,10 +274,7 @@ void Player::getUiState(Json::Value& playerStateData) const {
 
 	}
 	playerStateData["hand_showing"] = thisPlayerState->handShowing ? "Yes" : "No";
-	if (currentStrategy == nullptr)
-		playerStateData["strategy_id"] = 0;
-	else
-		playerStateData["strategy_id"] = currentStrategy->getStrategyId();
+	playerStateData["strategy_id"] = strategyEvaluationDataProvider.getStrategyId();
 	playerStateData["money"] = thisPlayerState->money;
 	playerStateData["state"] = getStateString();
 	if (thisPlayerState->gameRank == 0)
@@ -295,7 +292,7 @@ void Player::getUiState(Json::Value& playerStateData) const {
 	playerStateData["can_bet"] = getCanBet();
 	playerStateData["can_raise"] = getCanRaise();
 
-	Strategy::BetRaiseLimits betRaiseLimits = getBetRaiseLimits();
+	StrategyEvaluationDataProvider::BetRaiseLimits betRaiseLimits = getBetRaiseLimits();
 	playerStateData["min_bet_amount"] = betRaiseLimits.minBetRaiseAmount;
 	playerStateData["max_bet_amount"] = betRaiseLimits.maxBetRaiseAmount;
 	playerStateData["min_raise_amount"] = betRaiseLimits.minBetRaiseAmount;
@@ -462,397 +459,414 @@ void Player::resetBettingRoundState() {
 void Player::insertStateLog() {
 
 	std::string procCall = "BEGIN pkg_poker_ai.insert_player_state_log(";
-	procCall.append("p_state_id                    => :stateId, ");
-	procCall.append("p_seat_number                 => :seatNumber, ");
-	procCall.append("p_player_id                   => :playerId, ");
-	procCall.append("p_current_strategy_id         => :currentStrategyId, ");
-	procCall.append("p_assumed_strategy_id         => :assumedStrategyId, ");
-	procCall.append("p_hole_card_1                 => :holeCard1, ");
-	procCall.append("p_hole_card_2                 => :holeCard2, ");
-	procCall.append("p_best_hand_classification    => :bestHandClassification, ");
-	procCall.append("p_best_hand_comparator        => :bestHandComparator, ");
-	procCall.append("p_best_hand_card_1            => :bestHandCard1, ");
-	procCall.append("p_best_hand_card_2            => :bestHandCard2, ");
-	procCall.append("p_best_hand_card_3            => :bestHandCard3, ");
-	procCall.append("p_best_hand_card_4            => :bestHandCard4, ");
-	procCall.append("p_best_hand_card_5            => :bestHandCard5, ");
-	procCall.append("p_best_hand_rank              => :bestHandRank, ");
-	procCall.append("p_hand_showing                => :handShowing, ");
-	procCall.append("p_presented_bet_opportunity   => :presentedBetOpportunity, ");
-	procCall.append("p_money                       => :money, ");
-	procCall.append("p_state                       => :state, ");
-	procCall.append("p_game_rank                   => :gameRank, ");
-	procCall.append("p_tournament_rank             => :tournamentRank, ");
-	procCall.append("p_eligible_to_win_money       => :eligibleToWinMoney, ");
-	procCall.append("p_total_pot_deficit           => :totalPotDeficit, ");
-	procCall.append("p_total_pot_contribution      => :totalPotContribution, ");
-	procCall.append("p_games_played                => :gamesPlayed, ");
-	procCall.append("p_main_pots_won               => :mainPotsWon, ");
-	procCall.append("p_main_pots_split             => :mainPotsSplit, ");
-	procCall.append("p_side_pots_won               => :sidePotsWon, ");
-	procCall.append("p_side_pots_split             => :sidePotsSplit, ");
-	procCall.append("p_average_game_profit         => :averageGameProfit, ");
-	procCall.append("p_flops_seen                  => :flopsSeen, ");
-	procCall.append("p_turns_seen                  => :turnsSeen, ");
-	procCall.append("p_rivers_seen                 => :riversSeen, ");
-	procCall.append("p_pre_flop_folds              => :preFlopFolds, ");
-	procCall.append("p_flop_folds                  => :flopFolds, ");
-	procCall.append("p_turn_folds                  => :turnFolds, ");
-	procCall.append("p_river_folds                 => :riverFolds, ");
-	procCall.append("p_total_folds                 => :totalFolds, ");
-	procCall.append("p_pre_flop_checks             => :preFlopChecks, ");
-	procCall.append("p_flop_checks                 => :flopChecks, ");
-	procCall.append("p_turn_checks                 => :turnChecks, ");
-	procCall.append("p_river_checks                => :riverChecks, ");
-	procCall.append("p_total_checks                => :totalChecks, ");
-	procCall.append("p_pre_flop_calls              => :preFlopCalls, ");
-	procCall.append("p_flop_calls                  => :flopCalls, ");
-	procCall.append("p_turn_calls                  => :turnCalls, ");
-	procCall.append("p_river_calls                 => :riverCalls, ");
-	procCall.append("p_total_calls                 => :totalCalls, ");
-	procCall.append("p_pre_flop_bets               => :preFlopBets, ");
-	procCall.append("p_flop_bets                   => :flopBets, ");
-	procCall.append("p_turn_bets                   => :turnBets, ");
-	procCall.append("p_river_bets                  => :riverBets, ");
-	procCall.append("p_total_bets                  => :totalBets, ");
-	procCall.append("p_pre_flop_total_bet_amount   => :preFlopTotalBetAmount, ");
-	procCall.append("p_flop_total_bet_amount       => :flopTotalBetAmount, ");
-	procCall.append("p_turn_total_bet_amount       => :turnTotalBetAmount, ");
-	procCall.append("p_river_total_bet_amount      => :riverTotalBetAmount, ");
-	procCall.append("p_total_bet_amount            => :totalBetAmount, ");
-	procCall.append("p_pre_flop_average_bet_amount => :preFlopAverageBetAmount, ");
-	procCall.append("p_flop_average_bet_amount     => :flopAverageBetAmount, ");
-	procCall.append("p_turn_average_bet_amount     => :turnAverageBetAmount, ");
-	procCall.append("p_river_average_bet_amount    => :riverAverageBetAmount, ");
-	procCall.append("p_average_bet_amount          => :averageBetAmount, ");
-	procCall.append("p_pre_flop_raises             => :preFlopRaises, ");
-	procCall.append("p_flop_raises                 => :flopRaises, ");
-	procCall.append("p_turn_raises                 => :turnRaises, ");
-	procCall.append("p_river_raises                => :riverRaises, ");
-	procCall.append("p_total_raises                => :totalRaises, ");
-	procCall.append("p_pre_flop_total_raise_amount => :preFlopTotalRaiseAmount, ");
-	procCall.append("p_flop_total_raise_amount     => :flopTotalRaiseAmount, ");
-	procCall.append("p_turn_total_raise_amount     => :turnTotalRaiseAmount, ");
-	procCall.append("p_river_total_raise_amount    => :riverTotalRaiseAmount, ");
-	procCall.append("p_total_raise_amount          => :totalRaiseAmount, ");
-	procCall.append("p_pre_flop_average_raise_amt  => :preFlopAverageRaiseAmount, ");
-	procCall.append("p_flop_average_raise_amount   => :flopAverageRaiseAmount, ");
-	procCall.append("p_turn_average_raise_amount   => :turnAverageRaiseAmount, ");
-	procCall.append("p_river_average_raise_amount  => :riverAverageRaiseAmount, ");
-	procCall.append("p_average_raise_amount        => :averageRaiseAmount, ");
-	procCall.append("p_times_all_in                => :timesAllIn, ");
-	procCall.append("p_total_money_played          => :totalMoneyPlayed, ");
-	procCall.append("p_total_money_won             => :totalMoneyWon");
+	procCall.append("p_state_id                    => :1, ");
+	procCall.append("p_seat_number                 => :2, ");
+	procCall.append("p_player_id                   => :3, ");
+	procCall.append("p_current_strategy_id         => :4, ");
+	procCall.append("p_assumed_strategy_id         => :5, ");
+	procCall.append("p_hole_card_1                 => :6, ");
+	procCall.append("p_hole_card_2                 => :7, ");
+	procCall.append("p_best_hand_classification    => :8, ");
+	procCall.append("p_best_hand_comparator        => :9, ");
+	procCall.append("p_best_hand_card_1            => :10, ");
+	procCall.append("p_best_hand_card_2            => :11, ");
+	procCall.append("p_best_hand_card_3            => :12, ");
+	procCall.append("p_best_hand_card_4            => :13, ");
+	procCall.append("p_best_hand_card_5            => :14, ");
+	procCall.append("p_best_hand_rank              => :15, ");
+	procCall.append("p_hand_showing                => :16, ");
+	procCall.append("p_presented_bet_opportunity   => :17, ");
+	procCall.append("p_money                       => :18, ");
+	procCall.append("p_state                       => :19, ");
+	procCall.append("p_game_rank                   => :20, ");
+	procCall.append("p_tournament_rank             => :21, ");
+	procCall.append("p_eligible_to_win_money       => :22, ");
+	procCall.append("p_total_pot_deficit           => :23, ");
+	procCall.append("p_total_pot_contribution      => :24, ");
+	procCall.append("p_games_played                => :25, ");
+	procCall.append("p_main_pots_won               => :26, ");
+	procCall.append("p_main_pots_split             => :27, ");
+	procCall.append("p_side_pots_won               => :28, ");
+	procCall.append("p_side_pots_split             => :29, ");
+	procCall.append("p_average_game_profit         => :30, ");
+	procCall.append("p_flops_seen                  => :31, ");
+	procCall.append("p_turns_seen                  => :32, ");
+	procCall.append("p_rivers_seen                 => :33, ");
+	procCall.append("p_pre_flop_folds              => :34, ");
+	procCall.append("p_flop_folds                  => :35, ");
+	procCall.append("p_turn_folds                  => :36, ");
+	procCall.append("p_river_folds                 => :37, ");
+	procCall.append("p_total_folds                 => :38, ");
+	procCall.append("p_pre_flop_checks             => :39, ");
+	procCall.append("p_flop_checks                 => :40, ");
+	procCall.append("p_turn_checks                 => :41, ");
+	procCall.append("p_river_checks                => :42, ");
+	procCall.append("p_total_checks                => :43, ");
+	procCall.append("p_pre_flop_calls              => :44, ");
+	procCall.append("p_flop_calls                  => :45, ");
+	procCall.append("p_turn_calls                  => :46, ");
+	procCall.append("p_river_calls                 => :47, ");
+	procCall.append("p_total_calls                 => :48, ");
+	procCall.append("p_pre_flop_bets               => :49, ");
+	procCall.append("p_flop_bets                   => :50, ");
+	procCall.append("p_turn_bets                   => :51, ");
+	procCall.append("p_river_bets                  => :52, ");
+	procCall.append("p_total_bets                  => :53, ");
+	procCall.append("p_pre_flop_total_bet_amount   => :54, ");
+	procCall.append("p_flop_total_bet_amount       => :55, ");
+	procCall.append("p_turn_total_bet_amount       => :56, ");
+	procCall.append("p_river_total_bet_amount      => :57, ");
+	procCall.append("p_total_bet_amount            => :58, ");
+	procCall.append("p_pre_flop_average_bet_amount => :59, ");
+	procCall.append("p_flop_average_bet_amount     => :60, ");
+	procCall.append("p_turn_average_bet_amount     => :61, ");
+	procCall.append("p_river_average_bet_amount    => :62, ");
+	procCall.append("p_average_bet_amount          => :63, ");
+	procCall.append("p_pre_flop_raises             => :64, ");
+	procCall.append("p_flop_raises                 => :65, ");
+	procCall.append("p_turn_raises                 => :66, ");
+	procCall.append("p_river_raises                => :67, ");
+	procCall.append("p_total_raises                => :68, ");
+	procCall.append("p_pre_flop_total_raise_amount => :69, ");
+	procCall.append("p_flop_total_raise_amount     => :70, ");
+	procCall.append("p_turn_total_raise_amount     => :71, ");
+	procCall.append("p_river_total_raise_amount    => :72, ");
+	procCall.append("p_total_raise_amount          => :73, ");
+	procCall.append("p_pre_flop_average_raise_amt  => :74, ");
+	procCall.append("p_flop_average_raise_amount   => :75, ");
+	procCall.append("p_turn_average_raise_amount   => :76, ");
+	procCall.append("p_river_average_raise_amount  => :77, ");
+	procCall.append("p_average_raise_amount        => :78, ");
+	procCall.append("p_times_all_in                => :79, ");
+	procCall.append("p_total_money_played          => :80, ");
+	procCall.append("p_total_money_won             => :81");
 	procCall.append("); END;");
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
+	oracle::occi::Statement* statement = con->createStatement(procCall);
 
-	st.Bind("stateId", pokerState->currentStateId, ocilib::BindInfo::In);
-	st.Bind("seatNumber", thisPlayerState->seatNumber, ocilib::BindInfo::In);
-	st.Bind("playerId", thisPlayerState->playerId, ocilib::BindInfo::In);
+	statement->setUInt(1, pokerState->currentStateId);
+	statement->setUInt(2, thisPlayerState->seatNumber);
 	if (thisPlayerState->playerId == 0)
-		st.GetBind("playerId").SetDataNull(true, 1);
-	unsigned int currentStrategyId = currentStrategy == nullptr ? 0 : currentStrategy->getStrategyId();
-	st.Bind("currentStrategyId", currentStrategyId, ocilib::BindInfo::In);
+		statement->setNull(3, oracle::occi::OCCIUNSIGNED_INT);
+	else
+		statement->setUInt(3, thisPlayerState->playerId);
+	unsigned int currentStrategyId = strategyEvaluationDataProvider.getStrategyId();
 	if (currentStrategyId == 0)
-		st.GetBind("currentStrategyId").SetDataNull(true, 1);
-	st.Bind("assumedStrategyId", thisPlayerState->assumedStrategyId, ocilib::BindInfo::In);
+		statement->setNull(4, oracle::occi::OCCIUNSIGNED_INT);
+	else
+		statement->setUInt(4, currentStrategyId);
 	if (thisPlayerState->assumedStrategyId == 0)
-		st.GetBind("assumedStrategyId").SetDataNull(true, 1);
-	int holeCard1 = holeCards.size() == 0 ? -1 : holeCards[0].cardId;
-	st.Bind("holeCard1", holeCard1, ocilib::BindInfo::In);
-	if(holeCard1 == -1)
-		st.GetBind("holeCard1").SetDataNull(true, 1);
-	int holeCard2 = holeCards.size() == 0 ? -1 : holeCards[1].cardId;
-	st.Bind("holeCard2", holeCard2, ocilib::BindInfo::In);
-	if (holeCard2 == -1)
-		st.GetBind("holeCard2").SetDataNull(true, 1);
-	unsigned int bestHandClassification = (unsigned int) bestHand.classification;
-	st.Bind("bestHandClassification", bestHandClassification, ocilib::BindInfo::In);
-	if (bestHandClassification == 0)
-		st.GetBind("bestHandClassification").SetDataNull(true, 1);
-	ocilib::ostring bestHandComparatorOstring(bestHand.comparator);
-	st.Bind("bestHandComparator", bestHandComparatorOstring, static_cast<unsigned int>(bestHandComparatorOstring.size()), ocilib::BindInfo::In);
-	if (bestHand.classification == PokerEnums::HandClassification::INCOMPLETE_HAND) {
-		int cardId = -1;
-		st.Bind("bestHandCard1", cardId, ocilib::BindInfo::In);
-		st.Bind("bestHandCard2", cardId, ocilib::BindInfo::In);
-		st.Bind("bestHandCard3", cardId, ocilib::BindInfo::In);
-		st.Bind("bestHandCard4", cardId, ocilib::BindInfo::In);
-		st.Bind("bestHandCard5", cardId, ocilib::BindInfo::In);
-		st.GetBind("bestHandCard1").SetDataNull(true, 1);
-		st.GetBind("bestHandCard2").SetDataNull(true, 1);
-		st.GetBind("bestHandCard3").SetDataNull(true, 1);
-		st.GetBind("bestHandCard4").SetDataNull(true, 1);
-		st.GetBind("bestHandCard5").SetDataNull(true, 1);
+		statement->setNull(5, oracle::occi::OCCIUNSIGNED_INT);
+	else
+		statement->setUInt(5, thisPlayerState->assumedStrategyId);
+	if (holeCards.size() == 0) {
+		statement->setNull(6, oracle::occi::OCCIUNSIGNED_INT);
+		statement->setNull(7, oracle::occi::OCCIUNSIGNED_INT);
 	}
 	else {
-		st.Bind("bestHandCard1", bestHand.cards[0].cardId, ocilib::BindInfo::In);
-		st.Bind("bestHandCard2", bestHand.cards[1].cardId, ocilib::BindInfo::In);
-		st.Bind("bestHandCard3", bestHand.cards[2].cardId, ocilib::BindInfo::In);
-		st.Bind("bestHandCard4", bestHand.cards[3].cardId, ocilib::BindInfo::In);
-		st.Bind("bestHandCard5", bestHand.cards[4].cardId, ocilib::BindInfo::In);
+		statement->setUInt(6, holeCards[0].cardId);
+		statement->setUInt(7, holeCards[1].cardId);
 	}
-	st.Bind("bestHandRank", bestHandRank, ocilib::BindInfo::In);
-	if(bestHandRank == 0)
-		st.GetBind("bestHandRank").SetDataNull(true, 1);
-	unsigned int handShowing(thisPlayerState->handShowing ? 1 : 0);
-	st.Bind("handShowing", handShowing, ocilib::BindInfo::In);
-	unsigned int presentedBetOpportunity(thisPlayerState->presentedBetOpportunity ? 1 : 0);
-	st.Bind("presentedBetOpportunity", presentedBetOpportunity, ocilib::BindInfo::In);
-	st.Bind("money", thisPlayerState->money, ocilib::BindInfo::In);
-	unsigned int state = (unsigned int) thisPlayerState->state;
-	st.Bind("state", state, ocilib::BindInfo::In);
-	st.Bind("gameRank", thisPlayerState->gameRank, ocilib::BindInfo::In);
+	if (bestHand.classification == PokerEnums::HandClassification::INCOMPLETE_HAND)
+		statement->setNull(8, oracle::occi::OCCIUNSIGNED_INT);
+	else
+		statement->setUInt(8, bestHand.classification);
+	statement->setString(9, bestHand.comparator);
+	if (bestHand.classification == PokerEnums::HandClassification::INCOMPLETE_HAND) {
+		statement->setNull(10, oracle::occi::OCCIUNSIGNED_INT);
+		statement->setNull(11, oracle::occi::OCCIUNSIGNED_INT);
+		statement->setNull(12, oracle::occi::OCCIUNSIGNED_INT);
+		statement->setNull(13, oracle::occi::OCCIUNSIGNED_INT);
+		statement->setNull(14, oracle::occi::OCCIUNSIGNED_INT);
+	}
+	else {
+		statement->setUInt(10, bestHand.cards[0].cardId);
+		statement->setUInt(11, bestHand.cards[1].cardId);
+		statement->setUInt(12, bestHand.cards[2].cardId);
+		statement->setUInt(13, bestHand.cards[3].cardId);
+		statement->setUInt(14, bestHand.cards[4].cardId);
+	}
+	if (bestHandRank == 0)
+		statement->setNull(15, oracle::occi::OCCIUNSIGNED_INT);
+	else
+		statement->setUInt(15, bestHandRank);
+	statement->setUInt(16, thisPlayerState->handShowing ? 1 : 0);
+	statement->setUInt(17, thisPlayerState->presentedBetOpportunity ? 1 : 0);
+	statement->setUInt(18, thisPlayerState->money);
+	statement->setUInt(19, thisPlayerState->state);
 	if (thisPlayerState->gameRank == 0)
-		st.GetBind("gameRank").SetDataNull(true, 1);
-	st.Bind("tournamentRank", thisPlayerState->tournamentRank, ocilib::BindInfo::In);
+		statement->setNull(20, oracle::occi::OCCIUNSIGNED_INT);
+	else
+		statement->setUInt(20, thisPlayerState->gameRank);
 	if (thisPlayerState->tournamentRank == 0)
-		st.GetBind("tournamentRank").SetDataNull(true, 1);
-	st.Bind("eligibleToWinMoney", thisPlayerState->eligibleToWinMoney, ocilib::BindInfo::In);
-	st.Bind("totalPotDeficit", thisPlayerState->totalPotDeficit, ocilib::BindInfo::In);
-	st.Bind("totalPotContribution", thisPlayerState->totalPotContribution, ocilib::BindInfo::In);
-	st.Bind("gamesPlayed", thisPlayerState->gamesPlayed, ocilib::BindInfo::In);
-	st.Bind("mainPotsWon", thisPlayerState->mainPotsWon, ocilib::BindInfo::In);
-	st.Bind("mainPotsSplit", thisPlayerState->mainPotsSplit, ocilib::BindInfo::In);
-	st.Bind("sidePotsWon", thisPlayerState->sidePotsWon, ocilib::BindInfo::In);
-	st.Bind("sidePotsSplit", thisPlayerState->sidePotsSplit, ocilib::BindInfo::In);
-	st.Bind("averageGameProfit", thisPlayerState->averageGameProfit, ocilib::BindInfo::In);
-	if(thisPlayerState->gamesPlayed == 0)
-		st.GetBind("averageGameProfit").SetDataNull(true, 1);
-	st.Bind("flopsSeen", thisPlayerState->flopsSeen, ocilib::BindInfo::In);
-	st.Bind("turnsSeen", thisPlayerState->turnsSeen, ocilib::BindInfo::In);
-	st.Bind("riversSeen", thisPlayerState->riversSeen, ocilib::BindInfo::In);
-	st.Bind("preFlopFolds", thisPlayerState->preFlopFolds, ocilib::BindInfo::In);
-	st.Bind("flopFolds", thisPlayerState->flopFolds, ocilib::BindInfo::In);
-	st.Bind("turnFolds", thisPlayerState->turnFolds, ocilib::BindInfo::In);
-	st.Bind("riverFolds", thisPlayerState->riverFolds, ocilib::BindInfo::In);
-	st.Bind("totalFolds", thisPlayerState->totalFolds, ocilib::BindInfo::In);
-	st.Bind("preFlopChecks", thisPlayerState->preFlopChecks, ocilib::BindInfo::In);
-	st.Bind("flopChecks", thisPlayerState->flopChecks, ocilib::BindInfo::In);
-	st.Bind("turnChecks", thisPlayerState->turnChecks, ocilib::BindInfo::In);
-	st.Bind("riverChecks", thisPlayerState->riverChecks, ocilib::BindInfo::In);
-	st.Bind("totalChecks", thisPlayerState->totalChecks, ocilib::BindInfo::In);
-	st.Bind("preFlopCalls", thisPlayerState->preFlopCalls, ocilib::BindInfo::In);
-	st.Bind("flopCalls", thisPlayerState->flopCalls, ocilib::BindInfo::In);
-	st.Bind("turnCalls", thisPlayerState->turnCalls, ocilib::BindInfo::In);
-	st.Bind("riverCalls", thisPlayerState->riverCalls, ocilib::BindInfo::In);
-	st.Bind("totalCalls", thisPlayerState->totalCalls, ocilib::BindInfo::In);
-	st.Bind("preFlopBets", thisPlayerState->preFlopBets, ocilib::BindInfo::In);
-	st.Bind("flopBets", thisPlayerState->flopBets, ocilib::BindInfo::In);
-	st.Bind("turnBets", thisPlayerState->turnBets, ocilib::BindInfo::In);
-	st.Bind("riverBets", thisPlayerState->riverBets, ocilib::BindInfo::In);
-	st.Bind("totalBets", thisPlayerState->totalBets, ocilib::BindInfo::In);
-	st.Bind("preFlopTotalBetAmount", thisPlayerState->preFlopTotalBetAmount, ocilib::BindInfo::In);
-	st.Bind("flopTotalBetAmount", thisPlayerState->flopTotalBetAmount, ocilib::BindInfo::In);
-	st.Bind("turnTotalBetAmount", thisPlayerState->turnTotalBetAmount, ocilib::BindInfo::In);
-	st.Bind("riverTotalBetAmount", thisPlayerState->riverTotalBetAmount, ocilib::BindInfo::In);
-	st.Bind("totalBetAmount", thisPlayerState->totalBetAmount, ocilib::BindInfo::In);
-	st.Bind("preFlopAverageBetAmount", thisPlayerState->preFlopAverageBetAmount, ocilib::BindInfo::In);
-	if(thisPlayerState->preFlopBets == 0)
-		st.GetBind("preFlopAverageBetAmount").SetDataNull(true, 1);
-	st.Bind("flopAverageBetAmount", thisPlayerState->flopAverageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(21, oracle::occi::OCCIUNSIGNED_INT);
+	else
+		statement->setUInt(21, thisPlayerState->tournamentRank);
+	statement->setUInt(22, thisPlayerState->eligibleToWinMoney);
+	statement->setUInt(23, thisPlayerState->totalPotDeficit);
+	statement->setUInt(24, thisPlayerState->totalPotContribution);
+	statement->setUInt(25, thisPlayerState->gamesPlayed);
+	statement->setUInt(26, thisPlayerState->mainPotsWon);
+	statement->setUInt(27, thisPlayerState->mainPotsSplit);
+	statement->setUInt(28, thisPlayerState->sidePotsWon);
+	statement->setUInt(29, thisPlayerState->sidePotsSplit);
+	if (thisPlayerState->gamesPlayed == 0)
+		statement->setNull(30, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(30, thisPlayerState->averageGameProfit);
+	statement->setUInt(31, thisPlayerState->flopsSeen);
+	statement->setUInt(32, thisPlayerState->turnsSeen);
+	statement->setUInt(33, thisPlayerState->riversSeen);
+	statement->setUInt(34, thisPlayerState->preFlopFolds);
+	statement->setUInt(35, thisPlayerState->flopFolds);
+	statement->setUInt(36, thisPlayerState->turnFolds);
+	statement->setUInt(37, thisPlayerState->riverFolds);
+	statement->setUInt(38, thisPlayerState->totalFolds);
+	statement->setUInt(39, thisPlayerState->preFlopChecks);
+	statement->setUInt(40, thisPlayerState->flopChecks);
+	statement->setUInt(41, thisPlayerState->turnChecks);
+	statement->setUInt(42, thisPlayerState->riverChecks);
+	statement->setUInt(43, thisPlayerState->totalChecks);
+	statement->setUInt(44, thisPlayerState->preFlopCalls);
+	statement->setUInt(45, thisPlayerState->flopCalls);
+	statement->setUInt(46, thisPlayerState->turnCalls);
+	statement->setUInt(47, thisPlayerState->riverCalls);
+	statement->setUInt(48, thisPlayerState->totalCalls);
+	statement->setUInt(49, thisPlayerState->preFlopBets);
+	statement->setUInt(50, thisPlayerState->flopBets);
+	statement->setUInt(51, thisPlayerState->turnBets);
+	statement->setUInt(52, thisPlayerState->riverBets);
+	statement->setUInt(53, thisPlayerState->totalBets);
+	statement->setUInt(54, thisPlayerState->preFlopTotalBetAmount);
+	statement->setUInt(55, thisPlayerState->flopTotalBetAmount);
+	statement->setUInt(56, thisPlayerState->turnTotalBetAmount);
+	statement->setUInt(57, thisPlayerState->riverTotalBetAmount);
+	statement->setUInt(58, thisPlayerState->totalBetAmount);
+	if (thisPlayerState->preFlopBets == 0)
+		statement->setNull(59, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(59, thisPlayerState->preFlopAverageBetAmount);
 	if (thisPlayerState->flopBets == 0)
-		st.GetBind("flopAverageBetAmount").SetDataNull(true, 1);
-	st.Bind("turnAverageBetAmount", thisPlayerState->turnAverageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(60, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(60, thisPlayerState->flopAverageBetAmount);
 	if (thisPlayerState->turnBets == 0)
-		st.GetBind("turnAverageBetAmount").SetDataNull(true, 1);
-	st.Bind("riverAverageBetAmount", thisPlayerState->riverAverageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(61, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(61, thisPlayerState->turnAverageBetAmount);
 	if (thisPlayerState->riverBets == 0)
-		st.GetBind("riverAverageBetAmount").SetDataNull(true, 1);
-	st.Bind("averageBetAmount", thisPlayerState->averageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(62, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(62, thisPlayerState->riverAverageBetAmount);
 	if (thisPlayerState->totalBets == 0)
-		st.GetBind("averageBetAmount").SetDataNull(true, 1);
-	st.Bind("preFlopRaises", thisPlayerState->preFlopRaises, ocilib::BindInfo::In);
-	st.Bind("flopRaises", thisPlayerState->flopRaises, ocilib::BindInfo::In);
-	st.Bind("turnRaises", thisPlayerState->turnRaises, ocilib::BindInfo::In);
-	st.Bind("riverRaises", thisPlayerState->riverRaises, ocilib::BindInfo::In);
-	st.Bind("totalRaises", thisPlayerState->totalRaises, ocilib::BindInfo::In);
-	st.Bind("preFlopTotalRaiseAmount", thisPlayerState->preFlopTotalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("flopTotalRaiseAmount", thisPlayerState->flopTotalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("turnTotalRaiseAmount", thisPlayerState->turnTotalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("riverTotalRaiseAmount", thisPlayerState->riverTotalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("totalRaiseAmount", thisPlayerState->totalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("preFlopAverageRaiseAmount", thisPlayerState->preFlopAverageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(63, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(63, thisPlayerState->averageBetAmount);
+	statement->setUInt(64, thisPlayerState->preFlopRaises);
+	statement->setUInt(65, thisPlayerState->flopRaises);
+	statement->setUInt(66, thisPlayerState->turnRaises);
+	statement->setUInt(67, thisPlayerState->riverRaises);
+	statement->setUInt(68, thisPlayerState->totalRaises);
+	statement->setUInt(69, thisPlayerState->preFlopTotalRaiseAmount);
+	statement->setUInt(70, thisPlayerState->flopTotalRaiseAmount);
+	statement->setUInt(71, thisPlayerState->turnTotalRaiseAmount);
+	statement->setUInt(72, thisPlayerState->riverTotalRaiseAmount);
+	statement->setUInt(73, thisPlayerState->totalRaiseAmount);
 	if (thisPlayerState->preFlopRaises == 0)
-		st.GetBind("preFlopAverageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("flopAverageRaiseAmount", thisPlayerState->flopAverageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(74, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(74, thisPlayerState->preFlopAverageRaiseAmount);
 	if (thisPlayerState->flopRaises == 0)
-		st.GetBind("flopAverageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("turnAverageRaiseAmount", thisPlayerState->turnAverageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(75, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(75, thisPlayerState->flopAverageRaiseAmount);
 	if (thisPlayerState->turnRaises == 0)
-		st.GetBind("turnAverageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("riverAverageRaiseAmount", thisPlayerState->riverAverageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(76, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(76, thisPlayerState->turnAverageRaiseAmount);
 	if (thisPlayerState->riverRaises == 0)
-		st.GetBind("riverAverageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("averageRaiseAmount", thisPlayerState->averageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(77, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(77, thisPlayerState->riverAverageRaiseAmount);
 	if (thisPlayerState->totalRaises == 0)
-		st.GetBind("averageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("timesAllIn", thisPlayerState->timesAllIn, ocilib::BindInfo::In);
-	st.Bind("totalMoneyPlayed", thisPlayerState->totalMoneyPlayed, ocilib::BindInfo::In);
-	st.Bind("totalMoneyWon", thisPlayerState->totalMoneyWon, ocilib::BindInfo::In);
-	st.ExecutePrepared();
+		statement->setNull(78, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(78, thisPlayerState->averageRaiseAmount);
+	statement->setUInt(79, thisPlayerState->timesAllIn);
+	statement->setUInt(80, thisPlayerState->totalMoneyPlayed);
+	statement->setUInt(81, thisPlayerState->totalMoneyWon);
+	statement->execute();
+	con->terminateStatement(statement);
 
 }
 
 void Player::captureTournamentResults(unsigned int tournamentId, unsigned int evolutionTrialId) {
 
-	if (currentStrategy == nullptr)
+	unsigned int currentStrategyId = strategyEvaluationDataProvider.getStrategyId();
+	if (currentStrategyId == 0)
 		return;
 
 	std::string procCall = "BEGIN pkg_poker_ai.insert_tournament_result(";
-	procCall.append("p_strategy_id                 => :strategyId, ");
-	procCall.append("p_tournament_id               => :tournamentId, ");
-	procCall.append("p_evolution_trial_id          => :evolutionTrialId, ");
-	procCall.append("p_tournament_rank             => :tournamentRank, ");
-	procCall.append("p_games_played                => :gamesPlayed, ");
-	procCall.append("p_main_pots_won               => :mainPotsWon, ");
-	procCall.append("p_main_pots_split             => :mainPotsSplit, ");
-	procCall.append("p_side_pots_won               => :sidePotsWon, ");
-	procCall.append("p_side_pots_split             => :sidePotsSplit, ");
-	procCall.append("p_average_game_profit         => :averageGameProfit, ");
-	procCall.append("p_flops_seen                  => :flopsSeen, ");
-	procCall.append("p_turns_seen                  => :turnsSeen, ");
-	procCall.append("p_rivers_seen                 => :riversSeen, ");
-	procCall.append("p_pre_flop_folds              => :preFlopFolds, ");
-	procCall.append("p_flop_folds                  => :flopFolds, ");
-	procCall.append("p_turn_folds                  => :turnFolds, ");
-	procCall.append("p_river_folds                 => :riverFolds, ");
-	procCall.append("p_total_folds                 => :totalFolds, ");
-	procCall.append("p_pre_flop_checks             => :preFlopChecks, ");
-	procCall.append("p_flop_checks                 => :flopChecks, ");
-	procCall.append("p_turn_checks                 => :turnChecks, ");
-	procCall.append("p_river_checks                => :riverChecks, ");
-	procCall.append("p_total_checks                => :totalChecks, ");
-	procCall.append("p_pre_flop_calls              => :preFlopCalls, ");
-	procCall.append("p_flop_calls                  => :flopCalls, ");
-	procCall.append("p_turn_calls                  => :turnCalls, ");
-	procCall.append("p_river_calls                 => :riverCalls, ");
-	procCall.append("p_total_calls                 => :totalCalls, ");
-	procCall.append("p_pre_flop_bets               => :preFlopBets, ");
-	procCall.append("p_flop_bets                   => :flopBets, ");
-	procCall.append("p_turn_bets                   => :turnBets, ");
-	procCall.append("p_river_bets                  => :riverBets, ");
-	procCall.append("p_total_bets                  => :totalBets, ");
-	procCall.append("p_pre_flop_total_bet_amount   => :preFlopTotalBetAmount, ");
-	procCall.append("p_flop_total_bet_amount       => :flopTotalBetAmount, ");
-	procCall.append("p_turn_total_bet_amount       => :turnTotalBetAmount, ");
-	procCall.append("p_river_total_bet_amount      => :riverTotalBetAmount, ");
-	procCall.append("p_total_bet_amount            => :totalBetAmount, ");
-	procCall.append("p_pre_flop_average_bet_amount => :preFlopAverageBetAmount, ");
-	procCall.append("p_flop_average_bet_amount     => :flopAverageBetAmount, ");
-	procCall.append("p_turn_average_bet_amount     => :turnAverageBetAmount, ");
-	procCall.append("p_river_average_bet_amount    => :riverAverageBetAmount, ");
-	procCall.append("p_average_bet_amount          => :averageBetAmount, ");
-	procCall.append("p_pre_flop_raises             => :preFlopRaises, ");
-	procCall.append("p_flop_raises                 => :flopRaises, ");
-	procCall.append("p_turn_raises                 => :turnRaises, ");
-	procCall.append("p_river_raises                => :riverRaises, ");
-	procCall.append("p_total_raises                => :totalRaises, ");
-	procCall.append("p_pre_flop_total_raise_amount => :preFlopTotalRaiseAmount, ");
-	procCall.append("p_flop_total_raise_amount     => :flopTotalRaiseAmount, ");
-	procCall.append("p_turn_total_raise_amount     => :turnTotalRaiseAmount, ");
-	procCall.append("p_river_total_raise_amount    => :riverTotalRaiseAmount, ");
-	procCall.append("p_total_raise_amount          => :totalRaiseAmount, ");
-	procCall.append("p_pre_flop_average_raise_amt  => :preFlopAverageRaiseAmount, ");
-	procCall.append("p_flop_average_raise_amount   => :flopAverageRaiseAmount, ");
-	procCall.append("p_turn_average_raise_amount   => :turnAverageRaiseAmount, ");
-	procCall.append("p_river_average_raise_amount  => :riverAverageRaiseAmount, ");
-	procCall.append("p_average_raise_amount        => :averageRaiseAmount, ");
-	procCall.append("p_times_all_in                => :timesAllIn, ");
-	procCall.append("p_total_money_played          => :totalMoneyPlayed, ");
-	procCall.append("p_total_money_won             => :totalMoneyWon");
+	procCall.append("p_strategy_id                 => :1, ");
+	procCall.append("p_tournament_id               => :2, ");
+	procCall.append("p_evolution_trial_id          => :3, ");
+	procCall.append("p_tournament_rank             => :4, ");
+	procCall.append("p_games_played                => :5, ");
+	procCall.append("p_main_pots_won               => :6, ");
+	procCall.append("p_main_pots_split             => :7, ");
+	procCall.append("p_side_pots_won               => :8, ");
+	procCall.append("p_side_pots_split             => :9, ");
+	procCall.append("p_average_game_profit         => :10, ");
+	procCall.append("p_flops_seen                  => :11, ");
+	procCall.append("p_turns_seen                  => :12, ");
+	procCall.append("p_rivers_seen                 => :13, ");
+	procCall.append("p_pre_flop_folds              => :14, ");
+	procCall.append("p_flop_folds                  => :15, ");
+	procCall.append("p_turn_folds                  => :16, ");
+	procCall.append("p_river_folds                 => :17, ");
+	procCall.append("p_total_folds                 => :18, ");
+	procCall.append("p_pre_flop_checks             => :19, ");
+	procCall.append("p_flop_checks                 => :20, ");
+	procCall.append("p_turn_checks                 => :21, ");
+	procCall.append("p_river_checks                => :22, ");
+	procCall.append("p_total_checks                => :23, ");
+	procCall.append("p_pre_flop_calls              => :24, ");
+	procCall.append("p_flop_calls                  => :25, ");
+	procCall.append("p_turn_calls                  => :26, ");
+	procCall.append("p_river_calls                 => :27, ");
+	procCall.append("p_total_calls                 => :28, ");
+	procCall.append("p_pre_flop_bets               => :29, ");
+	procCall.append("p_flop_bets                   => :30, ");
+	procCall.append("p_turn_bets                   => :31, ");
+	procCall.append("p_river_bets                  => :32, ");
+	procCall.append("p_total_bets                  => :33, ");
+	procCall.append("p_pre_flop_total_bet_amount   => :34, ");
+	procCall.append("p_flop_total_bet_amount       => :35, ");
+	procCall.append("p_turn_total_bet_amount       => :36, ");
+	procCall.append("p_river_total_bet_amount      => :37, ");
+	procCall.append("p_total_bet_amount            => :38, ");
+	procCall.append("p_pre_flop_average_bet_amount => :39, ");
+	procCall.append("p_flop_average_bet_amount     => :40, ");
+	procCall.append("p_turn_average_bet_amount     => :41, ");
+	procCall.append("p_river_average_bet_amount    => :42, ");
+	procCall.append("p_average_bet_amount          => :43, ");
+	procCall.append("p_pre_flop_raises             => :44, ");
+	procCall.append("p_flop_raises                 => :45, ");
+	procCall.append("p_turn_raises                 => :46, ");
+	procCall.append("p_river_raises                => :47, ");
+	procCall.append("p_total_raises                => :48, ");
+	procCall.append("p_pre_flop_total_raise_amount => :49, ");
+	procCall.append("p_flop_total_raise_amount     => :50, ");
+	procCall.append("p_turn_total_raise_amount     => :51, ");
+	procCall.append("p_river_total_raise_amount    => :52, ");
+	procCall.append("p_total_raise_amount          => :53, ");
+	procCall.append("p_pre_flop_average_raise_amt  => :54, ");
+	procCall.append("p_flop_average_raise_amount   => :55, ");
+	procCall.append("p_turn_average_raise_amount   => :56, ");
+	procCall.append("p_river_average_raise_amount  => :57, ");
+	procCall.append("p_average_raise_amount        => :58, ");
+	procCall.append("p_times_all_in                => :59, ");
+	procCall.append("p_total_money_played          => :60, ");
+	procCall.append("p_total_money_won             => :61");
 	procCall.append("); END;");
-	ocilib::Statement st(con);
-	st.Prepare(procCall);
+	oracle::occi::Statement* statement = con->createStatement(procCall);
 
-	unsigned int strategyId = currentStrategy->getStrategyId();
-	st.Bind("strategyId", strategyId, ocilib::BindInfo::In);
-	st.Bind("tournamentId", tournamentId, ocilib::BindInfo::In);
-	st.Bind("evolutionTrialId", evolutionTrialId, ocilib::BindInfo::In);
-	st.Bind("tournamentRank", thisPlayerState->tournamentRank, ocilib::BindInfo::In);
-	if (thisPlayerState->tournamentRank == 0)
-		st.GetBind("tournamentRank").SetDataNull(true, 1);
-	st.Bind("gamesPlayed", thisPlayerState->gamesPlayed, ocilib::BindInfo::In);
-	st.Bind("mainPotsWon", thisPlayerState->mainPotsWon, ocilib::BindInfo::In);
-	st.Bind("mainPotsSplit", thisPlayerState->mainPotsSplit, ocilib::BindInfo::In);
-	st.Bind("sidePotsWon", thisPlayerState->sidePotsWon, ocilib::BindInfo::In);
-	st.Bind("sidePotsSplit", thisPlayerState->sidePotsSplit, ocilib::BindInfo::In);
-	st.Bind("averageGameProfit", thisPlayerState->averageGameProfit, ocilib::BindInfo::In);
+	statement->setUInt(1, currentStrategyId);
+	statement->setUInt(2, tournamentId);
+	statement->setUInt(3, evolutionTrialId);
+	statement->setUInt(4, thisPlayerState->tournamentRank);
+	statement->setUInt(5, thisPlayerState->gamesPlayed);
+	statement->setUInt(6, thisPlayerState->mainPotsWon);
+	statement->setUInt(7, thisPlayerState->mainPotsSplit);
+	statement->setUInt(8, thisPlayerState->sidePotsWon);
+	statement->setUInt(9, thisPlayerState->sidePotsSplit);
 	if (thisPlayerState->gamesPlayed == 0)
-		st.GetBind("averageGameProfit").SetDataNull(true, 1);
-	st.Bind("flopsSeen", thisPlayerState->flopsSeen, ocilib::BindInfo::In);
-	st.Bind("turnsSeen", thisPlayerState->turnsSeen, ocilib::BindInfo::In);
-	st.Bind("riversSeen", thisPlayerState->riversSeen, ocilib::BindInfo::In);
-	st.Bind("preFlopFolds", thisPlayerState->preFlopFolds, ocilib::BindInfo::In);
-	st.Bind("flopFolds", thisPlayerState->flopFolds, ocilib::BindInfo::In);
-	st.Bind("turnFolds", thisPlayerState->turnFolds, ocilib::BindInfo::In);
-	st.Bind("riverFolds", thisPlayerState->riverFolds, ocilib::BindInfo::In);
-	st.Bind("totalFolds", thisPlayerState->totalFolds, ocilib::BindInfo::In);
-	st.Bind("preFlopChecks", thisPlayerState->preFlopChecks, ocilib::BindInfo::In);
-	st.Bind("flopChecks", thisPlayerState->flopChecks, ocilib::BindInfo::In);
-	st.Bind("turnChecks", thisPlayerState->turnChecks, ocilib::BindInfo::In);
-	st.Bind("riverChecks", thisPlayerState->riverChecks, ocilib::BindInfo::In);
-	st.Bind("totalChecks", thisPlayerState->totalChecks, ocilib::BindInfo::In);
-	st.Bind("preFlopCalls", thisPlayerState->preFlopCalls, ocilib::BindInfo::In);
-	st.Bind("flopCalls", thisPlayerState->flopCalls, ocilib::BindInfo::In);
-	st.Bind("turnCalls", thisPlayerState->turnCalls, ocilib::BindInfo::In);
-	st.Bind("riverCalls", thisPlayerState->riverCalls, ocilib::BindInfo::In);
-	st.Bind("totalCalls", thisPlayerState->totalCalls, ocilib::BindInfo::In);
-	st.Bind("preFlopBets", thisPlayerState->preFlopBets, ocilib::BindInfo::In);
-	st.Bind("flopBets", thisPlayerState->flopBets, ocilib::BindInfo::In);
-	st.Bind("turnBets", thisPlayerState->turnBets, ocilib::BindInfo::In);
-	st.Bind("riverBets", thisPlayerState->riverBets, ocilib::BindInfo::In);
-	st.Bind("totalBets", thisPlayerState->totalBets, ocilib::BindInfo::In);
-	st.Bind("preFlopTotalBetAmount", thisPlayerState->preFlopTotalBetAmount, ocilib::BindInfo::In);
-	st.Bind("flopTotalBetAmount", thisPlayerState->flopTotalBetAmount, ocilib::BindInfo::In);
-	st.Bind("turnTotalBetAmount", thisPlayerState->turnTotalBetAmount, ocilib::BindInfo::In);
-	st.Bind("riverTotalBetAmount", thisPlayerState->riverTotalBetAmount, ocilib::BindInfo::In);
-	st.Bind("totalBetAmount", thisPlayerState->totalBetAmount, ocilib::BindInfo::In);
-	st.Bind("preFlopAverageBetAmount", thisPlayerState->preFlopAverageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(10, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(10, thisPlayerState->averageGameProfit);
+	statement->setUInt(11, thisPlayerState->flopsSeen);
+	statement->setUInt(12, thisPlayerState->turnsSeen);
+	statement->setUInt(13, thisPlayerState->riversSeen);
+	statement->setUInt(14, thisPlayerState->preFlopFolds);
+	statement->setUInt(15, thisPlayerState->flopFolds);
+	statement->setUInt(16, thisPlayerState->turnFolds);
+	statement->setUInt(17, thisPlayerState->riverFolds);
+	statement->setUInt(18, thisPlayerState->totalFolds);
+	statement->setUInt(19, thisPlayerState->preFlopChecks);
+	statement->setUInt(20, thisPlayerState->flopChecks);
+	statement->setUInt(21, thisPlayerState->turnChecks);
+	statement->setUInt(22, thisPlayerState->riverChecks);
+	statement->setUInt(23, thisPlayerState->totalChecks);
+	statement->setUInt(24, thisPlayerState->preFlopCalls);
+	statement->setUInt(25, thisPlayerState->flopCalls);
+	statement->setUInt(26, thisPlayerState->turnCalls);
+	statement->setUInt(27, thisPlayerState->riverCalls);
+	statement->setUInt(28, thisPlayerState->totalCalls);
+	statement->setUInt(29, thisPlayerState->preFlopBets);
+	statement->setUInt(30, thisPlayerState->flopBets);
+	statement->setUInt(31, thisPlayerState->turnBets);
+	statement->setUInt(32, thisPlayerState->riverBets);
+	statement->setUInt(33, thisPlayerState->totalBets);
+	statement->setUInt(34, thisPlayerState->preFlopTotalBetAmount);
+	statement->setUInt(35, thisPlayerState->flopTotalBetAmount);
+	statement->setUInt(36, thisPlayerState->turnTotalBetAmount);
+	statement->setUInt(37, thisPlayerState->riverTotalBetAmount);
+	statement->setUInt(38, thisPlayerState->totalBetAmount);
 	if (thisPlayerState->preFlopBets == 0)
-		st.GetBind("preFlopAverageBetAmount").SetDataNull(true, 1);
-	st.Bind("flopAverageBetAmount", thisPlayerState->flopAverageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(39, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(39, thisPlayerState->preFlopAverageBetAmount);
 	if (thisPlayerState->flopBets == 0)
-		st.GetBind("flopAverageBetAmount").SetDataNull(true, 1);
-	st.Bind("turnAverageBetAmount", thisPlayerState->turnAverageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(40, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(40, thisPlayerState->flopAverageBetAmount);
 	if (thisPlayerState->turnBets == 0)
-		st.GetBind("turnAverageBetAmount").SetDataNull(true, 1);
-	st.Bind("riverAverageBetAmount", thisPlayerState->riverAverageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(41, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(41, thisPlayerState->turnAverageBetAmount);
 	if (thisPlayerState->riverBets == 0)
-		st.GetBind("riverAverageBetAmount").SetDataNull(true, 1);
-	st.Bind("averageBetAmount", thisPlayerState->averageBetAmount, ocilib::BindInfo::In);
+		statement->setNull(42, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(42, thisPlayerState->riverAverageBetAmount);
 	if (thisPlayerState->totalBets == 0)
-		st.GetBind("averageBetAmount").SetDataNull(true, 1);
-	st.Bind("preFlopRaises", thisPlayerState->preFlopRaises, ocilib::BindInfo::In);
-	st.Bind("flopRaises", thisPlayerState->flopRaises, ocilib::BindInfo::In);
-	st.Bind("turnRaises", thisPlayerState->turnRaises, ocilib::BindInfo::In);
-	st.Bind("riverRaises", thisPlayerState->riverRaises, ocilib::BindInfo::In);
-	st.Bind("totalRaises", thisPlayerState->totalRaises, ocilib::BindInfo::In);
-	st.Bind("preFlopTotalRaiseAmount", thisPlayerState->preFlopTotalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("flopTotalRaiseAmount", thisPlayerState->flopTotalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("turnTotalRaiseAmount", thisPlayerState->turnTotalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("riverTotalRaiseAmount", thisPlayerState->riverTotalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("totalRaiseAmount", thisPlayerState->totalRaiseAmount, ocilib::BindInfo::In);
-	st.Bind("preFlopAverageRaiseAmount", thisPlayerState->preFlopAverageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(43, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(43, thisPlayerState->averageBetAmount);
+	statement->setUInt(44, thisPlayerState->preFlopRaises);
+	statement->setUInt(45, thisPlayerState->flopRaises);
+	statement->setUInt(46, thisPlayerState->turnRaises);
+	statement->setUInt(47, thisPlayerState->riverRaises);
+	statement->setUInt(48, thisPlayerState->totalRaises);
+	statement->setUInt(49, thisPlayerState->preFlopTotalRaiseAmount);
+	statement->setUInt(50, thisPlayerState->flopTotalRaiseAmount);
+	statement->setUInt(51, thisPlayerState->turnTotalRaiseAmount);
+	statement->setUInt(52, thisPlayerState->riverTotalRaiseAmount);
+	statement->setUInt(53, thisPlayerState->totalRaiseAmount);
 	if (thisPlayerState->preFlopRaises == 0)
-		st.GetBind("preFlopAverageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("flopAverageRaiseAmount", thisPlayerState->flopAverageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(54, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(54, thisPlayerState->preFlopAverageRaiseAmount);
 	if (thisPlayerState->flopRaises == 0)
-		st.GetBind("flopAverageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("turnAverageRaiseAmount", thisPlayerState->turnAverageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(55, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(55, thisPlayerState->flopAverageRaiseAmount);
 	if (thisPlayerState->turnRaises == 0)
-		st.GetBind("turnAverageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("riverAverageRaiseAmount", thisPlayerState->riverAverageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(56, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(56, thisPlayerState->turnAverageRaiseAmount);
 	if (thisPlayerState->riverRaises == 0)
-		st.GetBind("riverAverageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("averageRaiseAmount", thisPlayerState->averageRaiseAmount, ocilib::BindInfo::In);
+		statement->setNull(57, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(57, thisPlayerState->riverAverageRaiseAmount);
 	if (thisPlayerState->totalRaises == 0)
-		st.GetBind("averageRaiseAmount").SetDataNull(true, 1);
-	st.Bind("timesAllIn", thisPlayerState->timesAllIn, ocilib::BindInfo::In);
-	st.Bind("totalMoneyPlayed", thisPlayerState->totalMoneyPlayed, ocilib::BindInfo::In);
-	st.Bind("totalMoneyWon", thisPlayerState->totalMoneyWon, ocilib::BindInfo::In);
-	st.ExecutePrepared();
+		statement->setNull(58, oracle::occi::OCCIFLOAT);
+	else
+		statement->setFloat(58, thisPlayerState->averageRaiseAmount);
+	statement->setUInt(59, thisPlayerState->timesAllIn);
+	statement->setUInt(60, thisPlayerState->totalMoneyPlayed);
+	statement->setUInt(61, thisPlayerState->totalMoneyWon);
+	statement->execute();
+	con->terminateStatement(statement);
+
 }
 
 inline bool Player::getCanFold() const {
@@ -945,9 +959,9 @@ bool Player::getCanRaise() const {
 	return false;
 }
 
-Strategy::BetRaiseLimits Player::getBetRaiseLimits() const {
+StrategyEvaluationDataProvider::BetRaiseLimits Player::getBetRaiseLimits() const {
 
-	Strategy::BetRaiseLimits betRaiseLimits;
+	StrategyEvaluationDataProvider::BetRaiseLimits betRaiseLimits;
 
 	// determine max amount of money among peers
 	int maxPeerMoney = -1;
@@ -1213,7 +1227,7 @@ void Player::performAutomaticPlayerMove() {
 		logger->log(pokerState->currentStateId, "player at seat " + std::to_string(thisPlayerState->seatNumber) + " must check");
 		performExplicitPlayerMove(PokerEnums::PlayerMove::CHECK, 0);
 	}
-	else if (currentStrategy == nullptr) {
+	else if (true || strategyEvaluationDataProvider.getStrategyId() == 0) {   /// debug, eliminate python
 		// perform random move
 		logger->log(pokerState->currentStateId, "player at seat " + std::to_string(thisPlayerState->seatNumber) + " is performing random move");
 
@@ -1222,7 +1236,7 @@ void Player::performAutomaticPlayerMove() {
 		unsigned int playerMoveAmount = 0;
 
 		if (playerMove == PokerEnums::PlayerMove::BET || playerMove == PokerEnums::PlayerMove::RAISE) {
-			Strategy::BetRaiseLimits betRaiseLimits = getBetRaiseLimits();
+			StrategyEvaluationDataProvider::BetRaiseLimits betRaiseLimits = getBetRaiseLimits();
 			playerMoveAmount = pokerState->randomNumberGenerator.getRandomUnsignedInt(betRaiseLimits.minBetRaiseAmount, betRaiseLimits.maxBetRaiseAmount);
 		}
 		
@@ -1232,11 +1246,11 @@ void Player::performAutomaticPlayerMove() {
 		// use current strategy
 		logger->log(pokerState->currentStateId, "player at seat " + std::to_string(thisPlayerState->seatNumber) + " is deriving move from strategy procedure");
 
-		Strategy::BetRaiseLimits betRaiseLimits;
+		StrategyEvaluationDataProvider::BetRaiseLimits betRaiseLimits;
 		if (calculateBetRaiseLimits)
 			betRaiseLimits = getBetRaiseLimits();
 
-		PythonManager::PlayerMoveResult moveResult = currentStrategy->executeDecisionProcedure(&possiblePlayerMoves, &betRaiseLimits);
+		PythonManager::PlayerMoveResult moveResult = strategyEvaluationDataProvider.executeDecisionProcedure(&possiblePlayerMoves, &betRaiseLimits);
 		performExplicitPlayerMove(moveResult.move, moveResult.moveAmount);
 	}
 
