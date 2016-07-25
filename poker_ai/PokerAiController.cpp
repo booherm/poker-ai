@@ -6,7 +6,7 @@ PokerAiController::PokerAiController() {
 	// init db
 	oracle::occi::Environment* env = oracle::occi::Environment::createEnvironment(oracle::occi::Environment::THREADED_MUTEXED);
 	oracle::occi::StatelessConnectionPool* connectionPool = env->createStatelessConnectionPool("POKER_AI", "poker_ai",
-		"ORACLENODE1", 1000, 5, 5, oracle::occi::StatelessConnectionPool::HOMOGENEOUS);
+		"ORACLENODE1", 50, 5, 5, oracle::occi::StatelessConnectionPool::HOMOGENEOUS);
 
 	// init main components
 	pythonManager = new PythonManager;

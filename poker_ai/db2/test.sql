@@ -70,3 +70,17 @@ detail AS (
 --SELECT * FROM detail;
 SELECT * FROM detail WHERE total_money != 5000;
 
+
+
+-- analyze evolution
+SELECT s.generation,
+	   MIN(s.strategy_id) KEEP (DENSE_RANK FIRST ORDER BY sf.fitness_score DESC, s.strategy_id) best_strategy_id,
+	   MIN(sf.fitness_score) KEEP (DENSE_RANK FIRST ORDER BY sf.fitness_score DESC, s.strategy_id) best_fitness_score,
+	   MIN(sf.average_game_profit) KEEP (DENSE_RANK FIRST ORDER BY sf.fitness_score DESC, s.strategy_id) best_avgerage_game_profit,
+	   ROUND(AVG(sf.fitness_score), 2) average_fitness_score,
+	   ROUND(AVG(sf.average_game_profit), 2) average_average_game_profit
+FROM   strategy s,
+	   strategy_fitness sf
+WHERE  s.strategy_id = sf.strategy_id
+GROUP BY s.generation
+ORDER BY generation;

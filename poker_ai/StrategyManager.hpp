@@ -9,13 +9,16 @@
 class StrategyManager {
 public:
 	void initialize(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager);
+	Strategy* createStrategy();
 	Strategy* getStrategy(unsigned int strategyId);
 	unsigned int generateRandomStrategy(unsigned int generation);
 	void flush();
+	void setStrategy(Strategy* strategy);
 	~StrategyManager();
 
 private:
 	oracle::occi::StatelessConnectionPool* connectionPool;
+	oracle::occi::Connection* con;
 	Logger logger;
 	PythonManager* pythonManager;
 	std::map<unsigned int, Strategy*> strategies;

@@ -15,12 +15,18 @@ class Strategy {
 
 public:
 	void initialize(
-		oracle::occi::StatelessConnectionPool* connectionPool,
+		oracle::occi::Connection* con,
+		//oracle::occi::StatelessConnectionPool* connectionPool,
 		PythonManager* pythonManager,
 		bool loggingEnabled
 	);
+	void assignNewStrategyId();
 	void loadById(unsigned int loadStrategyId);
 	unsigned int generateFromRandom(unsigned int generation);
+	void generateDecisionProcedure();
+	std::vector<bool>* getChromosome();
+	unsigned int getStrategyId() const;
+	void setGeneration(unsigned int generation);
 	void save();
 	~Strategy();
 
@@ -69,7 +75,6 @@ private:
 	};
 
 	void setDecisionTreeAttributes();
-	void generateDecisionProcedure();
 	std::string getDecisionTree(unsigned int decisionTreeUnitId) const;
 	std::vector<bool> getChromosomeSection(unsigned int startIndex, unsigned int length) const;
 	unsigned int getIdFromBitString(const std::vector<bool>& bitString) const;
@@ -97,7 +102,7 @@ private:
 	std::vector<DecisionTreeUnit> decisionTreeUnits;
 	PyObject* compiledDecisionProcedure = nullptr;
 	PythonManager* pythonManager;
-	oracle::occi::StatelessConnectionPool* connectionPool;
+	//oracle::occi::StatelessConnectionPool* connectionPool;
 	oracle::occi::Connection* con;
 	Logger logger;
 	Util::RandomNumberGenerator randomNumberGenerator;

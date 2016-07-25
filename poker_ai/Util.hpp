@@ -14,6 +14,7 @@ namespace Util {
 		RandomNumberGenerator();
 		unsigned int getRandomUnsignedInt(unsigned int lowerLimit, unsigned int upperLimit);
 		bool getRandomBool();
+		float getRandomFloat(float lowerLimit, float upperLimit);
 
 	private:
 		std::default_random_engine randomNumberEngine;

@@ -34,3 +34,8 @@ bool Util::RandomNumberGenerator::getRandomBool(){
 	std::uniform_int_distribution<unsigned int> uniformDist(0, 1);
 	return uniformDist(randomNumberEngine) == 1;
 }
+
+float Util::RandomNumberGenerator::getRandomFloat(float lowerLimit, float upperLimit) {
+	std::uniform_real_distribution<float> uniformDist(lowerLimit, upperLimit);
+	return uniformDist(randomNumberEngine);
+}

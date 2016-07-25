@@ -6,6 +6,7 @@
 #include <occi.h>
 #include "StrategyManager.hpp"
 #include "Logger.hpp"
+#include "Util.hpp"
 
 class GaEvolverGenerationWorker {
 public:
@@ -23,7 +24,11 @@ public:
 
 private:
 	void threadLoop();
+	void updateStrategyFitness();
 	void createNextGeneration();
+	void performCrossover(Strategy* parentA, Strategy* parentB, unsigned int crossoverPoint, Strategy* childA, Strategy* childB);
+	void copyChromosome(Strategy* source, Strategy* destination);
+	void mutateChromosome(Strategy* strategy, float mutationRate);
 
 	oracle::occi::StatelessConnectionPool* connectionPool;
 	oracle::occi::Connection* con;
@@ -34,6 +39,7 @@ private:
 	StrategyManager* strategyManager;
 	unsigned int currentGenerationNumber;
 	bool loggingEnabled;
+	Util::RandomNumberGenerator randomNumberGenerator;
 };
 
 #endif

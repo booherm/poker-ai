@@ -3,6 +3,14 @@
 void StrategyManager::initialize(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager) {
 	this->connectionPool = connectionPool;
 	this->pythonManager = pythonManager;
+	con = connectionPool->getConnection();
+}
+
+Strategy* StrategyManager::createStrategy() {
+	Strategy* s = new Strategy;
+	s->initialize(con, pythonManager, false);
+
+	return s;
 }
 
 Strategy* StrategyManager::getStrategy(unsigned int strategyId) {
@@ -15,8 +23,7 @@ Strategy* StrategyManager::getStrategy(unsigned int strategyId) {
 
 	if (strategyCount == 0) {
 		// attempt load of strategy from database
-		s = new Strategy;
-		s->initialize(connectionPool, pythonManager, false);
+		s = createStrategy();
 		s->loadById(strategyId);
 		strategies[strategyId] = s;
 	}
@@ -34,7 +41,7 @@ unsigned int StrategyManager::generateRandomStrategy(unsigned int generation) {
 
 	Strategy* s;
 	s = new Strategy;
-	s->initialize(connectionPool, pythonManager, false);
+	s->initialize(con, pythonManager, false);
 	unsigned int strategyId = s->generateFromRandom(generation);
 	strategyManagerMutex.lock();
 	strategies[strategyId] = s;
@@ -55,6 +62,14 @@ void StrategyManager::flush() {
 
 }
 
+void StrategyManager::setStrategy(Strategy* strategy) {
+	strategyManagerMutex.lock();
+	strategies[strategy->getStrategyId()] = strategy;
+	strategyManagerMutex.unlock();
+}
+
+
 StrategyManager::~StrategyManager() {
 	flush();
+	connectionPool->releaseConnection(con);
 }

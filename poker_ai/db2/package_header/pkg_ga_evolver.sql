@@ -37,12 +37,17 @@ PROCEDURE set_current_generation(
 );
 
 PROCEDURE select_parent_generation(
-	p_trial_id   evolution_trial.trial_id%TYPE,
-	p_generation strategy.generation%TYPE,
-	p_parents    OUT t_rc_generic
+	p_trial_id         evolution_trial.trial_id%TYPE,
+	p_generation       strategy.generation%TYPE,
+	p_trial_attributes OUT t_rc_generic,
+	p_parents          OUT t_rc_generic
 );
 
 PROCEDURE mark_trial_complete(
+	p_trial_id evolution_trial.trial_id%TYPE
+);
+
+PROCEDURE update_strategy_fitness(
 	p_trial_id evolution_trial.trial_id%TYPE
 );
 

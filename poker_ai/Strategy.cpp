@@ -1,15 +1,30 @@
 #include "Strategy.hpp"
 
 void Strategy::initialize(
-	oracle::occi::StatelessConnectionPool* connectionPool,
+	//oracle::occi::StatelessConnectionPool* connectionPool,
+	oracle::occi::Connection* con,
 	PythonManager* pythonManager,
 	bool loggingEnabled
 ) {
-	this->connectionPool = connectionPool;
-	con = connectionPool->getConnection();
+	//this->connectionPool = connectionPool;
+	//con = connectionPool->getConnection();
+	this->con = con;
 	logger.initialize(con);
 	logger.setLoggingEnabled(loggingEnabled);
 	this->pythonManager = pythonManager;
+}
+
+void Strategy::assignNewStrategyId() {
+
+	// call for a new unique strategy id
+	std::string procCall = "BEGIN :1 := pkg_poker_ai.get_new_strategy_id; END;";
+	oracle::occi::Statement* statement = con->createStatement(procCall);
+	statement->registerOutParam(1, oracle::occi::OCCIUNSIGNED_INT);
+	statement->execute();
+	unsigned int freshStrategyId = statement->getUInt(1);
+	con->terminateStatement(statement);
+
+	strategyId = freshStrategyId;
 }
 
 void Strategy::loadById(unsigned int loadStrategyId) {
@@ -68,22 +83,32 @@ unsigned int Strategy::generateFromRandom(unsigned int generation) {
 		pythonManager->decreaseReferenceCount(compiledDecisionProcedure);
 	}
 	generateDecisionProcedure();
-	compiledDecisionProcedure = pythonManager->compileDecisionProcedure(decisionProcedure);
 
-	// call for a new unique strategy id
-	std::string procCall = "BEGIN :1 := pkg_poker_ai.get_new_strategy_id; END;";
-	oracle::occi::Statement* statement = con->createStatement(procCall);
-	statement->registerOutParam(1, oracle::occi::OCCIUNSIGNED_INT);
-	statement->execute();
-	unsigned int freshStrategyId = statement->getUInt(1);
-	con->terminateStatement(statement);
-
-	strategyId = freshStrategyId;
+	assignNewStrategyId();
 	this->generation = generation;
 
 	save();
 
 	return strategyId;
+}
+
+void Strategy::generateDecisionProcedure() {
+	setDecisionTreeAttributes();
+	decisionProcedure = "amountMultiplier = 1.0\n";
+	decisionProcedure += getDecisionTree(0);
+	compiledDecisionProcedure = pythonManager->compileDecisionProcedure(decisionProcedure);
+}
+
+std::vector<bool>* Strategy::getChromosome() {
+	return &chromosome;
+}
+
+unsigned int Strategy::getStrategyId() const {
+	return strategyId;
+}
+
+void Strategy::setGeneration(unsigned int generation) {
+	this->generation = generation;
 }
 
 void Strategy::save() {
@@ -144,7 +169,7 @@ Strategy::~Strategy() {
 	if (compiledDecisionProcedure != nullptr) {
 		pythonManager->decreaseReferenceCount(compiledDecisionProcedure);
 	}
-	connectionPool->releaseConnection(con);
+	//connectionPool->releaseConnection(con);
 }
 
 void Strategy::setDecisionTreeAttributes() {
@@ -253,14 +278,6 @@ void Strategy::setDecisionTreeAttributes() {
 		dtu->rightAmountMultiplier.amountMultiplierId = getIdFromBitString(dtu->rightAmountMultiplier.amountMultiplierBitString);
 
 	}
-}
-
-void Strategy::generateDecisionProcedure() {
-
-	setDecisionTreeAttributes();
-	decisionProcedure = "amountMultiplier = 1.0\n";
-	decisionProcedure += getDecisionTree(0);
-
 }
 
 std::string Strategy::getDecisionTree(unsigned int decisionTreeUnitId) const {

@@ -1227,7 +1227,8 @@ void Player::performAutomaticPlayerMove() {
 		logger->log(pokerState->currentStateId, "player at seat " + std::to_string(thisPlayerState->seatNumber) + " must check");
 		performExplicitPlayerMove(PokerEnums::PlayerMove::CHECK, 0);
 	}
-	else if (true || strategyEvaluationDataProvider.getStrategyId() == 0) {   /// debug, eliminate python
+	else if (strategyEvaluationDataProvider.getStrategyId() == 0) {
+
 		// perform random move
 		logger->log(pokerState->currentStateId, "player at seat " + std::to_string(thisPlayerState->seatNumber) + " is performing random move");
 

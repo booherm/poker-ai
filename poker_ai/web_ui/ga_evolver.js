@@ -68,26 +68,28 @@ GaEvolver.init = function() {
 	
 	GaEvolver.crossoverPointField = Ext.create("Ext.form.field.Number", {
 		fieldLabel: "Crossover Point",
-		allowBlank: true,
+		allowBlank: false,
 		repeatTriggerClick: false,
 		labelWidth: 200,
 		width: 280,
 		minValue: 1,
 		maxValue: 1000000,
+		value: 4000,
 		step: 1,
 		decimalPrecision: 0
 	});
 	
 	GaEvolver.mutationRateField = Ext.create("Ext.form.field.Number", {
 		fieldLabel: "Mutation Rate",
-		allowBlank: true,
+		allowBlank: false,
 		repeatTriggerClick: false,
 		labelWidth: 200,
 		width: 280,
 		minValue: 0,
 		maxValue: 1,
+		value: 0.001,
 		step: 0.01,
-		decimalPrecision: 4
+		decimalPrecision: 8
 	});
 
 	GaEvolver.playersPerTournamentField = Ext.create("Ext.form.field.Number", {
@@ -109,9 +111,9 @@ GaEvolver.init = function() {
 		repeatTriggerClick: false,
 		labelWidth: 200,
 		width: 280,
-		minValue: 1,
+		minValue: 0,
 		maxValue: 100,
-		value: 1,
+		value: 10,
 		step: 1,
 		decimalPrecision: 0
 	});
@@ -211,22 +213,14 @@ GaEvolver.init = function() {
 };
 
 GaEvolver.performEvolutionTrial = function() {
-	
-	var crossoverPoint = GaEvolver.crossoverPointField.getValue();
-	if(crossoverPoint === null)
-		crossoverPoint = -1;
-	var mutationRate = GaEvolver.mutationRateField.getValue();
-	if(mutationRate === null)
-		mutationRate = -1;
-	
 	PokerAi.performEvolutionTrial(
 		GaEvolver.trialIdField.getValue(),
 		GaEvolver.startFromGenerationField.getValue(),
 		GaEvolver.generationSizeField.getValue(),
 		GaEvolver.maxGenerationsField.getValue(),
 		GaEvolver.crossoverRateField.getValue(),
-		crossoverPoint,
-		mutationRate,
+		GaEvolver.crossoverPointField.getValue(),
+		GaEvolver.mutationRateField.getValue(),
 		GaEvolver.playersPerTournamentField.getValue(),
 		GaEvolver.tournamentWorkerThreadsField.getValue(),
 		GaEvolver.tournamentPlayCountField.getValue(),
