@@ -25,8 +25,10 @@ public:
 	void initialize(Util::RandomNumberGenerator* randomNumberGenerator);
 	Card getUnknownCard() const;
 	Card getCardById(unsigned int cardId) const;
+	bool getIsCardDealt(unsigned int cardId) const;
 	Card drawCardById(unsigned int cardId);
 	Card drawRandomCard();
+	void releaseCard(unsigned int cardId);
 
 private:
 	Util::RandomNumberGenerator* randomNumberGenerator;

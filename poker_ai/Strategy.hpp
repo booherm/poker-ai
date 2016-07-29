@@ -26,6 +26,7 @@ public:
 	void generateDecisionProcedure();
 	std::vector<bool>* getChromosome();
 	unsigned int getStrategyId() const;
+	unsigned int getGeneration() const;
 	void setGeneration(unsigned int generation);
 	void save();
 	~Strategy();

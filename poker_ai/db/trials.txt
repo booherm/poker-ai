@@ -1,0 +1,11 @@
+Trial ID 1: control generation = 0 (random), initial generation = 1 (random) ran to generation 111 (111 generations)
+	-- steady improvement
+	
+Trial ID 2: control generation = 103 (best of trial 1), initial generation = 112 (max gen from trial 1 + 1), ran to generation 181 (70 generations)
+	-- did not settle into an improvement
+	
+Trial ID 3: control generation = 103 (best of trial 1), initial generation = 182 (max gen from trial 1 + 1) set from random, ran to generation z (h generations)
+
+
+
+

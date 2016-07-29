@@ -28,6 +28,7 @@ public:
 	void setBigBlindValue(unsigned int bigBlindValue);
 	void clearCommunityCards();
 	void pushCommunityCard(const Deck::Card& card);
+	void replaceCommunityCard(unsigned int cardSlot, unsigned int cardId);
 
 	// tournament attributes
 	unsigned int currentStateId;

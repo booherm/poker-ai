@@ -2,7 +2,7 @@ CREATE TABLE tournament_result
 (
 	strategy_id                   NUMBER(10, 0),
 	tournament_id                 NUMBER(10, 0),
-	evolution_trial_id            VARCHAR2(100),
+	evolution_trial_id            NUMBER(10, 0),
 	tournament_rank               NUMBER(2, 0),
 	games_played                  NUMBER(10, 0),
 	main_pots_won                 NUMBER(10, 0),

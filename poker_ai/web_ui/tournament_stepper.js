@@ -4,13 +4,16 @@ TournamentStepper.smallBlindSeatNumber = 1;
 TournamentStepper.bigBlindSeatNumber = 2;
 TournamentStepper.holeCardBorderStyle = "2px solid orange";
 TournamentStepper.nonHoleCardBorderStyle = "1px solid black";
+TournamentStepper.uneditableCardSlots = [];
+TournamentStepper.tournamentMode = "INTERNAL";
+TournamentStepper.seatRotationOffset = 0;
 	
 TournamentStepper.getPlayerHoleCardArrayHtml = function(seatNumber){
 	var html = "<table><tr>";
 	for(var i = 1; i <= 2; i++){
 		var slotId = "seat_" + seatNumber + "_hole_card_" + i;
 		html += "<td style='padding: 0 2 0 2;' onclick='TournamentStepper.cardSlotClicked({slotId: \""
-			+ slotId + "\", cardType: \"HOLE_CARD\", seatNumber: " + seatNumber + ", cardSlot: " + i + "});'>"
+			+ slotId + "\", cardType: \"HOLE_CARD\", seatNumber: " + seatNumber + ", cardSlot: " + (i - 1) + "});'>"
 			+ "<img id='" + slotId + "' style='width: 60px; height: 87px; border: " + TournamentStepper.holeCardBorderStyle + ";'/></td>";
 	}
 	html += "</tr></table>";
@@ -23,7 +26,7 @@ TournamentStepper.getCommunityCardArrayHtml = function(){
 	for(var i = 1; i <= 5; i++){
 		var slotId = "community_card_" + i;
 		html += "<td style='padding: 0 2 0 2;' onclick='TournamentStepper.cardSlotClicked({slotId: \""
-			+ slotId + "\", cardType: \"COMMUNITY_CARD\", seatNumber: null, cardSlot: " + i + "});'>"
+			+ slotId + "\", cardType: \"COMMUNITY_CARD\", seatNumber: null, cardSlot: " + (i - 1) + "});'>"
 			+ "<img id='" + slotId + "' style='width: 60px; height: 87px; border: " + TournamentStepper.nonHoleCardBorderStyle + ";'/></td>";
 	}
 	html += "</tr></table>";
@@ -72,20 +75,61 @@ TournamentStepper.getPotArrayHtml = function(potCount){
 
 TournamentStepper.initCardSelectionWindow = function(){
 	
-	var cardArrayHtml = "<table style='margin: 15px 15px 15px 15px;'>";
-	for(var suit = 0; suit < 4; suit++){
-		cardArrayHtml += "<tr>";
-		for(var card = 1; card <= 13; card++){
-			var cardId = (13 * suit) + card;
-			cardArrayHtml += "<td style='padding: 10px 3px 10px 3px'>"
-				+ "<img src = '" + TournamentStepper.getCardImage(cardId) + "' "
-				+ "style = 'width: 60px; height: 87px; border: 1px solid black;' "
-				+ "onclick = 'TournamentStepper.cardSelected(" + cardId + ");' "
-				+ "/></td>";
-		}
-		cardArrayHtml += "</tr>";
-	}
-	cardArrayHtml += "</table>";
+	var cardArrayHtml = "<map name='card_array_map'>"
+		+ "<area shape='rect' coords='16,21,77,111'    href='javascript: TournamentStepper.cardSelected(1);'/>"
+		+ "<area shape='rect' coords='82,21,143,111'   href='javascript: TournamentStepper.cardSelected(2);'/>"
+		+ "<area shape='rect' coords='148,21,209,111'  href='javascript: TournamentStepper.cardSelected(3);'/>"
+		+ "<area shape='rect' coords='214,21,275,111'  href='javascript: TournamentStepper.cardSelected(4);'/>"
+		+ "<area shape='rect' coords='280,21,341,111'  href='javascript: TournamentStepper.cardSelected(5);'/>"
+		+ "<area shape='rect' coords='346,21,407,111'  href='javascript: TournamentStepper.cardSelected(6);'/>"
+		+ "<area shape='rect' coords='412,21,473,111'  href='javascript: TournamentStepper.cardSelected(7);'/>"
+		+ "<area shape='rect' coords='478,21,539,111'  href='javascript: TournamentStepper.cardSelected(8);'/>"
+		+ "<area shape='rect' coords='544,21,605,111'  href='javascript: TournamentStepper.cardSelected(9);'/>"
+		+ "<area shape='rect' coords='610,21,671,111'  href='javascript: TournamentStepper.cardSelected(10);'/>"
+		+ "<area shape='rect' coords='676,21,737,111'  href='javascript: TournamentStepper.cardSelected(11);'/>"
+		+ "<area shape='rect' coords='742,21,803,111'  href='javascript: TournamentStepper.cardSelected(12);'/>"
+		+ "<area shape='rect' coords='808,21,869,111'  href='javascript: TournamentStepper.cardSelected(13);'/>"
+		+ "<area shape='rect' coords='16,128,77,218'   href='javascript: TournamentStepper.cardSelected(14);'/>"
+		+ "<area shape='rect' coords='82,128,143,218'  href='javascript: TournamentStepper.cardSelected(15);'/>"
+		+ "<area shape='rect' coords='148,128,209,218' href='javascript: TournamentStepper.cardSelected(16);'/>"
+		+ "<area shape='rect' coords='214,128,275,218' href='javascript: TournamentStepper.cardSelected(17);'/>"
+		+ "<area shape='rect' coords='280,128,341,218' href='javascript: TournamentStepper.cardSelected(18);'/>"
+		+ "<area shape='rect' coords='346,128,407,218' href='javascript: TournamentStepper.cardSelected(19);'/>"
+		+ "<area shape='rect' coords='412,128,473,218' href='javascript: TournamentStepper.cardSelected(20);'/>"
+		+ "<area shape='rect' coords='478,128,539,218' href='javascript: TournamentStepper.cardSelected(21);'/>"
+		+ "<area shape='rect' coords='544,128,605,218' href='javascript: TournamentStepper.cardSelected(22);'/>"
+		+ "<area shape='rect' coords='610,128,671,218' href='javascript: TournamentStepper.cardSelected(23);'/>"
+		+ "<area shape='rect' coords='676,128,737,218' href='javascript: TournamentStepper.cardSelected(24);'/>"
+		+ "<area shape='rect' coords='742,128,803,218' href='javascript: TournamentStepper.cardSelected(25);'/>"
+		+ "<area shape='rect' coords='808,128,869,218' href='javascript: TournamentStepper.cardSelected(26);'/>"
+		+ "<area shape='rect' coords='16,235,77,325'   href='javascript: TournamentStepper.cardSelected(27);'/>"
+		+ "<area shape='rect' coords='82,235,143,325'  href='javascript: TournamentStepper.cardSelected(28);'/>"
+		+ "<area shape='rect' coords='148,235,209,325' href='javascript: TournamentStepper.cardSelected(29);'/>"
+		+ "<area shape='rect' coords='214,235,275,325' href='javascript: TournamentStepper.cardSelected(30);'/>"
+		+ "<area shape='rect' coords='280,235,341,325' href='javascript: TournamentStepper.cardSelected(31);'/>"
+		+ "<area shape='rect' coords='346,235,407,325' href='javascript: TournamentStepper.cardSelected(32);'/>"
+		+ "<area shape='rect' coords='412,235,473,325' href='javascript: TournamentStepper.cardSelected(33);'/>"
+		+ "<area shape='rect' coords='478,235,539,325' href='javascript: TournamentStepper.cardSelected(34);'/>"
+		+ "<area shape='rect' coords='544,235,605,325' href='javascript: TournamentStepper.cardSelected(35);'/>"
+		+ "<area shape='rect' coords='610,235,671,325' href='javascript: TournamentStepper.cardSelected(36);'/>"
+		+ "<area shape='rect' coords='676,235,737,325' href='javascript: TournamentStepper.cardSelected(37);'/>"
+		+ "<area shape='rect' coords='742,235,803,325' href='javascript: TournamentStepper.cardSelected(38);'/>"
+		+ "<area shape='rect' coords='808,235,869,325' href='javascript: TournamentStepper.cardSelected(39);'/>"
+		+ "<area shape='rect' coords='16,342,77,432'   href='javascript: TournamentStepper.cardSelected(40);'/>"
+		+ "<area shape='rect' coords='82,342,143,432'  href='javascript: TournamentStepper.cardSelected(41);'/>"
+		+ "<area shape='rect' coords='148,342,209,432' href='javascript: TournamentStepper.cardSelected(42);'/>"
+		+ "<area shape='rect' coords='214,342,275,432' href='javascript: TournamentStepper.cardSelected(43);'/>"
+		+ "<area shape='rect' coords='280,342,341,432' href='javascript: TournamentStepper.cardSelected(44);'/>"
+		+ "<area shape='rect' coords='346,342,407,432' href='javascript: TournamentStepper.cardSelected(45);'/>"
+		+ "<area shape='rect' coords='412,342,473,432' href='javascript: TournamentStepper.cardSelected(46);'/>"
+		+ "<area shape='rect' coords='478,342,539,432' href='javascript: TournamentStepper.cardSelected(47);'/>"
+		+ "<area shape='rect' coords='544,342,605,432' href='javascript: TournamentStepper.cardSelected(48);'/>"
+		+ "<area shape='rect' coords='610,342,671,432' href='javascript: TournamentStepper.cardSelected(49);'/>"
+		+ "<area shape='rect' coords='676,342,737,432' href='javascript: TournamentStepper.cardSelected(50);'/>"
+		+ "<area shape='rect' coords='742,342,803,432' href='javascript: TournamentStepper.cardSelected(51);'/>"
+		+ "<area shape='rect' coords='808,342,869,432' href='javascript: TournamentStepper.cardSelected(52);'/>"
+		+ "</map>"
+		+ "<img src='images/cards/card_array.png' usemap='#card_array_map'/>";
 	
 	TournamentStepper.cardSelectionWindow = Ext.create("Ext.window.Window", {
 		title: "Select Card",
@@ -162,11 +206,38 @@ TournamentStepper.initTournamentPanel = function(){
 		labelWidth: 150,
 		width: 225,
 		minValue: 1,
-		maxValue: 5000,
+		maxValue: 50000,
 		value: 500,
 		step: 1,
-		decimalPrecision: 0,
-		colspan: 2
+		decimalPrecision: 0
+	});
+	
+	TournamentStepper.rotateSeatsLabel = Ext.create("Ext.form.field.Display", {
+		labelWidth: 100,
+		fieldLabel: "Rotate Seats"
+	});
+
+	TournamentStepper.rotateSeatsLeftButton = Ext.create("Ext.Button", {
+        text: "<",
+		margin: "0 0 0 10",
+        width: 20,
+		handler: function(){TournamentStepper.rotateSeats(false);}
+    });
+
+	TournamentStepper.rotateSeatsRightButton = Ext.create("Ext.Button", {
+        text: ">",
+		margin: "0 0 0 5",
+        width: 20,
+		handler: function(){TournamentStepper.rotateSeats(true);}
+    });
+
+	var rotateSeatsControlContainer = Ext.create("Ext.container.Container", {
+		layout: { type: "table", columns: 3, tdAttrs: { style: { verticalAlign: "top"} } },
+		items: [
+			TournamentStepper.rotateSeatsLabel,
+			TournamentStepper.rotateSeatsLeftButton,
+			TournamentStepper.rotateSeatsRightButton
+		]
 	});
 	
 	TournamentStepper.currentGameNumberLabel = Ext.create("Ext.form.field.Display", {
@@ -219,6 +290,7 @@ TournamentStepper.initTournamentPanel = function(){
 			TournamentStepper.playerCountField,
 			stateControlContainer,
 			TournamentStepper.buyInAmountField,
+			rotateSeatsControlContainer,
 			TournamentStepper.currentGameNumberLabel,
 			TournamentStepper.gameInProgressLabel,
 			reloadButton,
@@ -502,33 +574,74 @@ TournamentStepper.initSeatPanel = function(seatNumber){
 	return TournamentStepper["seatPanel_" + seatNumber];
 };
 
+TournamentStepper.rotateArray = function(theArray, right){
+	var newArray = [];
+	if(right){
+		newArray.push(theArray[theArray.length - 1]);
+		for(var i = 0; i < theArray.length - 1; i++){
+			newArray.push(theArray[i]);
+		}
+	}
+	else{
+		//newArray.push(theArray[theArray.length - 1]);
+		for(var i = 1; i < theArray.length; i++){
+			newArray.push(theArray[i]);
+		}
+		newArray.push(theArray[0]);
+	}
+	
+	return newArray;
+};
+
+TournamentStepper.rotateSeats = function(right){
+	
+	if(right)
+		TournamentStepper.seatRotationOffset++;
+	else
+		TournamentStepper.seatRotationOffset--;
+	
+	document.location = document.URL.split("?")[0] + "?seat_rotation_offset=" + TournamentStepper.seatRotationOffset;
+	
+};
+
 TournamentStepper.init = function()
 {
 	TournamentStepper.initCardSelectionWindow();
+
+	// setup seat order
+	var pageParams = document.URL.split("?");
+	pageParams = Ext.urlDecode(pageParams[pageParams.length - 1]);
+	if(pageParams.seat_rotation_offset)
+		TournamentStepper.seatRotationOffset = pageParams.seat_rotation_offset;
+	var rotateRight = TournamentStepper.seatRotationOffset >= 0;
+	var seatLayoutOrder = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+	var offset = Math.abs(TournamentStepper.seatRotationOffset);
+	for(var i = 0; i < offset; i++){
+		seatLayoutOrder = TournamentStepper.rotateArray(seatLayoutOrder, rotateRight);
+	}
 	
     var tournamentStepperTab = Ext.create("Ext.panel.Panel", {
 		layout: { type: "table", columns: 4, tdAttrs: { style: { verticalAlign: "top", padding: "0 10 0 0"} } },
 		bodyStyle: {"background-color": "lightgreen"},
 		title: "Tournament Stepper",
 		items: [
-			TournamentStepper.initSeatPanel(1),
-			TournamentStepper.initSeatPanel(2),
-			TournamentStepper.initSeatPanel(3),
-			TournamentStepper.initSeatPanel(4),
-			TournamentStepper.initSeatPanel(10),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[0]),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[1]),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[2]),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[3]),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[9]),
 			TournamentStepper.initTournamentPanel(),
 			TournamentStepper.initGamePanel(),
-			TournamentStepper.initSeatPanel(5),
-			TournamentStepper.initSeatPanel(9),
-			TournamentStepper.initSeatPanel(8),
-			TournamentStepper.initSeatPanel(7),
-			TournamentStepper.initSeatPanel(6)
+			TournamentStepper.initSeatPanel(seatLayoutOrder[4]),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[8]),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[7]),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[6]),
+			TournamentStepper.initSeatPanel(seatLayoutOrder[5])
 		]
     });
 
 	return tournamentStepperTab;
 };
-
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TournamentStepper.getCardImage = function(cardId){
@@ -554,6 +667,7 @@ TournamentStepper.refreshUi = function(uiData){
 	}
 	
 	// tournament state
+	TournamentStepper.tournamentMode = uiData.tournamentState.tournament_mode;
 	TournamentStepper.playerCountField.setValue(uiData.tournamentState.player_count);
 	TournamentStepper.buyInAmountField.setValue(uiData.tournamentState.buy_in_amount);
 	TournamentStepper.currentGameNumberLabel.setValue(uiData.tournamentState.current_game_number);
@@ -561,6 +675,7 @@ TournamentStepper.refreshUi = function(uiData){
 	TournamentStepper.stateSelectionField.setValue(uiData.tournamentState.current_state_id);
 	
 	// game state
+	TournamentStepper.uneditableCardSlots = [];
 	TournamentStepper.smallBlindSeatLabel.setValue(uiData.gameState.small_blind_seat_number);
 	TournamentStepper.bigBlindSeatLabel.setValue(uiData.gameState.big_blind_seat_number);
 	TournamentStepper.turnLabel.setValue(uiData.gameState.turn_seat_number);
@@ -571,12 +686,15 @@ TournamentStepper.refreshUi = function(uiData){
 	TournamentStepper.bettingRoundInProgressLabel.setValue(uiData.gameState.betting_round_in_progress);
 	TournamentStepper.lastToRaiseLabel.setValue(uiData.gameState.last_to_raise_seat_number);
 	for(var i = 1; i <= 5; i++){
-		document.getElementById("community_card_" + i).src = TournamentStepper.getCardImage(uiData.gameState["community_card_" + i]);
+		var communityCardSlot = document.getElementById("community_card_" + i);
+		var communityCardId = uiData.gameState["community_card_" + i];
+		communityCardSlot.src = TournamentStepper.getCardImage(communityCardId);
+		communityCardSlot.style.cursor = communityCardId === null ? "default" : "pointer";
 	}
 	
 	// players state
 	// clear player seat for seats not returned
-	for(var seatNumber = 1; seatNumber < TournamentStepper.maxPlayerCount; seatNumber++){
+	for(var seatNumber = 1; seatNumber <= TournamentStepper.maxPlayerCount; seatNumber++){
 		if(!uiData.playerState[seatNumber - 1]){
 				
 			TournamentStepper["playerButtonFold_" + seatNumber].setDisabled(true);
@@ -593,6 +711,7 @@ TournamentStepper.refreshUi = function(uiData){
 				var cardSlot = document.getElementById("seat_" + seatNumber + "_best_hand_" + c);
 				cardSlot.src = TournamentStepper.getCardImage(null);
 				cardSlot.style.border = TournamentStepper.nonHoleCardBorderStyle;
+				cardSlot.style.cursor = "default";
 			}
 
 			TournamentStepper["playerHandShowingLabel_" + seatNumber].setValue(null);
@@ -622,8 +741,21 @@ TournamentStepper.refreshUi = function(uiData){
 			
 		// set hole cards
 		TournamentStepper["playerIdLabel_" + seatNumber].setValue(playerData.player_id);
-		document.getElementById("seat_" + seatNumber + "_hole_card_1").src = TournamentStepper.getCardImage(playerData.hole_card_1);
-		document.getElementById("seat_" + seatNumber + "_hole_card_2").src = TournamentStepper.getCardImage(playerData.hole_card_2);
+		var holeCard1Slot = document.getElementById("seat_" + seatNumber + "_hole_card_1");
+		var holeCard2Slot = document.getElementById("seat_" + seatNumber + "_hole_card_2");
+		holeCard1Slot.style.cursor = "pointer";
+		holeCard2Slot.style.cursor = "pointer";
+		holeCard1Slot.src = TournamentStepper.getCardImage(playerData.hole_card_1);
+		holeCard2Slot.src = TournamentStepper.getCardImage(playerData.hole_card_2);
+		if(playerData.state === "Folded"){
+			// prevent card from being editable
+			TournamentStepper.uneditableCardSlots.push("seat_" + seatNumber + "_hole_card_1");
+			TournamentStepper.uneditableCardSlots.push("seat_" + seatNumber + "_hole_card_2");
+		}
+		if(playerData.state === "Folded" || playerData.hole_card_1 === null) {
+			holeCard1Slot.style.cursor = "default";
+			holeCard2Slot.style.cursor = "default";
+		}
 		
 		// set best hand rank
 		TournamentStepper["playerBestHandRank_" + seatNumber].setValue(playerData.best_hand_classification);
@@ -724,6 +856,37 @@ TournamentStepper.refreshUi = function(uiData){
 };
 
 TournamentStepper.stepPlay = function(playerMove, playerMoveAmount){
+	
+	// all present community cards must be identified
+	for(var i = 1; i <= 5; i++){
+		var communityCardSlotSource = document.getElementById("community_card_" + i).src;
+		if(communityCardSlotSource.indexOf("back.jpg") != -1) {
+			Ext.Msg.alert("Error", "Community Cards must be set before stepping play.");
+			return;
+		}
+	}
+	
+	// in external tournaments, exactly one player must have both hole cards identified if they have been dealt
+	if(TournamentStepper.tournamentMode === "EXTERNAL")
+	{
+		var bettingRoundNumber = parseInt(TournamentStepper.bettingRoundLabel.getValue().charAt(0), 10);
+		if(bettingRoundNumber != 5 && (TournamentStepper.bettingRoundInProgressLabel.getValue() === "Yes" || bettingRoundNumber > 1)) {
+			var validStatePlayers = 0;
+			for(var i = 1; i <= TournamentStepper.maxPlayerCount; i++) {
+				var holeCard1Source = document.getElementById("seat_" + i.toString() + "_hole_card_1").src;
+				var holeCard2Source = document.getElementById("seat_" + i.toString() + "_hole_card_2").src;
+				if(holeCard1Source.indexOf("blank.png") === -1 && holeCard2Source.indexOf("blank.png") === -1
+					&& holeCard1Source.indexOf("back.jpg") === -1 && holeCard2Source.indexOf("back.jpg") === -1) {
+					validStatePlayers++;
+				}
+			}
+			if(validStatePlayers != 1){
+				Ext.Msg.alert("Error", "Exactly one player must have hole cards set before stepping play.");
+				return;
+			}
+		}
+	}
+
 	TournamentStepper.stepPlayButton.setDisabled(true);
 	PokerAi.stepPlay(
 		TournamentStepper.stateSelectionField.getValue(),
@@ -757,20 +920,26 @@ TournamentStepper.betValueValidityChange = function(seatNumber, isValid){
 };
 
 TournamentStepper.cardSlotClicked = function(cardSlot){
-	
+
 	// card can only be edited if a card exists in the specified slot
-	//console.log("current slot src = " + document.getElementById(cardSlot.slotId).src);
-	
 	var cardSlotCurrentSrc = document.getElementById(cardSlot.slotId).src;
 	if(cardSlotCurrentSrc !== "" && cardSlotCurrentSrc.indexOf("blank.png") === -1){
+		
+		for(var i = 0; i < TournamentStepper.uneditableCardSlots.length; i++){
+			if(TournamentStepper.uneditableCardSlots[i] === cardSlot.slotId)
+				return;
+		}
+		
 		TournamentStepper.editingCardSlot = cardSlot;
 		TournamentStepper.cardSelectionWindow.show();
 	}
+	
 };
 
 TournamentStepper.cardSelected = function(cardId){
 	TournamentStepper.cardSelectionWindow.hide();
-	PokerAi.editCard(TournamentStepper.stateSelectionField.getValue(),
+	PokerAi.editCard(
+		TournamentStepper.stateSelectionField.getValue(),
 		TournamentStepper.editingCardSlot.cardType,
 		TournamentStepper.editingCardSlot.seatNumber,
 		TournamentStepper.editingCardSlot.cardSlot,

@@ -30,6 +30,7 @@ void GaEvolverTournamentWorker::threadLoop() {
 	logger.initialize(con);
 	logger.setLoggingEnabled(loggingEnabled);
 	bool verboseOutput = false;
+	bool flush = false;
 
 	TournamentController tournamentController;
 	tournamentController.initialize(connectionPool, pythonManager, strategyManager);
@@ -55,6 +56,7 @@ void GaEvolverTournamentWorker::threadLoop() {
 
 		if (verboseOutput && result == 1) {
 			logger.log(0, resultStringPrefix + "1: empty queue, wait for more");
+			strategyManager->flushNonControlGenerations();
 		}
 		else if (result == 0) {
 			logger.log(0, resultStringPrefix + "0: play tournament");

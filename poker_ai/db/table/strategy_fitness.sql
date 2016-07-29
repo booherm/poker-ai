@@ -1,7 +1,7 @@
 CREATE TABLE strategy_fitness
 (
 	strategy_id                   NUMBER(10, 0),
-	evolution_trial_id            VARCHAR2(100),
+	evolution_trial_id            NUMBER(10, 0),
 	fitness_score                 NUMBER(38, 10),
 	tournaments_played            NUMBER(10, 0),
 	average_tournament_profit     NUMBER(12, 2),

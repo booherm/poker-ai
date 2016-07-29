@@ -12,7 +12,8 @@ public:
 	Strategy* createStrategy();
 	Strategy* getStrategy(unsigned int strategyId);
 	unsigned int generateRandomStrategy(unsigned int generation);
-	void flush();
+	void flush(int generation);
+	void flushNonControlGenerations();
 	void setStrategy(Strategy* strategy);
 	~StrategyManager();
 

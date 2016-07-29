@@ -12,6 +12,7 @@ public:
 	~GaEvolverController();
 	void performEvolutionTrial(
 		unsigned int trialId,
+		unsigned int controlGeneration,
 		unsigned int startFromGenerationNumber,
 		unsigned int generationSize,
 		unsigned int maxGenerations,
@@ -30,6 +31,7 @@ public:
 private:
 	void startTournamentWorkers(unsigned int trialId);
 	void joinTournamentWorkers();
+	void createControlGeneration(unsigned int playersPerTournament, unsigned int generationSize);
 	void createInitialGeneration(unsigned int trialId, unsigned int generationSize);
 
 	StrategyManager* strategyManager;

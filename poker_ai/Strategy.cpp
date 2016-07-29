@@ -107,6 +107,10 @@ unsigned int Strategy::getStrategyId() const {
 	return strategyId;
 }
 
+unsigned int Strategy::getGeneration() const {
+	return generation;
+}
+
 void Strategy::setGeneration(unsigned int generation) {
 	this->generation = generation;
 }

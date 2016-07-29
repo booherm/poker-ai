@@ -10,6 +10,7 @@ GaEvolverController::GaEvolverController(oracle::occi::StatelessConnectionPool* 
 
 void GaEvolverController::performEvolutionTrial(
 	unsigned int trialId,
+	unsigned int controlGeneration,
 	unsigned int startFromGenerationNumber,
 	unsigned int generationSize,
 	unsigned int maxGenerations,
@@ -29,39 +30,43 @@ void GaEvolverController::performEvolutionTrial(
 	workerCount = tournamentWorkerThreads;
 	unsigned int currentGeneration = startFromGenerationNumber == 0 ? 1 : startFromGenerationNumber;
 
-	std::string procCall = "BEGIN pkg_ga_evolver.insert_evolution_trial(";
+	std::string procCall = "BEGIN pkg_ga_evolver.upsert_evolution_trial(";
 	procCall.append("p_trial_id                  => :1, ");
-	procCall.append("p_generation_size           => :2, ");
-	procCall.append("p_max_generations           => :3, ");
-	procCall.append("p_crossover_rate            => :4, ");
-	procCall.append("p_crossover_point           => :5, ");
-	procCall.append("p_mutation_rate             => :6, ");
-	procCall.append("p_players_per_tournament    => :7, ");
-	procCall.append("p_tournament_play_count     => :8, ");
-	procCall.append("p_tournament_buy_in         => :9, ");
-	procCall.append("p_initial_small_blind_value => :10, ");
-	procCall.append("p_double_blinds_interval    => :11, ");
-	procCall.append("p_current_generation        => :12");
+	procCall.append("p_control_generation        => :2, ");
+	procCall.append("p_generation_size           => :3, ");
+	procCall.append("p_max_generations           => :4, ");
+	procCall.append("p_crossover_rate            => :5, ");
+	procCall.append("p_crossover_point           => :6, ");
+	procCall.append("p_mutation_rate             => :7, ");
+	procCall.append("p_players_per_tournament    => :8, ");
+	procCall.append("p_tournament_play_count     => :9, ");
+	procCall.append("p_tournament_buy_in         => :10, ");
+	procCall.append("p_initial_small_blind_value => :11, ");
+	procCall.append("p_double_blinds_interval    => :12, ");
+	procCall.append("p_current_generation        => :13");
 	procCall.append("); END; ");
 	oracle::occi::Statement* statement = con->createStatement(procCall);
 
 	statement->setUInt(1, trialId);
-	statement->setUInt(2, generationSize);
-	statement->setUInt(3, maxGenerations);
-	statement->setFloat(4, crossoverRate);
-	statement->setUInt(5, crossoverPoint);
-	statement->setFloat(6, mutationRate);
-	statement->setUInt(7, playersPerTournament);
-	statement->setUInt(8, tournamentPlayCount);
-	statement->setUInt(9, tournamentBuyIn);
-	statement->setUInt(10, initialSmallBlindValue);
-	statement->setUInt(11, doubleBlindsInterval);
-	statement->setUInt(12, currentGeneration);
+	statement->setUInt(2, controlGeneration);
+	statement->setUInt(3, generationSize);
+	statement->setUInt(4, maxGenerations);
+	statement->setFloat(5, crossoverRate);
+	statement->setUInt(6, crossoverPoint);
+	statement->setFloat(7, mutationRate);
+	statement->setUInt(8, playersPerTournament);
+	statement->setUInt(9, tournamentPlayCount);
+	statement->setUInt(10, tournamentBuyIn);
+	statement->setUInt(11, initialSmallBlindValue);
+	statement->setUInt(12, doubleBlindsInterval);
+	statement->setUInt(13, currentGeneration);
 	statement->execute();
 	con->terminateStatement(statement);
 
-	if (currentGeneration == 1)
+	if (currentGeneration == 182) {
+		//createControlGeneration(playersPerTournament, generationSize);
 		createInitialGeneration(trialId, generationSize);
+	}
 
 	// start generation conroller thread
 	GaEvolverGenerationWorker* generationWorker = new GaEvolverGenerationWorker(
@@ -136,12 +141,23 @@ GaEvolverController::~GaEvolverController() {
 	connectionPool->releaseConnection(con);
 }
 
+void GaEvolverController::createControlGeneration(unsigned int playersPerTournament, unsigned int generationSize) {
+
+	logger.log(0, "creating control generation");
+
+	unsigned int controlGenerationSize = (playersPerTournament - 1) * generationSize;
+	for (unsigned int i = 0; i < controlGenerationSize; i++) {
+		strategyManager->generateRandomStrategy(0);
+	}
+
+}
+
 void GaEvolverController::createInitialGeneration(unsigned int trialId, unsigned int generationSize) {
 
 	logger.log(0, "creating initial generation");
 
 	for (unsigned int i = 0; i < generationSize; i++) {
-		strategyManager->generateRandomStrategy(1);
+		strategyManager->generateRandomStrategy(182);
 	}
 
 	// enqueue tournaments
@@ -153,4 +169,5 @@ void GaEvolverController::createInitialGeneration(unsigned int trialId, unsigned
 	statement->setUInt(1, trialId);
 	statement->execute();
 	con->terminateStatement(statement);
+
 }

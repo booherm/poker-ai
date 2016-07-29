@@ -165,7 +165,7 @@ void GaEvolverGenerationWorker::createNextGeneration() {
 		std::cout << "hit generation size bug" << std::endl;
 
 	// clear parent generation
-	strategyManager->flush();
+	strategyManager->flush(currentGenerationNumber - 1);
 
 	// set new generation
 	for (unsigned int i = 0; i < generationSize; i++) {

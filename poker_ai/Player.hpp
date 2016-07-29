@@ -46,6 +46,7 @@ public:
 	void setHandShowing();
 	void setPresentedBetOpportunity();
 	void setHoleCards(Deck::Card holeCard1, Deck::Card holeCard2);
+	void replaceHoleCard(unsigned int cardSlot, unsigned int cardId);
 	void setPlayerShowdownMuck();
 	std::string calculateBestHand();
 	PokerEnums::State performPlayerMove(PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount);

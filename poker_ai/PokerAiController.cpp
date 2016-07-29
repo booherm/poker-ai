@@ -5,8 +5,13 @@ PokerAiController::PokerAiController() {
 
 	// init db
 	oracle::occi::Environment* env = oracle::occi::Environment::createEnvironment(oracle::occi::Environment::THREADED_MUTEXED);
-	oracle::occi::StatelessConnectionPool* connectionPool = env->createStatelessConnectionPool("POKER_AI", "poker_ai",
-		"ORACLENODE1", 50, 5, 5, oracle::occi::StatelessConnectionPool::HOMOGENEOUS);
+
+	oracle::occi::StatelessConnectionPool* connectionPool = env->createStatelessConnectionPool("C##POKER_AI", "poker_ai",
+		"ORACLENODE2", 50, 5, 5, oracle::occi::StatelessConnectionPool::HOMOGENEOUS);
+
+	// debug
+	//oracle::occi::StatelessConnectionPool* connectionPool = env->createStatelessConnectionPool("POKER_AI", "poker_ai",
+//		"ORACLENODE", 50, 5, 5, oracle::occi::StatelessConnectionPool::HOMOGENEOUS);
 
 	// init main components
 	pythonManager = new PythonManager;

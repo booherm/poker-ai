@@ -42,6 +42,7 @@ public:
 	);
 	unsigned int initNonAutomatedTournament(TournamentMode tournamentMode, unsigned int playerCount, unsigned int buyInAmount);
 	unsigned int stepPlay(unsigned int stateId, unsigned int smallBlindValue, PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount);
+	unsigned int editCard(unsigned int stateId, const std::string& cardType, unsigned int seatNumber, unsigned int cardSlot, unsigned int cardId);
 	unsigned int getPreviousStateId(unsigned int stateId) const;
 	unsigned int getNextStateId(unsigned int stateId) const;
 	void getUiState(unsigned int stateId, Json::Value& uiData);

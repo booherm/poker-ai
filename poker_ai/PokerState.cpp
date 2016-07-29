@@ -165,3 +165,36 @@ void PokerState::pushCommunityCard(const Deck::Card& card) {
 	}
 
 }
+
+void PokerState::replaceCommunityCard(unsigned int cardSlot, unsigned int cardId) {
+	deck.releaseCard(communityCards[cardSlot].cardId);
+	Deck::Card newCard = deck.drawCardById(cardId);
+	communityCards[cardSlot] = newCard;
+
+	if (cardSlot == 0) {
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_1_ID, (float) newCard.cardId);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_1_SUIT, (float) newCard.suit);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_1_VALUE, (float) newCard.value);
+	}
+	else if (cardSlot == 1) {
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_2_ID, (float) newCard.cardId);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_2_SUIT, (float) newCard.suit);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_2_VALUE, (float) newCard.value);
+	}
+	else if (cardSlot == 2) {
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_3_ID, (float) newCard.cardId);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_3_SUIT, (float) newCard.suit);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_3_VALUE, (float) newCard.value);
+	}
+	else if (cardSlot == 3) {
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_4_ID, (float) newCard.cardId);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_4_SUIT, (float) newCard.suit);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_4_VALUE, (float) newCard.value);
+	}
+	else if (cardSlot == 4) {
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_5_ID, (float) newCard.cardId);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_5_SUIT, (float) newCard.suit);
+		stateVariables.setPokerStateVariableValue(StateVariableCollection::PokerStateVariable::COMMUNITY_CARD_5_VALUE, (float) newCard.value);
+	}
+
+}

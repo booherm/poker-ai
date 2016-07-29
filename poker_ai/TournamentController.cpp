@@ -142,6 +142,7 @@ void TournamentController::getUiState(unsigned int stateId, Json::Value& uiData)
 
 		// tournament state
 		Json::Value tournamentStateData(Json::objectValue);
+		tournamentStateData["tournament_mode"] = tournamentMode == TournamentMode::INTERNAL ? "INTERNAL" : "EXTERNAL";
 		tournamentStateData["player_count"] = pokerState.playerCount;
 		tournamentStateData["buy_in_amount"] = pokerState.buyInAmount;
 		if (pokerState.currentGameNumber == 0)
@@ -178,7 +179,8 @@ void TournamentController::getUiState(unsigned int stateId, Json::Value& uiData)
 			gameStateData["betting_round_number"] = Json::Value::null;
 		else
 			gameStateData["betting_round_number"] = getCurrentBettingRoundString();
-		gameStateData["betting_round_in_progress"] = pokerState.bettingRoundInProgress ? "Yes" : "No";
+		gameStateData["betting_round_in_progress"] = pokerState.currentBettingRound != PokerEnums::BettingRound::NO_BETTING_ROUND
+			&& pokerState.bettingRoundInProgress ? "Yes" : "No";
 		if (pokerState.lastToRaiseSeatNumber == 0)
 			gameStateData["last_to_raise_seat_number"] = Json::Value::null;
 		else
@@ -520,15 +522,16 @@ void TournamentController::calculateBestHands() {
 	});
 
 	// assign rank to hand
-	unsigned int rank = 1;
-	players[bestHands[0].playerIndex].setBestHandRank(rank);
-	for (unsigned int i = 1; i < bestHands.size(); i++) {
-		BestHand* playerBestHand = &bestHands[i];
-		if (playerBestHand->bestHandComparator != bestHands[i - 1].bestHandComparator)
-			rank++;
-		players[playerBestHand->playerIndex].setBestHandRank(rank);
+	if (bestHands.size() > 0) {
+		unsigned int rank = 1;
+		players[bestHands[0].playerIndex].setBestHandRank(rank);
+		for (unsigned int i = 1; i < bestHands.size(); i++) {
+			BestHand* playerBestHand = &bestHands[i];
+			if (playerBestHand->bestHandComparator != bestHands[i - 1].bestHandComparator)
+				rank++;
+			players[playerBestHand->playerIndex].setBestHandRank(rank);
+		}
 	}
-
 }
 
 void TournamentController::captureStateLog() {
@@ -670,13 +673,22 @@ void TournamentController::captureTournamentResults() {
 
 void TournamentController::dealCommunityCards() {
 
-	if (pokerState.currentBettingRound == PokerEnums::BettingRound::FLOP) {
-		for (unsigned int i = 0; i < 3; i++)
+	if (tournamentMode == TournamentMode::INTERNAL) {
+		if (pokerState.currentBettingRound == PokerEnums::BettingRound::FLOP) {
+			for (unsigned int i = 0; i < 3; i++)
+				pokerState.pushCommunityCard(pokerState.deck.drawRandomCard());
+		}
+		else
 			pokerState.pushCommunityCard(pokerState.deck.drawRandomCard());
 	}
-	else
-		pokerState.pushCommunityCard(pokerState.deck.drawRandomCard());
-
+	else {
+		if (pokerState.currentBettingRound == PokerEnums::BettingRound::FLOP) {
+			for (unsigned int i = 0; i < 3; i++)
+				pokerState.pushCommunityCard(pokerState.deck.getUnknownCard());
+		}
+		else
+			pokerState.pushCommunityCard(pokerState.deck.getUnknownCard());
+	}
 }
 
 void TournamentController::dealHoleCards() {
@@ -1037,4 +1049,37 @@ void TournamentController::stepPlay(PokerEnums::PlayerMove playerMove, unsigned 
 	}
 
 	captureStateLog();
+}
+
+unsigned int TournamentController::editCard(unsigned int stateId, const std::string& cardType, unsigned int seatNumber, unsigned int cardSlot, unsigned int cardId) {
+
+	loadState(stateId);
+	getNewStateId();
+	std::string logMessage;
+
+	// prevent card edit if the specified card is already dealt
+	if (!pokerState.deck.getIsCardDealt(cardId)) {
+
+		// edit card
+		if (cardType == "COMMUNITY_CARD") {
+			pokerState.replaceCommunityCard(cardSlot, cardId);
+			logMessage = "community card in slot " + std::to_string(cardSlot + 1) + " edited to card id " + std::to_string(cardId);
+		}
+		else {  // hole card
+			players[seatNumber - 1].replaceHoleCard(cardSlot, cardId);
+			logMessage = "player at seat " + std::to_string(seatNumber) + " hole card " + std::to_string(cardSlot + 1) + " edited to card id " + std::to_string(cardId);
+		}
+		calculateBestHands();
+
+	}
+	else {
+		logMessage = "card id " + std::to_string(cardId) + " is already dealt, cannot edit card";
+	}
+
+	logger.log(pokerState.currentStateId, logMessage);
+
+	captureStateLog();
+
+	return pokerState.currentStateId;
+
 }

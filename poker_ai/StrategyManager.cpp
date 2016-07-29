@@ -50,14 +50,48 @@ unsigned int StrategyManager::generateRandomStrategy(unsigned int generation) {
 	return strategyId;
 }
 
-void StrategyManager::flush() {
+void StrategyManager::flush(int generation) {
 
-	// destruct strategies and clear out cache
+	// destruct strategies and clear from cache
+
 	strategyManagerMutex.lock();
-	for (std::map<unsigned int, Strategy*>::iterator it = strategies.begin(); it != strategies.end(); ++it) {
-		delete it->second;
+
+	if (generation == -1) {
+		for (std::map<unsigned int, Strategy*>::iterator it = strategies.begin(); it != strategies.end(); ++it) {
+			delete it->second;
+		}
+		strategies.clear();
 	}
-	strategies.clear();
+	else {
+		std::vector<unsigned int> toDelete;
+		for (std::map<unsigned int, Strategy*>::iterator it = strategies.begin(); it != strategies.end(); ++it) {
+			if (it->second->getGeneration() == generation) {
+				toDelete.push_back(it->second->getStrategyId());
+				delete it->second;
+			}
+		}
+		for (unsigned int i = 0; i < toDelete.size(); i++)
+			strategies.erase(toDelete[i]);
+	}
+
+	strategyManagerMutex.unlock();
+
+}
+
+void StrategyManager::flushNonControlGenerations() {
+
+	strategyManagerMutex.lock();
+
+	std::vector<unsigned int> toDelete;
+	for (std::map<unsigned int, Strategy*>::iterator it = strategies.begin(); it != strategies.end(); ++it) {
+		if (it->second->getGeneration() != 0) {
+			toDelete.push_back(it->second->getStrategyId());
+			delete it->second;
+		}
+	}
+	for (unsigned int i = 0; i < toDelete.size(); i++)
+		strategies.erase(toDelete[i]);
+
 	strategyManagerMutex.unlock();
 
 }
@@ -70,6 +104,6 @@ void StrategyManager::setStrategy(Strategy* strategy) {
 
 
 StrategyManager::~StrategyManager() {
-	flush();
+	flush(-1);
 	connectionPool->releaseConnection(con);
 }

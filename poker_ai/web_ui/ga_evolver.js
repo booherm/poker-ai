@@ -14,13 +14,26 @@ GaEvolver.init = function() {
 		padding: "10 0 0 0"
 	});
 
+	GaEvolver.controlGenerationField = Ext.create("Ext.form.field.Number", {
+		fieldLabel: "Control Generation",
+		allowBlank: false,
+		repeatTriggerClick: false,
+		labelWidth: 200,
+		width: 280,
+		minValue: 0,
+		maxValue: 50000,
+		value: 0,
+		step: 1,
+		decimalPrecision: 0
+	});
+
 	GaEvolver.startFromGenerationField = Ext.create("Ext.form.field.Number", {
 		fieldLabel: "Start From Generation",
 		allowBlank: false,
 		repeatTriggerClick: false,
 		labelWidth: 200,
 		width: 280,
-		minValue: 1,
+		minValue: 0,
 		maxValue: 50000,
 		value: 0,
 		step: 1,
@@ -35,7 +48,7 @@ GaEvolver.init = function() {
 		width: 280,
 		minValue: 1,
 		maxValue: 5000,
-		value: 10,
+		value: 100,
 		step: 1,
 		decimalPrecision: 0
 	});
@@ -48,7 +61,7 @@ GaEvolver.init = function() {
 		width: 280,
 		minValue: 1,
 		maxValue: 1000000,
-		value: 1,
+		value: 10000,
 		step: 1,
 		decimalPrecision: 0
 	});
@@ -113,7 +126,7 @@ GaEvolver.init = function() {
 		width: 280,
 		minValue: 0,
 		maxValue: 100,
-		value: 10,
+		value: 20,
 		step: 1,
 		decimalPrecision: 0
 	});
@@ -126,7 +139,7 @@ GaEvolver.init = function() {
 		width: 280,
 		minValue: 1,
 		maxValue: 5000,
-		value: 1,
+		value: 100,
 		step: 1,
 		decimalPrecision: 0
 	});
@@ -191,6 +204,7 @@ GaEvolver.init = function() {
 		height: 1000,
 		items: [
 			GaEvolver.trialIdField,
+			GaEvolver.controlGenerationField,
 			GaEvolver.startFromGenerationField,
 			GaEvolver.generationSizeField,
 			GaEvolver.maxGenerationsField,
@@ -215,6 +229,7 @@ GaEvolver.init = function() {
 GaEvolver.performEvolutionTrial = function() {
 	PokerAi.performEvolutionTrial(
 		GaEvolver.trialIdField.getValue(),
+		GaEvolver.controlGenerationField.getValue(),
 		GaEvolver.startFromGenerationField.getValue(),
 		GaEvolver.generationSizeField.getValue(),
 		GaEvolver.maxGenerationsField.getValue(),

@@ -1,1 +1,0 @@
-CREATE OR REPLACE TYPE t_strategy_id_varray AS VARRAY(12) OF NUMBER(10, 0);

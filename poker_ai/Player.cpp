@@ -336,6 +336,25 @@ void Player::setHoleCards(Deck::Card holeCard1, Deck::Card holeCard2) {
 	pushHoleCard(holeCard2);
 }
 
+void Player::replaceHoleCard(unsigned int cardSlot, unsigned int cardId) {
+
+	pokerState->deck.releaseCard(holeCards[cardSlot].cardId);
+	Deck::Card newCard = pokerState->deck.drawCardById(cardId);
+	holeCards[cardSlot] = newCard;
+	
+	if (cardSlot == 0) {
+		pokerState->stateVariables.setPrivatePlayerStateVariableValue(StateVariableCollection::PrivatePlayerStateVariable::HOLE_CARD_1_ID, thisPlayerState->seatNumber, (float) newCard.cardId);
+		pokerState->stateVariables.setPrivatePlayerStateVariableValue(StateVariableCollection::PrivatePlayerStateVariable::HOLE_CARD_1_SUIT, thisPlayerState->seatNumber, (float) newCard.suit);
+		pokerState->stateVariables.setPrivatePlayerStateVariableValue(StateVariableCollection::PrivatePlayerStateVariable::HOLE_CARD_1_VALUE, thisPlayerState->seatNumber, (float) newCard.value);
+	}
+	else {
+		pokerState->stateVariables.setPrivatePlayerStateVariableValue(StateVariableCollection::PrivatePlayerStateVariable::HOLE_CARD_2_ID, thisPlayerState->seatNumber, (float) newCard.cardId);
+		pokerState->stateVariables.setPrivatePlayerStateVariableValue(StateVariableCollection::PrivatePlayerStateVariable::HOLE_CARD_2_SUIT, thisPlayerState->seatNumber, (float) newCard.suit);
+		pokerState->stateVariables.setPrivatePlayerStateVariableValue(StateVariableCollection::PrivatePlayerStateVariable::HOLE_CARD_2_VALUE, thisPlayerState->seatNumber, (float) newCard.value);
+	}
+
+}
+
 void Player::setPlayerShowdownMuck() {
 	// debug - decision procedure to determine whether or not to show hand
 	thisPlayerState->setHandShowing(true);
@@ -343,9 +362,19 @@ void Player::setPlayerShowdownMuck() {
 
 std::string Player::calculateBestHand() {
 
-	// return if incomplete hand
+	// return if incomplete hand or unknown cards
 	unsigned int communityCardCount = pokerState->communityCards.size();
-	if (communityCardCount == 0 || thisPlayerState->state == PokerEnums::State::FOLDED || thisPlayerState->state == PokerEnums::State::OUT_OF_TOURNAMENT)
+	if (communityCardCount == 0
+		|| thisPlayerState->state == PokerEnums::State::FOLDED
+		|| thisPlayerState->state == PokerEnums::State::OUT_OF_TOURNAMENT
+		|| holeCards[0].cardId == 0
+		|| holeCards[1].cardId == 0
+		|| pokerState->communityCards[0].cardId == 0
+		|| pokerState->communityCards[1].cardId == 0
+		|| pokerState->communityCards[2].cardId == 0
+		|| (communityCardCount > 3 && pokerState->communityCards[3].cardId == 0)
+		|| (communityCardCount > 4 && pokerState->communityCards[4].cardId == 0)
+	)
 		return "";
 
 	// collect possible complete hands from current hole and community cards
