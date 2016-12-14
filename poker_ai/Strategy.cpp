@@ -189,7 +189,7 @@ void Strategy::save() {
 	}
 	con->terminateStatement(createClobStatement);
 
-	upsertStatement->execute();
+//	upsertStatement->execute();
 	con->terminateStatement(upsertStatement);
 	con->commit();
 	
@@ -227,6 +227,7 @@ void Strategy::setDecisionTreeAttributes(unsigned int strategyUnitId) {
 
 	for (unsigned int i = 0; i < decisionTreeUnitSlots; i++) {
 
+		decisionTreeUnits->push_back(DecisionTreeUnit());
 		DecisionTreeUnit* dtu = &decisionTreeUnits->at(i);
 
 		// setup decision tree unit bit string lengths and chromosome start positions

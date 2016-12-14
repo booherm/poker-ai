@@ -210,7 +210,7 @@ void GaEvolverGenerationWorker::createNextGeneration() {
 			// crossover
 			bool shouldPerformCrossover = parentsRs->getUInt(1) == 1;
 			if (shouldPerformCrossover) {
-				performCrossover(parentA, parentB, crossoverParams, childA, childB);
+				performCrossover(parentA, parentB, crossoverPoint, childA, childB);
 			}
 			else {
 				copyStrategyUnit(strategyUnitId, parentA, childA);
