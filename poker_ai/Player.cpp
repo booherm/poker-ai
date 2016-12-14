@@ -35,7 +35,7 @@ void Player::initialize(
 	std::vector<PlayerState>* playerStates,
 	unsigned int seatNumber,
 	Strategy* strategy,
-	unsigned int playerId,
+	const std::string& playerId,
 	unsigned int buyInAmount
 ) {
 
@@ -53,9 +53,7 @@ void Player::initialize(
 	thisPlayerState->setTournamentRank(0);
 	resetGameState();
 
-	if (strategy != nullptr) {
-		strategyEvaluationDataProvider.initialize(seatNumber, &pokerState->stateVariables, strategy);
-	}
+	setStrategy(strategy);
 }
 
 void Player::load(
@@ -104,7 +102,9 @@ void Player::load(
 		bestHandRank = 0;
 
 	// player state
-	thisPlayerState->setPlayerId(playerStateRs->getUInt(3));
+	std::string playerId;
+	Util::clobToString(playerStateRs->getClob(3), playerId);
+	thisPlayerState->setPlayerId(playerId);
 	thisPlayerState->setAssumedStrategyId(playerStateRs->getUInt(5));
 	thisPlayerState->setHandShowing(playerStateRs->getUInt(16) == 1);
 	thisPlayerState->setPresentedBetOpportunity(playerStateRs->getUInt(17) == 1);
@@ -173,9 +173,7 @@ void Player::load(
 	thisPlayerState->setTotalMoneyPlayed(playerStateRs->getUInt(80));
 	thisPlayerState->setTotalMoneyWon(playerStateRs->getUInt(81));
 
-	if (strategy != nullptr) {
-		strategyEvaluationDataProvider.initialize(seatNumber, &pokerState->stateVariables, strategy);
-	}
+	setStrategy(strategy);
 }
 
 bool Player::getIsActive() const {
@@ -227,13 +225,18 @@ int Player::getMoney() const {
 	return thisPlayerState->money;
 }
 
+unsigned int Player::getStrategyGeneration() const {
+	return strategyEvaluationDataProvider.getStrategyGeneration();
+}
+
+unsigned int Player::getStrategyId() const {
+	return strategyEvaluationDataProvider.getStrategyId();
+}
+
 void Player::getUiState(Json::Value& playerStateData) const {
 
 	playerStateData["seat_number"] = thisPlayerState->seatNumber;
-	if(thisPlayerState->playerId == 0)
-		playerStateData["player_id"] = Json::Value::null;
-	else
-		playerStateData["player_id"] = thisPlayerState->playerId;
+	playerStateData["player_id"] = thisPlayerState->playerId;
 	if (holeCards.size() == 0) {
 		playerStateData["hole_card_1"] = Json::Value::null;
 		playerStateData["hole_card_2"] = Json::Value::null;
@@ -274,7 +277,7 @@ void Player::getUiState(Json::Value& playerStateData) const {
 
 	}
 	playerStateData["hand_showing"] = thisPlayerState->handShowing ? "Yes" : "No";
-	playerStateData["strategy_id"] = strategyEvaluationDataProvider.getStrategyId();
+	playerStateData["strategy_id"] = getStrategyId();
 	playerStateData["money"] = thisPlayerState->money;
 	playerStateData["state"] = getStateString();
 	if (thisPlayerState->gameRank == 0)
@@ -358,6 +361,10 @@ void Player::replaceHoleCard(unsigned int cardSlot, unsigned int cardId) {
 void Player::setPlayerShowdownMuck() {
 	// debug - decision procedure to determine whether or not to show hand
 	thisPlayerState->setHandShowing(true);
+}
+
+void Player::setStrategy(Strategy* strategy) {
+	strategyEvaluationDataProvider.initialize(thisPlayerState->seatNumber, &pokerState->stateVariables, strategy);
 }
 
 std::string Player::calculateBestHand() {
@@ -574,11 +581,8 @@ void Player::insertStateLog() {
 
 	statement->setUInt(1, pokerState->currentStateId);
 	statement->setUInt(2, thisPlayerState->seatNumber);
-	if (thisPlayerState->playerId == 0)
-		statement->setNull(3, oracle::occi::OCCIUNSIGNED_INT);
-	else
-		statement->setUInt(3, thisPlayerState->playerId);
-	unsigned int currentStrategyId = strategyEvaluationDataProvider.getStrategyId();
+	statement->setString(3, thisPlayerState->playerId);
+	unsigned int currentStrategyId = getStrategyId();
 	if (currentStrategyId == 0)
 		statement->setNull(4, oracle::occi::OCCIUNSIGNED_INT);
 	else
@@ -723,176 +727,6 @@ void Player::insertStateLog() {
 	statement->setUInt(79, thisPlayerState->timesAllIn);
 	statement->setUInt(80, thisPlayerState->totalMoneyPlayed);
 	statement->setUInt(81, thisPlayerState->totalMoneyWon);
-	statement->execute();
-	con->terminateStatement(statement);
-
-}
-
-void Player::captureTournamentResults(unsigned int tournamentId, unsigned int evolutionTrialId) {
-
-	unsigned int currentStrategyId = strategyEvaluationDataProvider.getStrategyId();
-	if (currentStrategyId == 0)
-		return;
-
-	std::string procCall = "BEGIN pkg_poker_ai.insert_tournament_result(";
-	procCall.append("p_strategy_id                 => :1, ");
-	procCall.append("p_tournament_id               => :2, ");
-	procCall.append("p_evolution_trial_id          => :3, ");
-	procCall.append("p_tournament_rank             => :4, ");
-	procCall.append("p_games_played                => :5, ");
-	procCall.append("p_main_pots_won               => :6, ");
-	procCall.append("p_main_pots_split             => :7, ");
-	procCall.append("p_side_pots_won               => :8, ");
-	procCall.append("p_side_pots_split             => :9, ");
-	procCall.append("p_average_game_profit         => :10, ");
-	procCall.append("p_flops_seen                  => :11, ");
-	procCall.append("p_turns_seen                  => :12, ");
-	procCall.append("p_rivers_seen                 => :13, ");
-	procCall.append("p_pre_flop_folds              => :14, ");
-	procCall.append("p_flop_folds                  => :15, ");
-	procCall.append("p_turn_folds                  => :16, ");
-	procCall.append("p_river_folds                 => :17, ");
-	procCall.append("p_total_folds                 => :18, ");
-	procCall.append("p_pre_flop_checks             => :19, ");
-	procCall.append("p_flop_checks                 => :20, ");
-	procCall.append("p_turn_checks                 => :21, ");
-	procCall.append("p_river_checks                => :22, ");
-	procCall.append("p_total_checks                => :23, ");
-	procCall.append("p_pre_flop_calls              => :24, ");
-	procCall.append("p_flop_calls                  => :25, ");
-	procCall.append("p_turn_calls                  => :26, ");
-	procCall.append("p_river_calls                 => :27, ");
-	procCall.append("p_total_calls                 => :28, ");
-	procCall.append("p_pre_flop_bets               => :29, ");
-	procCall.append("p_flop_bets                   => :30, ");
-	procCall.append("p_turn_bets                   => :31, ");
-	procCall.append("p_river_bets                  => :32, ");
-	procCall.append("p_total_bets                  => :33, ");
-	procCall.append("p_pre_flop_total_bet_amount   => :34, ");
-	procCall.append("p_flop_total_bet_amount       => :35, ");
-	procCall.append("p_turn_total_bet_amount       => :36, ");
-	procCall.append("p_river_total_bet_amount      => :37, ");
-	procCall.append("p_total_bet_amount            => :38, ");
-	procCall.append("p_pre_flop_average_bet_amount => :39, ");
-	procCall.append("p_flop_average_bet_amount     => :40, ");
-	procCall.append("p_turn_average_bet_amount     => :41, ");
-	procCall.append("p_river_average_bet_amount    => :42, ");
-	procCall.append("p_average_bet_amount          => :43, ");
-	procCall.append("p_pre_flop_raises             => :44, ");
-	procCall.append("p_flop_raises                 => :45, ");
-	procCall.append("p_turn_raises                 => :46, ");
-	procCall.append("p_river_raises                => :47, ");
-	procCall.append("p_total_raises                => :48, ");
-	procCall.append("p_pre_flop_total_raise_amount => :49, ");
-	procCall.append("p_flop_total_raise_amount     => :50, ");
-	procCall.append("p_turn_total_raise_amount     => :51, ");
-	procCall.append("p_river_total_raise_amount    => :52, ");
-	procCall.append("p_total_raise_amount          => :53, ");
-	procCall.append("p_pre_flop_average_raise_amt  => :54, ");
-	procCall.append("p_flop_average_raise_amount   => :55, ");
-	procCall.append("p_turn_average_raise_amount   => :56, ");
-	procCall.append("p_river_average_raise_amount  => :57, ");
-	procCall.append("p_average_raise_amount        => :58, ");
-	procCall.append("p_times_all_in                => :59, ");
-	procCall.append("p_total_money_played          => :60, ");
-	procCall.append("p_total_money_won             => :61");
-	procCall.append("); END;");
-	oracle::occi::Statement* statement = con->createStatement(procCall);
-
-	statement->setUInt(1, currentStrategyId);
-	statement->setUInt(2, tournamentId);
-	statement->setUInt(3, evolutionTrialId);
-	statement->setUInt(4, thisPlayerState->tournamentRank);
-	statement->setUInt(5, thisPlayerState->gamesPlayed);
-	statement->setUInt(6, thisPlayerState->mainPotsWon);
-	statement->setUInt(7, thisPlayerState->mainPotsSplit);
-	statement->setUInt(8, thisPlayerState->sidePotsWon);
-	statement->setUInt(9, thisPlayerState->sidePotsSplit);
-	if (thisPlayerState->gamesPlayed == 0)
-		statement->setNull(10, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(10, thisPlayerState->averageGameProfit);
-	statement->setUInt(11, thisPlayerState->flopsSeen);
-	statement->setUInt(12, thisPlayerState->turnsSeen);
-	statement->setUInt(13, thisPlayerState->riversSeen);
-	statement->setUInt(14, thisPlayerState->preFlopFolds);
-	statement->setUInt(15, thisPlayerState->flopFolds);
-	statement->setUInt(16, thisPlayerState->turnFolds);
-	statement->setUInt(17, thisPlayerState->riverFolds);
-	statement->setUInt(18, thisPlayerState->totalFolds);
-	statement->setUInt(19, thisPlayerState->preFlopChecks);
-	statement->setUInt(20, thisPlayerState->flopChecks);
-	statement->setUInt(21, thisPlayerState->turnChecks);
-	statement->setUInt(22, thisPlayerState->riverChecks);
-	statement->setUInt(23, thisPlayerState->totalChecks);
-	statement->setUInt(24, thisPlayerState->preFlopCalls);
-	statement->setUInt(25, thisPlayerState->flopCalls);
-	statement->setUInt(26, thisPlayerState->turnCalls);
-	statement->setUInt(27, thisPlayerState->riverCalls);
-	statement->setUInt(28, thisPlayerState->totalCalls);
-	statement->setUInt(29, thisPlayerState->preFlopBets);
-	statement->setUInt(30, thisPlayerState->flopBets);
-	statement->setUInt(31, thisPlayerState->turnBets);
-	statement->setUInt(32, thisPlayerState->riverBets);
-	statement->setUInt(33, thisPlayerState->totalBets);
-	statement->setUInt(34, thisPlayerState->preFlopTotalBetAmount);
-	statement->setUInt(35, thisPlayerState->flopTotalBetAmount);
-	statement->setUInt(36, thisPlayerState->turnTotalBetAmount);
-	statement->setUInt(37, thisPlayerState->riverTotalBetAmount);
-	statement->setUInt(38, thisPlayerState->totalBetAmount);
-	if (thisPlayerState->preFlopBets == 0)
-		statement->setNull(39, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(39, thisPlayerState->preFlopAverageBetAmount);
-	if (thisPlayerState->flopBets == 0)
-		statement->setNull(40, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(40, thisPlayerState->flopAverageBetAmount);
-	if (thisPlayerState->turnBets == 0)
-		statement->setNull(41, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(41, thisPlayerState->turnAverageBetAmount);
-	if (thisPlayerState->riverBets == 0)
-		statement->setNull(42, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(42, thisPlayerState->riverAverageBetAmount);
-	if (thisPlayerState->totalBets == 0)
-		statement->setNull(43, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(43, thisPlayerState->averageBetAmount);
-	statement->setUInt(44, thisPlayerState->preFlopRaises);
-	statement->setUInt(45, thisPlayerState->flopRaises);
-	statement->setUInt(46, thisPlayerState->turnRaises);
-	statement->setUInt(47, thisPlayerState->riverRaises);
-	statement->setUInt(48, thisPlayerState->totalRaises);
-	statement->setUInt(49, thisPlayerState->preFlopTotalRaiseAmount);
-	statement->setUInt(50, thisPlayerState->flopTotalRaiseAmount);
-	statement->setUInt(51, thisPlayerState->turnTotalRaiseAmount);
-	statement->setUInt(52, thisPlayerState->riverTotalRaiseAmount);
-	statement->setUInt(53, thisPlayerState->totalRaiseAmount);
-	if (thisPlayerState->preFlopRaises == 0)
-		statement->setNull(54, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(54, thisPlayerState->preFlopAverageRaiseAmount);
-	if (thisPlayerState->flopRaises == 0)
-		statement->setNull(55, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(55, thisPlayerState->flopAverageRaiseAmount);
-	if (thisPlayerState->turnRaises == 0)
-		statement->setNull(56, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(56, thisPlayerState->turnAverageRaiseAmount);
-	if (thisPlayerState->riverRaises == 0)
-		statement->setNull(57, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(57, thisPlayerState->riverAverageRaiseAmount);
-	if (thisPlayerState->totalRaises == 0)
-		statement->setNull(58, oracle::occi::OCCIFLOAT);
-	else
-		statement->setFloat(58, thisPlayerState->averageRaiseAmount);
-	statement->setUInt(59, thisPlayerState->timesAllIn);
-	statement->setUInt(60, thisPlayerState->totalMoneyPlayed);
-	statement->setUInt(61, thisPlayerState->totalMoneyWon);
 	statement->execute();
 	con->terminateStatement(statement);
 
@@ -1256,7 +1090,7 @@ void Player::performAutomaticPlayerMove() {
 		logger->log(pokerState->currentStateId, "player at seat " + std::to_string(thisPlayerState->seatNumber) + " must check");
 		performExplicitPlayerMove(PokerEnums::PlayerMove::CHECK, 0);
 	}
-	else if (strategyEvaluationDataProvider.getStrategyId() == 0) {
+	else if (getStrategyId() == 0) {
 
 		// perform random move
 		logger->log(pokerState->currentStateId, "player at seat " + std::to_string(thisPlayerState->seatNumber) + " is performing random move");

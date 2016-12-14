@@ -3,7 +3,6 @@
 
 #include <boost/thread.hpp>
 #include <windows.h>
-#include <occi.h>
 #include "StrategyManager.hpp"
 #include "Logger.hpp"
 #include "Util.hpp"
@@ -12,7 +11,7 @@ class GaEvolverGenerationWorker {
 public:
 
 	GaEvolverGenerationWorker(
-		oracle::occi::StatelessConnectionPool* connectionPool,
+		DbConnectionManager* dbConnectionManager,
 		unsigned int trialId,
 		const std::string& workerId,
 		StrategyManager* strategyManager,
@@ -27,10 +26,11 @@ private:
 	void updateStrategyFitness();
 	void createNextGeneration();
 	void performCrossover(Strategy* parentA, Strategy* parentB, unsigned int crossoverPoint, Strategy* childA, Strategy* childB);
-	void copyChromosome(Strategy* source, Strategy* destination);
-	void mutateChromosome(Strategy* strategy, float mutationRate);
+	void copyChromosomes(Strategy* source, Strategy* destination);
+	void copyStrategyUnit(unsigned int strategyUnitId, Strategy* source, Strategy* destination);
+	void mutateChromosome(unsigned int strategyUnitId, Strategy* strategy, float mutationRate);
 
-	oracle::occi::StatelessConnectionPool* connectionPool;
+	DbConnectionManager* dbConnectionManager;
 	oracle::occi::Connection* con;
 	unsigned int trialId;
 	std::string workerId;
@@ -39,6 +39,7 @@ private:
 	StrategyManager* strategyManager;
 	unsigned int currentGenerationNumber;
 	bool loggingEnabled;
+	bool generationCreationInProgress = false;
 	Util::RandomNumberGenerator randomNumberGenerator;
 };
 

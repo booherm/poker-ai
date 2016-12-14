@@ -68,8 +68,10 @@ void PlayerState::setSeatNumber(unsigned int seatNumber) {
 	this->seatNumber = seatNumber;
 }
 
-void PlayerState::setPlayerId(unsigned int playerId) {
-	stateVariables->setPublicPlayerStateVariableValue(StateVariableCollection::PublicPlayerStateVariable::PLAYER_ID, seatNumber, (float) playerId);
+void PlayerState::setPlayerId(const std::string& playerId) {
+	// debug - could decode this to a unique numeric ID
+	//stateVariables->setPublicPlayerStateVariableValue(StateVariableCollection::PublicPlayerStateVariable::PLAYER_ID, seatNumber, (float) playerId);
+	stateVariables->setPublicPlayerStateVariableValue(StateVariableCollection::PublicPlayerStateVariable::PLAYER_ID, seatNumber, 0.0f);
 	this->playerId = playerId;
 }
 

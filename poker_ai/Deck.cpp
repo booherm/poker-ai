@@ -69,10 +69,16 @@ Deck::Card Deck::getCardById(unsigned int cardId) const {
 }
 
 bool Deck::getIsCardDealt(unsigned int cardId) const {
+	if (cardId == 0)
+		return false;
+
 	return cards[cardId - 1].dealt;
 }
 
 Deck::Card Deck::drawCardById(unsigned int cardId) {
+	if(cardId == 0)
+		return unkownCard;
+
 	cards[cardId - 1].dealt = true;
 	return cards[cardId - 1];
 }

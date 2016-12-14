@@ -15,6 +15,8 @@ private:
 	void initTournament(WebView* caller, const JSArray& args);
 	void stepPlay(WebView* caller, const JSArray& args);
 	void editCard(WebView* caller, const JSArray& args);
+	void updatePlayerId(WebView* caller, const JSArray& args);
+	void updatePlayerStrategyId(WebView* caller, const JSArray& args);
 	void loadState(WebView* caller, const JSArray& args);
 	void loadPreviousState(WebView* caller, const JSArray& args);
 	void loadNextState(WebView* caller, const JSArray& args);

@@ -9,3 +9,20 @@ Trial ID 3: control generation = 103 (best of trial 1), initial generation = 182
 
 
 
+---------------------------- new set
+Trial ID 1: control generation = 0 (random), initial generation = 1 (random) ran to generation 217 (217 generations)
+	-- steady improvement, shallow increase trend
+	-- started gen 217 with mutation rate increased from .001 to .05
+	-- ran to gen 280 marked decline, suspect mutation rate too high
+
+Trial ID 2: copied trial 1 generation 217 to trial 2 generation 0; initial generation 1 from random.  95 generations
+	-- rapid initial improvement, settled around gen 4.  Shallow decline in linear trend.
+
+Trial ID 3: control generation = 0 (random), initial generation = 1 (random), now including 5x2 = 10 carry over strategies
+	similar to trial 1, no real difference
+
+
+
+
+	
+	

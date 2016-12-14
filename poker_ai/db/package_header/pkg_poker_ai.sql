@@ -137,9 +137,10 @@ PROCEDURE insert_pot_contribution_log(
 );
 
 PROCEDURE insert_tournament_result(
+	p_trial_id                    tournament_result.trial_id%TYPE,
+	p_generation                  tournament_result.generation%TYPE,
 	p_strategy_id                 tournament_result.strategy_id%TYPE,
 	p_tournament_id               tournament_result.tournament_id%TYPE,
-	p_evolution_trial_id          tournament_result.evolution_trial_id%TYPE,
 	p_tournament_rank             tournament_result.tournament_rank%TYPE,
 	p_games_played                tournament_result.games_played%TYPE,
 	p_main_pots_won               tournament_result.main_pots_won%TYPE,
@@ -222,10 +223,17 @@ FUNCTION get_new_state_id RETURN poker_state_log.state_id%TYPE;
 FUNCTION get_new_strategy_id RETURN strategy.strategy_id%TYPE;
 
 PROCEDURE upsert_strategy (
-	p_strategy_id         strategy.strategy_id%TYPE,
-	p_generation          strategy.generation%TYPE,
-	p_strategy_chromosome strategy.strategy_chromosome%TYPE,
-	p_strategy_procedure  strategy.strategy_procedure%TYPE
+	p_trial_id              strategy.trial_id%TYPE,
+	p_generation            strategy.generation%TYPE,
+	p_strategy_id           strategy.strategy_id%TYPE,
+	p_strategy_chromosome_1 strategy.strategy_chromosome_1%TYPE,
+	p_strategy_procedure_1  strategy.strategy_procedure_1%TYPE,
+	p_strategy_chromosome_2 strategy.strategy_chromosome_2%TYPE,
+	p_strategy_procedure_2  strategy.strategy_procedure_2%TYPE,
+	p_strategy_chromosome_3 strategy.strategy_chromosome_3%TYPE,
+	p_strategy_procedure_3  strategy.strategy_procedure_3%TYPE,
+	p_strategy_chromosome_4 strategy.strategy_chromosome_4%TYPE,
+	p_strategy_procedure_4  strategy.strategy_procedure_4%TYPE
 );
 
 PROCEDURE select_strategy (

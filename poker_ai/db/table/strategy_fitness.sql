@@ -1,7 +1,8 @@
 CREATE TABLE strategy_fitness
 (
+	trial_id                      NUMBER(10, 0),
+	generation                    NUMBER(10, 0),
 	strategy_id                   NUMBER(10, 0),
-	evolution_trial_id            NUMBER(10, 0),
 	fitness_score                 NUMBER(38, 10),
 	tournaments_played            NUMBER(10, 0),
 	average_tournament_profit     NUMBER(12, 2),
@@ -66,5 +67,5 @@ CREATE TABLE strategy_fitness
 
 ALTER TABLE strategy_fitness ADD
 (
-	CONSTRAINT sf_pk_sidetid PRIMARY KEY (strategy_id, evolution_trial_id)
+	CONSTRAINT sf_pk_tidgsid PRIMARY KEY (trial_id, generation, strategy_id)
 );

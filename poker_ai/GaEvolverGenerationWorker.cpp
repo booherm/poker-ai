@@ -3,14 +3,14 @@
 #include <string>
 
 GaEvolverGenerationWorker::GaEvolverGenerationWorker(
-	oracle::occi::StatelessConnectionPool* connectionPool,
+	DbConnectionManager* dbConnectionManager,
 	unsigned int trialId,
 	const std::string& workerId,
 	StrategyManager* strategyManager,
 	unsigned int initialGenerationNumber,
 	bool loggingEnabled
 ) {
-	this->connectionPool = connectionPool;
+	this->dbConnectionManager = dbConnectionManager;
 	this->trialId = trialId;
 	this->workerId = workerId;
 	this->strategyManager = strategyManager;
@@ -24,52 +24,94 @@ void GaEvolverGenerationWorker::startThread() {
 
 void GaEvolverGenerationWorker::threadLoop() {
 
-	con = connectionPool->getConnection();
-	logger.initialize(con);
-	logger.setLoggingEnabled(loggingEnabled);
-	bool verboseOutput = false;
-	int result;
-	std::string resultStringPrefix = workerId + " stepping generation call returned ";
+	int result = 0;
+	con = dbConnectionManager->getConnection();
 
-	std::string procCall = "BEGIN :1 := pkg_ga_evolver.step_generation(";
-	procCall.append("p_trial_id => :2");
-	procCall.append("); END; ");
-	oracle::occi::Statement* statement = con->createStatement();
-	statement->setSQL(procCall);
-	statement->registerOutParam(1, oracle::occi::OCCIINT);
-	statement->setUInt(2, trialId);
+	while (result != -1) {
 
-	do {
-		statement->execute();
-		result = statement->getInt(1);
+		try {
 
-		if (verboseOutput && result == 0) {
-			logger.log(0, resultStringPrefix + "0: tournament runner work remains");
+			logger.initialize(con);
+			logger.setLoggingEnabled(loggingEnabled);
+			bool verboseOutput = false;
+			std::string resultStringPrefix = workerId + " stepping generation call returned ";
+
+			std::string procCall = "BEGIN :1 := pkg_ga_evolver.step_generation(";
+			procCall.append("p_trial_id => :2");
+			procCall.append("); END; ");
+			oracle::occi::Statement* statement = con->createStatement();
+			statement->setSQL(procCall);
+			statement->registerOutParam(1, oracle::occi::OCCIINT);
+			statement->setUInt(2, trialId);
+
+			do {
+				statement->execute();
+				result = statement->getInt(1);
+
+				if (verboseOutput && result == 0) {
+					logger.log(0, resultStringPrefix + "0: tournament runner work remains");
+				}
+				else if (result == 1) {
+					logger.log(0, resultStringPrefix + "1: create next generation");
+					createNextGeneration();
+				}
+				else if (result == -1) {
+					logger.log(0, resultStringPrefix + "-1: stop, no work to perform");
+					updateStrategyFitness();
+				}
+
+				Sleep(1000);
+
+			} while (result != -1);
+			con->terminateStatement(statement);
+
+			// mark trial complete
+			procCall = "BEGIN pkg_ga_evolver.mark_trial_complete(";
+			procCall.append("p_trial_id => :1");
+			procCall.append("); END; ");
+			statement = con->createStatement(procCall);
+			statement->setUInt(1, trialId);
+			statement->execute();
+			con->terminateStatement(statement);
+
+			dbConnectionManager->releaseConnection(con);
+
 		}
-		else if (result == 1) {
-			logger.log(0, resultStringPrefix + "1: create next generation");
-			createNextGeneration();
+		catch (const oracle::occi::SQLException& e) {
+
+			// connection lost contact, re-establish
+			std::cout << "oracle::occi::SQLException - " << e.what() << std::endl;
+			dbConnectionManager->releaseConnection(con);
+			Sleep(5000);
+			con = dbConnectionManager->getConnection();
+
+			if (generationCreationInProgress) {
+				// cleanup and restart generation creation
+				std::string procCall = "BEGIN :1 := pkg_ga_evolver.clean_interrupted_gen_create(";
+				procCall.append("p_trial_id => :2");
+				procCall.append("); END; ");
+				oracle::occi::Statement* statement = con->createStatement(procCall);
+				statement->registerOutParam(1, oracle::occi::OCCIUNSIGNED_INT);
+				statement->setUInt(2, trialId);
+				statement->execute();
+				currentGenerationNumber = statement->getUInt(1);
+				con->terminateStatement(statement);
+				createNextGeneration();
+			}
+
+			std::cout << workerId << " recovered" << std::endl;
+
 		}
-		else if (result == -1) {
-			logger.log(0, resultStringPrefix + "-1: stop, no work to perform");
-			updateStrategyFitness();
+		catch (const std::exception& e) {
+			std::cout << "unknown exception: " << e.what() << std::endl;
 		}
-
-		Sleep(1000);
-
-	} while (result != -1);
-	con->terminateStatement(statement);
-
-	// mark trial complete
-	procCall = "BEGIN pkg_ga_evolver.mark_trial_complete(";
-	procCall.append("p_trial_id => :1");
-	procCall.append("); END; ");
-	statement = con->createStatement(procCall);
-	statement->setUInt(1, trialId);
-	statement->execute();
-	con->terminateStatement(statement);
-
-	connectionPool->releaseConnection(con);
+		catch (const std::string& e) {
+			std::cout << "unknown exception: " << e << std::endl;
+		}
+		catch (...) {
+			std::cout << "unknown exception" << std::endl;
+		}
+	}
 }
 
 void GaEvolverGenerationWorker::updateStrategyFitness() {
@@ -87,8 +129,9 @@ void GaEvolverGenerationWorker::updateStrategyFitness() {
 
 void GaEvolverGenerationWorker::createNextGeneration() {
 
-	logger.log(0, "creating new generation");
-	
+	logger.log(0, workerId + ": creating new generation " + std::to_string(currentGenerationNumber + 1));
+	generationCreationInProgress = true;
+
 	updateStrategyFitness();
 
 	// debug, could purge tournament reuslts here or in update proc
@@ -98,13 +141,15 @@ void GaEvolverGenerationWorker::createNextGeneration() {
 	procCall.append("p_trial_id         => :1, ");
 	procCall.append("p_generation       => :2, ");
 	procCall.append("p_trial_attributes => :3, ");
-	procCall.append("p_parents          => :4");
+	procCall.append("p_carry_overs      => :4, ");
+	procCall.append("p_parents          => :5");
 	procCall.append("); END; ");
 	oracle::occi::Statement* statement = con->createStatement(procCall);
 	statement->setUInt(1, trialId);
 	statement->setUInt(2, currentGenerationNumber);
 	statement->registerOutParam(3, oracle::occi::OCCICURSOR);
 	statement->registerOutParam(4, oracle::occi::OCCICURSOR);
+	statement->registerOutParam(5, oracle::occi::OCCICURSOR);
 	statement->execute();
 
 	// get evolution trial attributes
@@ -118,12 +163,33 @@ void GaEvolverGenerationWorker::createNextGeneration() {
 	// perform evolution work
 	currentGenerationNumber++;
 	std::vector<Strategy*> newGeneration;
-	oracle::occi::ResultSet* parentsRs = statement->getCursor(4);
-	unsigned int parentRecCount = 0;
-	while (parentsRs->next()) {
 
-		// debug
-		parentRecCount++;
+	// best n strategies get automatically carried on to the next generation as is
+	oracle::occi::ResultSet* carryOversRs = statement->getCursor(4);
+	while (carryOversRs->next()) {
+		Strategy* carryOverParent = strategyManager->getStrategy(carryOversRs->getUInt(1));
+		Strategy* carryOverChildA = strategyManager->createStrategy();
+		Strategy* carryOverChildB = strategyManager->createStrategy();
+		carryOverChildA->setTrialId(trialId);
+		carryOverChildB->setTrialId(trialId);
+		carryOverChildA->setGeneration(currentGenerationNumber);
+		carryOverChildB->setGeneration(currentGenerationNumber);
+		carryOverChildA->assignNewStrategyId();
+		carryOverChildB->assignNewStrategyId();
+		copyChromosomes(carryOverParent, carryOverChildA);
+		copyChromosomes(carryOverParent, carryOverChildB);
+		carryOverChildA->generateStrategyUnitDecisionProcedures();
+		carryOverChildB->generateStrategyUnitDecisionProcedures();
+		carryOverChildA->save();
+		carryOverChildB->save();
+		newGeneration.push_back(carryOverChildA);
+		newGeneration.push_back(carryOverChildB);
+	}
+	statement->closeResultSet(carryOversRs);
+
+	// breed from parent generation
+	oracle::occi::ResultSet* parentsRs = statement->getCursor(5);
+	while (parentsRs->next()) {
 
 		unsigned int parentAStrategyId = parentsRs->getUInt(2);
 		unsigned int parentBStrategyId = parentsRs->getUInt(3);
@@ -131,6 +197,53 @@ void GaEvolverGenerationWorker::createNextGeneration() {
 		Strategy* parentB = strategyManager->getStrategy(parentBStrategyId);
 		Strategy* childA = strategyManager->createStrategy();
 		Strategy* childB = strategyManager->createStrategy();
+		childA->setTrialId(trialId);
+		childB->setTrialId(trialId);
+		childA->setGeneration(currentGenerationNumber);
+		childB->setGeneration(currentGenerationNumber);
+		childA->assignNewStrategyId();
+		childB->assignNewStrategyId();
+
+		// by strategy unit (chromosome)
+		for (unsigned int strategyUnitId = 0; strategyUnitId < parentA->strategyUnitCount; strategyUnitId++)
+		{
+			// crossover
+			bool shouldPerformCrossover = parentsRs->getUInt(1) == 1;
+			if (shouldPerformCrossover) {
+				performCrossover(parentA, parentB, crossoverParams, childA, childB);
+			}
+			else {
+				copyStrategyUnit(strategyUnitId, parentA, childA);
+				copyStrategyUnit(strategyUnitId, parentB, childB);
+			}
+
+			// mutate
+			mutateChromosome(strategyUnitId, childA, mutationRate);
+			mutateChromosome(strategyUnitId, childB, mutationRate);
+		}
+
+		childA->generateStrategyUnitDecisionProcedures();
+		childB->generateStrategyUnitDecisionProcedures();
+		childA->save();
+		childB->save();
+		newGeneration.push_back(childA);
+		newGeneration.push_back(childB);
+	}
+	statement->closeResultSet(parentsRs);
+
+	/*
+	// breed from parent generation
+	oracle::occi::ResultSet* parentsRs = statement->getCursor(5);
+	while (parentsRs->next()) {
+
+		unsigned int parentAStrategyId = parentsRs->getUInt(2);
+		unsigned int parentBStrategyId = parentsRs->getUInt(3);
+		Strategy* parentA = strategyManager->getStrategy(parentAStrategyId);
+		Strategy* parentB = strategyManager->getStrategy(parentBStrategyId);
+		Strategy* childA = strategyManager->createStrategy();
+		Strategy* childB = strategyManager->createStrategy();
+		childA->setTrialId(trialId);
+		childB->setTrialId(trialId);
 		childA->setGeneration(currentGenerationNumber);
 		childB->setGeneration(currentGenerationNumber);
 		childA->assignNewStrategyId();
@@ -150,27 +263,25 @@ void GaEvolverGenerationWorker::createNextGeneration() {
 		mutateChromosome(childA, mutationRate);
 		mutateChromosome(childB, mutationRate);
 
-		childA->generateDecisionProcedure();
-		childB->generateDecisionProcedure();
+		childA->generateStrategyUnitDecisionProcedures();
+		childB->generateStrategyUnitDecisionProcedures();
 		childA->save();
 		childB->save();
 		newGeneration.push_back(childA);
 		newGeneration.push_back(childB);
 	}
 	statement->closeResultSet(parentsRs);
+	*/
+
 	con->terminateStatement(statement);
-
-	// debug
-	if (parentRecCount != (generationSize / 2))
-		std::cout << "hit generation size bug" << std::endl;
-
-	// clear parent generation
-	strategyManager->flush(currentGenerationNumber - 1);
 
 	// set new generation
 	for (unsigned int i = 0; i < generationSize; i++) {
 		strategyManager->setStrategy(newGeneration[i]);
 	}
+	strategyManager->setGenerationLoaded(currentGenerationNumber);
+
+	generationCreationInProgress = false;
 
 	// mark generation as created and enqueue tournements for new generation
 	procCall = "BEGIN pkg_ga_evolver.set_current_generation(";
@@ -183,7 +294,7 @@ void GaEvolverGenerationWorker::createNextGeneration() {
 	statement->execute();
 	con->terminateStatement(statement);
 
-	logger.log(0, "generation " + std::to_string(currentGenerationNumber) + " created and tournaments queued");
+	logger.log(0, workerId + ": generation " + std::to_string(currentGenerationNumber) + " created and tournaments queued");
 }
 
 void GaEvolverGenerationWorker::threadJoin() {
@@ -192,6 +303,21 @@ void GaEvolverGenerationWorker::threadJoin() {
 
 void GaEvolverGenerationWorker::performCrossover(Strategy* parentA, Strategy* parentB, unsigned int crossoverPoint, Strategy* childA, Strategy* childB) {
 
+	unsigned int strategyUnitId = 0;
+	std::vector<bool>* parentAChromosome = parentA->getChromosome(strategyUnitId);
+	std::vector<bool>* parentBChromosome = parentB->getChromosome(strategyUnitId);
+	std::vector<bool>* childAChromosome = childA->getChromosome(strategyUnitId);
+	std::vector<bool>* childBChromosome = childB->getChromosome(strategyUnitId);
+	unsigned int chromosomeLength = parentAChromosome->size();
+
+	// do some magic
+
+	// known: how many times the decision procedure got executed.
+	// each DTU will have been executed (n / total decision tree executions) 
+	// sort parents by fitness.  Weight strength   Paths executed that 
+
+
+	/*
 	std::vector<bool>* parentAChromosome = parentA->getChromosome();
 	std::vector<bool>* parentBChromosome = parentB->getChromosome();
 	std::vector<bool>* childAChromosome = childA->getChromosome();
@@ -206,22 +332,39 @@ void GaEvolverGenerationWorker::performCrossover(Strategy* parentA, Strategy* pa
 		childAChromosome->push_back(parentBChromosome->at(i));
 		childBChromosome->push_back(parentAChromosome->at(i));
 	}
+	*/
 
 }
 
-void GaEvolverGenerationWorker::copyChromosome(Strategy* source, Strategy* destination) {
-	std::vector<bool>* sourceChromosome = source->getChromosome();
-	std::vector<bool>* destinationChromosome = destination->getChromosome();
+void GaEvolverGenerationWorker::copyChromosomes(Strategy* source, Strategy* destination) {
+
+	for (unsigned int su = 0; su < source->strategyUnitCount; su++) {
+		std::vector<bool>* sourceChromosome = source->getChromosome(su);
+		std::vector<bool>* destinationChromosome = destination->getChromosome(su);
+		unsigned int chromosomeLength = sourceChromosome->size();
+
+		for (unsigned int i = 0; i < chromosomeLength; i++) {
+			destinationChromosome->push_back(sourceChromosome->at(i));
+		}
+	}
+}
+
+void GaEvolverGenerationWorker::copyStrategyUnit(unsigned int strategyUnitId, Strategy* source, Strategy* destination) {
+
+	std::vector<bool>* sourceChromosome = source->getChromosome(strategyUnitId);
+	std::vector<bool>* destinationChromosome = destination->getChromosome(strategyUnitId);
 	unsigned int chromosomeLength = sourceChromosome->size();
+	destinationChromosome->clear();
 
 	for (unsigned int i = 0; i < chromosomeLength; i++) {
 		destinationChromosome->push_back(sourceChromosome->at(i));
 	}
+
 }
 
-void GaEvolverGenerationWorker::mutateChromosome(Strategy* strategy, float mutationRate) {
+void GaEvolverGenerationWorker::mutateChromosome(unsigned int strategyUnitId, Strategy* strategy, float mutationRate) {
 
-	std::vector<bool>* strategyChromosome = strategy->getChromosome();
+	std::vector<bool>* strategyChromosome = strategy->getChromosome(strategyUnitId);
 	unsigned int chromosomeLength = strategyChromosome->size();
 
 	for (unsigned int i = 0; i < chromosomeLength; i++) {

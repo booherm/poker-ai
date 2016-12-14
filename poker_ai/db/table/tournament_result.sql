@@ -1,8 +1,9 @@
 CREATE TABLE tournament_result
 (
+	trial_id                      NUMBER(10, 0),
+	generation                    NUMBER(10, 0),
 	strategy_id                   NUMBER(10, 0),
 	tournament_id                 NUMBER(10, 0),
-	evolution_trial_id            NUMBER(10, 0),
 	tournament_rank               NUMBER(2, 0),
 	games_played                  NUMBER(10, 0),
 	main_pots_won                 NUMBER(10, 0),
@@ -65,5 +66,5 @@ CREATE TABLE tournament_result
 
 ALTER TABLE tournament_result ADD
 (
-	CONSTRAINT tr_pk_sidtid PRIMARY KEY (strategy_id, tournament_id)
+	CONSTRAINT tr_pk_tidgsidtid PRIMARY KEY (trial_id, generation, strategy_id, tournament_id)
 );

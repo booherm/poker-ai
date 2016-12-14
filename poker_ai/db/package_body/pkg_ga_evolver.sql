@@ -7,6 +7,7 @@ PROCEDURE upsert_evolution_trial(
 	p_max_generations           evolution_trial.max_generations%TYPE,
 	p_crossover_rate            evolution_trial.crossover_rate%TYPE,
 	p_crossover_point           evolution_trial.crossover_point%TYPE,
+	p_carry_over_count          evolution_trial.carry_over_count%TYPE,
 	p_mutation_rate             evolution_trial.mutation_rate%TYPE,
 	p_players_per_tournament    evolution_trial.players_per_tournament%TYPE,
 	p_tournament_play_count     evolution_trial.tournament_play_count%TYPE,
@@ -25,6 +26,7 @@ BEGIN
 		max_generations = p_max_generations,
 		crossover_rate = p_crossover_rate,
 		crossover_point = p_crossover_point,
+		carry_over_count = p_carry_over_count,
 		mutation_rate = p_mutation_rate,
 		players_per_tournament = p_players_per_tournament,
 		tournament_play_count = p_tournament_play_count,
@@ -40,6 +42,7 @@ BEGIN
 		max_generations,
 		crossover_rate,
 		crossover_point,
+		carry_over_count,
 		mutation_rate,
 		players_per_tournament,
 		tournament_play_count,
@@ -55,6 +58,7 @@ BEGIN
 		p_max_generations,
 		p_crossover_rate,
 		p_crossover_point,
+		p_carry_over_count,
 		p_mutation_rate,
 		p_players_per_tournament,
 		p_tournament_play_count,
@@ -135,7 +139,8 @@ BEGIN
 		WITH full_control_generation AS (
 			SELECT strategy_id
 			FROM   strategy
-			WHERE  generation = v_evolution_trial.control_generation
+			WHERE  trial_id = p_trial_id
+			   AND generation = v_evolution_trial.control_generation
 			ORDER BY DBMS_RANDOM.VALUE
 		),
 		
@@ -152,7 +157,8 @@ BEGIN
 		FOR v_current_gen_rec IN (
 			SELECT strategy_id
 			FROM   strategy
-			WHERE  generation = v_evolution_trial.current_generation
+			WHERE  trial_id = p_trial_id
+			   AND generation = v_evolution_trial.current_generation
 			ORDER BY DBMS_RANDOM.VALUE
 		) LOOP
 		
@@ -170,19 +176,18 @@ BEGIN
 			INSERT INTO evolution_trial_work (
 				trial_id,
 				tournament_id,
-				strategy_id,
+				strategy_ids,
 				played
-			)
-			SELECT p_trial_id trial_id,
-				   v_tournament_id tournament_id,
-				   column_value strategy_id,
-				   'N' played
-			FROM   TABLE(v_rand_strategy_id_array);
+			) VALUES (
+				p_trial_id,
+				v_tournament_id,
+				v_rand_strategy_id_array,
+				'N'
+			);
 			
 			v_payload := t_row_evolution_trial_queue(
 				trial_id      => p_trial_id,
 				tournament_id => v_tournament_id,
-				player_count  => v_evolution_trial.players_per_tournament,
 				strategy_ids  => v_rand_strategy_id_array
 			);
 				
@@ -202,33 +207,35 @@ BEGIN
 END enqueue_tournaments;
 
 FUNCTION select_tournament_work (
-	p_trial_id                   evolution_trial.trial_id%TYPE,
-	p_tournament_work            OUT t_rc_generic,
-	p_tournament_work_strategies OUT t_rc_generic
+	p_worker_id        evolution_trial_work.picked_up_by%TYPE,
+	p_trial_id         evolution_trial.trial_id%TYPE,
+	p_trial_attributes OUT t_rc_generic,
+	p_tournament_work  OUT t_rc_generic
 ) RETURN INTEGER IS
 
-	v_strategy_record           t_row_number := t_row_number(NULL);
-	v_strategy_ids              t_tbl_number := t_tbl_number();
-	v_dequeue_options           DBMS_AQ.DEQUEUE_OPTIONS_T;
-	v_message_properties        DBMS_AQ.MESSAGE_PROPERTIES_T;
-	v_payload                   t_row_evolution_trial_queue;
-	v_message_handle            RAW(16);
-	v_player_count_sanity_check evolution_trial.players_per_tournament%TYPE;
-	v_ppt_sanity_check          evolution_trial.players_per_tournament%TYPE;
-	v_trial_complete            evolution_trial.trial_complete%TYPE;
-	v_work_to_perform           BOOLEAN := TRUE;
+	v_dequeue_batch_size INTEGER := 100;
+	v_dequeue_options    DBMS_AQ.DEQUEUE_OPTIONS_T;
+	v_message_properties DBMS_AQ.MESSAGE_PROPERTIES_ARRAY_T;
+	v_payload            t_tbl_evolution_trial_queue;
+	v_message_ids        DBMS_AQ.MSGID_ARRAY_T;
+	v_dequeued_count     INTEGER;
+	v_trial_complete     evolution_trial.trial_complete%TYPE;
+	v_work_to_perform    BOOLEAN := TRUE;
 	
 BEGIN
 	
-	-- attempt to dequeue a message
+	-- attempt to dequeue a batch of messages
 	BEGIN
 		v_dequeue_options.wait := DBMS_AQ.NO_WAIT;
-		DBMS_AQ.DEQUEUE(
-			queue_name         => 'ev_trial_work_queue',
-			dequeue_options    => v_dequeue_options,
-			message_properties => v_message_properties,
-			payload            => v_payload,
-			msgid              => v_message_handle
+		v_dequeue_options.deq_condition := 'tab.user_data.trial_id = ' || p_trial_id;
+		
+		v_dequeued_count := DBMS_AQ.DEQUEUE_ARRAY(
+			queue_name               => 'ev_trial_work_queue',
+			dequeue_options          => v_dequeue_options,
+			array_size               => v_dequeue_batch_size,
+			message_properties_array => v_message_properties,
+			payload_array            => v_payload,
+			msgid_array              => v_message_ids
 		);
 		
 		EXCEPTION WHEN OTHERS THEN
@@ -241,46 +248,33 @@ BEGIN
 	
 	IF v_work_to_perform THEN
 	
-		-- setup strategy IDs for tournament
-		v_strategy_ids.DELETE;
-		FOR v_i IN 1 .. v_payload.player_count LOOP
-			v_strategy_record.value := v_payload.strategy_ids(v_i);
-			v_strategy_ids.EXTEND;
-			v_strategy_ids(v_i) := v_strategy_record;
-		END LOOP;
-
-		-- debug - player count sanity check
-		SELECT players_per_tournament
-		INTO   v_ppt_sanity_check
-		FROM   evolution_trial
-		WHERE  trial_id = p_trial_id;
-		SELECT COUNT(*) player_count_sanity_check
-		INTO   v_player_count_sanity_check
-		FROM   TABLE(v_strategy_ids);
-		IF v_player_count_sanity_check != v_ppt_sanity_check THEN
-			RAISE_APPLICATION_ERROR(-20000, 'tournament player count sanity check failed, '
-				|| v_player_count_sanity_check || ' players selected for tournament of '
-				|| v_ppt_sanity_check || ' players');
-		END IF;
-
-		OPEN p_tournament_work FOR
-			SELECT v_payload.tournament_id tournament_id,
-				   v_payload.player_count player_count,
+		OPEN p_trial_attributes FOR
+			SELECT current_generation,
+				   players_per_tournament,
 				   tournament_buy_in,
 				   initial_small_blind_value,
 				   double_blinds_interval
 			FROM   evolution_trial
 			WHERE  trial_id = p_trial_id;
 
-		OPEN p_tournament_work_strategies FOR
-			SELECT value strategy_id
-			FROM   TABLE(v_strategy_ids)
-			ORDER BY strategy_id;
-			
-		-- indicate tournament work to perform
+		OPEN p_tournament_work FOR
+			SELECT t.tournament_id,
+				   TO_CLOB(LISTAGG(sids.column_value, ',') WITHIN GROUP (ORDER BY ROWNUM)) strategy_ids
+			FROM   TABLE(v_payload) t,
+				   TABLE(t.strategy_ids) sids
+			GROUP BY t.tournament_id
+			ORDER BY tournament_id;
+		
+		-- mark work as having been picked up
+		UPDATE evolution_trial_work
+		SET    picked_up_by = p_worker_id
+		WHERE  trial_id = p_trial_id
+		   AND tournament_id IN (SELECT tournament_id FROM TABLE(v_payload));
 		COMMIT;
+		
+		-- indicate tournament work to perform
 		RETURN 0;
-				   
+		
 	ELSE
 	
 		-- empty queue, check if trial is complete
@@ -300,11 +294,11 @@ BEGIN
 	END IF;
 	
 	EXCEPTION WHEN OTHERS THEN
+		IF p_trial_attributes%ISOPEN THEN
+			CLOSE p_trial_attributes;
+		END IF;
 		IF p_tournament_work%ISOPEN THEN
 			CLOSE p_tournament_work;
-		END IF;
-		IF p_tournament_work_strategies%ISOPEN THEN
-			CLOSE p_tournament_work_strategies;
 		END IF;
 		RAISE;
 		
@@ -324,48 +318,74 @@ BEGIN
 
 END set_current_generation;
 
+PROCEDURE select_generation(
+	p_trial_id   strategy.trial_id%TYPE,
+	p_generation strategy.generation%TYPE,
+	p_result_set OUT t_rc_generic
+) IS
+BEGIN
+
+	OPEN p_result_set FOR
+		SELECT strategy_id
+		FROM   strategy
+		WHERE  trial_id = p_trial_id
+		   AND generation = p_generation
+		ORDER BY strategy_id;
+		
+	EXCEPTION WHEN OTHERS THEN
+		IF p_result_set%ISOPEN THEN
+			CLOSE p_result_set;
+		END IF;
+		RAISE;
+		
+END select_generation;
+
 PROCEDURE select_parent_generation(
 	p_trial_id         evolution_trial.trial_id%TYPE,
 	p_generation       strategy.generation%TYPE,
 	p_trial_attributes OUT t_rc_generic,
+	p_carry_overs      OUT t_rc_generic,
 	p_parents          OUT t_rc_generic
 ) IS
 
-	v_crossover_rate  evolution_trial.crossover_rate%TYPE;
-	v_crossover_point evolution_trial.crossover_point%TYPE;
-	v_mutation_rate   evolution_trial.mutation_rate%TYPE;
-	v_generation_size evolution_trial.generation_size%TYPE;
+	v_evolution_trial evolution_trial%ROWTYPE;
 
 BEGIN
 
-	SELECT crossover_rate,
-		   crossover_point,
-		   mutation_rate,
-		   generation_size
-	INTO   v_crossover_rate,
-		   v_crossover_point,
-		   v_mutation_rate,
-		   v_generation_size
+	SELECT *
+	INTO   v_evolution_trial
 	FROM   evolution_trial
 	WHERE  trial_id = p_trial_id;
 
 	OPEN p_trial_attributes FOR
-		SELECT v_crossover_point crossover_point,
-			   v_mutation_rate mutation_rate,
-			   v_generation_size generation_size
+		SELECT v_evolution_trial.crossover_point,
+			   v_evolution_trial.mutation_rate,
+			   v_evolution_trial.generation_size
 		FROM   DUAL;
-		   
+
+	OPEN p_carry_overs FOR
+		WITH carry_overs AS (
+			SELECT strategy_id,
+				   DENSE_RANK() OVER (ORDER BY fitness_score DESC, strategy_id) strategy_rank
+			FROM   strategy_fitness
+			WHERE  trial_id = p_trial_id
+			   AND generation = p_generation
+			ORDER BY strategy_rank
+		)
+		
+		SELECT strategy_id
+		FROM   carry_overs
+		WHERE  ROWNUM <= v_evolution_trial.carry_over_count;
+		
 	OPEN p_parents FOR
 		-- current generation attributes
 		WITH current_generation AS (
 			SELECT /*+ MATERIALIZE */
-				   s.strategy_id,
-				   sf.fitness_score
-			FROM   strategy s,
-				   strategy_fitness sf
-			WHERE  s.generation = p_generation
-			   AND s.strategy_id = sf.strategy_id
-			   AND sf.evolution_trial_id = p_trial_id
+				   strategy_id,
+				   fitness_score
+			FROM   strategy_fitness
+			WHERE  trial_id = p_trial_id
+			   AND generation = p_generation
 		),
 
 		-- total fitness of current generation
@@ -415,11 +435,11 @@ BEGIN
 		-- random numbers to represent parent selection from current generation
 		random_parent_numbers AS (
 			SELECT /*+ MATERIALIZE */
-				   CASE WHEN DBMS_RANDOM.VALUE < v_crossover_rate THEN 1 ELSE 0 END perform_crossover,
+				   CASE WHEN DBMS_RANDOM.VALUE < v_evolution_trial.crossover_rate THEN 1 ELSE 0 END perform_crossover,
 				   DBMS_RANDOM.VALUE parent_a_rand,
 				   DBMS_RANDOM.VALUE parent_b_rand
 			FROM   DUAL
-			CONNECT BY ROWNUM <= v_generation_size / 2
+			CONNECT BY ROWNUM <= (v_evolution_trial.generation_size / 2) - v_evolution_trial.carry_over_count
 		)
 
 		-- roulette wheel selection of parent strategies from current generation
@@ -438,6 +458,9 @@ BEGIN
 	EXCEPTION WHEN OTHERS THEN
 		IF p_trial_attributes%ISOPEN THEN
 			CLOSE p_trial_attributes;
+		END IF;
+		IF p_carry_overs%ISOPEN THEN
+			CLOSE p_carry_overs;
 		END IF;
 		IF p_parents%ISOPEN THEN
 			CLOSE p_parents;
@@ -468,7 +491,8 @@ BEGIN
 
 	-- update aggregate strategy fitness values
 	MERGE INTO strategy_fitness d USING (
-		SELECT tr.strategy_id,
+		SELECT tr.generation,
+			   tr.strategy_id,
 			   COUNT(*) tournaments_played,
 			   SUM(tr.games_played) games_played,
 			   SUM(tr.main_pots_won) main_pots_won,
@@ -517,16 +541,17 @@ BEGIN
 			   SUM(tr.total_money_played) total_money_played,
 			   SUM(tr.total_money_won) total_money_won
 		FROM   evolution_trial et,
-			   tournament_result tr,
-			   strategy s
+			   tournament_result tr
 		WHERE  et.trial_id = p_trial_id
-		   AND et.trial_id = tr.evolution_trial_id
-		   AND tr.strategy_id = s.strategy_id
-		   AND et.current_generation = s.generation
-		GROUP BY tr.strategy_id
+		   AND et.trial_id = tr.trial_id
+		   AND et.current_generation = tr.generation
+		GROUP BY
+			tr.generation,
+			tr.strategy_id
 	) s ON (
-		d.strategy_id = s.strategy_id
-		AND d.evolution_trial_id = p_trial_id
+		d.trial_id = p_trial_id
+		AND d.generation = s.generation
+		AND d.strategy_id = s.strategy_id
 	) WHEN MATCHED THEN UPDATE SET
 		d.tournaments_played = d.tournaments_played + s.tournaments_played,
 		d.games_played = d.games_played + s.games_played,
@@ -576,8 +601,9 @@ BEGIN
 		d.total_money_played = d.total_money_played + s.total_money_played,
 		d.total_money_won = d.total_money_won + s.total_money_won
 	WHEN NOT MATCHED THEN INSERT (
+		trial_id,
+		generation,
 		strategy_id,
-		evolution_trial_id,
 		tournaments_played,
 		games_played,
 		main_pots_won,
@@ -626,8 +652,9 @@ BEGIN
 		total_money_played,
 		total_money_won
 	) VALUES (
-		s.strategy_id,
 		p_trial_id,
+		s.generation,
+		s.strategy_id,
 		s.tournaments_played,
 		s.games_played,
 		s.main_pots_won,
@@ -679,17 +706,18 @@ BEGIN
 
 	-- udpate averages dependent on newly updated aggregate values
 	MERGE INTO strategy_fitness d USING (
-		SELECT DISTINCT tr.strategy_id
+		SELECT DISTINCT
+			   tr.generation,
+			   tr.strategy_id
 		FROM   evolution_trial et,
-			   tournament_result tr,
-			   strategy s
+			   tournament_result tr
 		WHERE  et.trial_id = p_trial_id
-		   AND et.trial_id = tr.evolution_trial_id
-		   AND tr.strategy_id = s.strategy_id
-		   AND et.current_generation = s.generation
+		   AND et.trial_id = tr.trial_id
+		   AND et.current_generation = tr.generation
 	) s ON (
-		d.strategy_id = s.strategy_id
-		AND d.evolution_trial_id = p_trial_id
+		d.trial_id = p_trial_id
+		AND d.generation = s.generation
+		AND d.strategy_id = s.strategy_id
 	) WHEN MATCHED THEN UPDATE SET
 		d.average_tournament_profit = (d.total_money_won - d.total_money_played) / NULLIF(d.tournaments_played, 0),
 		d.average_game_profit = (d.total_money_won - d.total_money_played) / NULLIF(d.games_played, 0),
@@ -708,15 +736,107 @@ BEGIN
 	SELECT MIN(average_game_profit) min_average_game_profit
 	INTO   v_min_average_game_profit
 	FROM   strategy_fitness
-	WHERE  evolution_trial_id = p_trial_id
+	WHERE  trial_id = p_trial_id
 	   AND average_game_profit < 0;
 
 	UPDATE strategy_fitness
 	SET    fitness_score = NVL(ABS(v_min_average_game_profit), 0) + average_game_profit
-	WHERE  evolution_trial_id = p_trial_id;
+	WHERE  trial_id = p_trial_id;
 	
 	COMMIT;
 
 END update_strategy_fitness;
+
+FUNCTION get_control_generation(
+	p_trial_id evolution_trial.trial_id%TYPE
+) RETURN evolution_trial.control_generation%TYPE IS
+
+	v_control_generation evolution_trial.control_generation%TYPE;
+
+BEGIN
+
+	SELECT control_generation
+	INTO   v_control_generation
+	FROM   evolution_trial
+	WHERE  trial_id = p_trial_id;
+	
+	RETURN v_control_generation;
+	
+END get_control_generation;
+
+PROCEDURE requeue_failed_work (
+	p_worker_id evolution_trial_work.picked_up_by%TYPE,
+	p_trial_id  evolution_trial.trial_id%TYPE
+) IS
+
+	v_payload            t_row_evolution_trial_queue;
+	v_enqueue_options    DBMS_AQ.ENQUEUE_OPTIONS_T;
+	v_message_properties DBMS_AQ.MESSAGE_PROPERTIES_T;
+	v_message_handle     RAW(16);
+	
+BEGIN
+
+	FOR v_rec IN (
+		SELECT tournament_id,
+			   strategy_ids
+		FROM   evolution_trial_work
+		WHERE  trial_id = p_trial_id
+		   AND picked_up_by = p_worker_id
+		   AND played = 'N'
+		ORDER BY tournament_id
+	) LOOP
+	   
+	   v_payload := t_row_evolution_trial_queue(
+			trial_id      => p_trial_id,
+			tournament_id => v_rec.tournament_id,
+			strategy_ids  => v_rec.strategy_ids
+		);
+			
+		DBMS_AQ.ENQUEUE(
+			queue_name         => 'ev_trial_work_queue',
+			enqueue_options    => v_enqueue_options,
+			message_properties => v_message_properties,
+			payload            => v_payload,
+			msgid              => v_message_handle
+		);
+
+	END LOOP;
+	
+	UPDATE evolution_trial_work
+	SET    picked_up_by = NULL
+	WHERE  trial_id = p_trial_id
+	   AND picked_up_by = p_worker_id
+	   AND played = 'N';
+
+	COMMIT;
+	
+END requeue_failed_work;
+
+FUNCTION clean_interrupted_gen_create(
+	p_trial_id evolution_trial.trial_id%TYPE
+) RETURN evolution_trial.current_generation%TYPE IS
+
+	v_current_generation evolution_trial.current_generation%TYPE;
+	
+BEGIN
+
+	SELECT current_generation
+	INTO   v_current_generation
+	FROM   evolution_trial
+	WHERE  trial_id = p_trial_id;
+	
+	DELETE FROM strategy
+	WHERE  trial_id = p_trial_id
+	   AND generation > v_current_generation;
+	COMMIT;
+
+	RETURN v_current_generation;
+
+END clean_interrupted_gen_create;
+
+FUNCTION test_connection RETURN INTEGER IS
+BEGIN
+	RETURN 0;
+END test_connection;
 
 END pkg_ga_evolver;

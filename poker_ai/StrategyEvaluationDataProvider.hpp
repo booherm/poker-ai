@@ -16,6 +16,7 @@ public:
 	PokerEnums::PlayerMove getMoveForDecisionTreeUnit(unsigned int decisionTreeUnitId);
 	unsigned int getMoveAmountForDecisionTreeUnit(float amountMultiplier);
 	float getExpressionValue(unsigned int expressionId);
+	unsigned int getStrategyGeneration() const;
 	unsigned int getStrategyId() const;
 
 private:
@@ -26,6 +27,7 @@ private:
 	StateVariableCollection* stateVariableCollection;
 	std::vector<PokerEnums::PlayerMove>* currentPossiblePlayerMoves;
 	BetRaiseLimits* currentBetRaiseLimits;
+	unsigned int currentStrategyUnitId;
 	unsigned int playerSeatNumber;
 	StateVariableCollection::VariableSectionBoundaries vsb;
 

@@ -3,11 +3,11 @@
 
 #include <string>
 #include <vector>
-#include <occi.h>
 #include "PokerEnumerations.hpp"
 #include "Player.hpp"
 #include "PokerState.hpp"
 #include "StrategyManager.hpp"
+#include "TournamentResultCollector.hpp"
 #include "json.hpp"
 #include "Logger.hpp"
 
@@ -18,7 +18,12 @@ public:
 		EXTERNAL = 1
 	};
 
-	void initialize(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager, StrategyManager* strategyManager);
+	void initialize(
+		DbConnectionManager* dbConnectionManager,
+		PythonManager* pythonManager,
+		StrategyManager* strategyManager,
+		TournamentResultCollector* tournamentResultCollector
+	);
 	void testAutomatedTournament(
 		unsigned int evolutionTrialId,
 		unsigned int tournamentCount,
@@ -43,6 +48,8 @@ public:
 	unsigned int initNonAutomatedTournament(TournamentMode tournamentMode, unsigned int playerCount, unsigned int buyInAmount);
 	unsigned int stepPlay(unsigned int stateId, unsigned int smallBlindValue, PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount);
 	unsigned int editCard(unsigned int stateId, const std::string& cardType, unsigned int seatNumber, unsigned int cardSlot, unsigned int cardId);
+	void updatePlayerId(unsigned int seatNumber, const std::string& playerId);
+	void updatePlayerStrategyId(unsigned int seatNumber, unsigned int strategyId);
 	unsigned int getPreviousStateId(unsigned int stateId) const;
 	unsigned int getNextStateId(unsigned int stateId) const;
 	void getUiState(unsigned int stateId, Json::Value& uiData);
@@ -92,9 +99,10 @@ private:
 	std::vector<Player> players;
 	std::vector<PlayerState> playerStates;
 	StrategyManager* strategyManager;
+	TournamentResultCollector* tournamentResultCollector;
 	Logger logger;
 
-	oracle::occi::StatelessConnectionPool* connectionPool;
+	DbConnectionManager* dbConnectionManager;
 	oracle::occi::Connection* con;
 
 };

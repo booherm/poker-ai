@@ -8,9 +8,14 @@
 class GaEvolverController
 {
 public:
-	GaEvolverController(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager, StrategyManager* strategyManager);
+	GaEvolverController(
+		DbConnectionManager* dbConnectionManager,
+		PythonManager* pythonManager,
+		StrategyManager* strategyManager
+	);
 	~GaEvolverController();
 	void performEvolutionTrial(
+		const std::string& machineId,
 		unsigned int trialId,
 		unsigned int controlGeneration,
 		unsigned int startFromGenerationNumber,
@@ -18,6 +23,7 @@ public:
 		unsigned int maxGenerations,
 		float crossoverRate,
 		int crossoverPoint,
+		unsigned int carryOverCount,
 		float mutationRate,
 		unsigned int playersPerTournament,
 		unsigned int tournamentWorkerThreads,
@@ -26,16 +32,17 @@ public:
 		unsigned int initialSmallBlindValue,
 		unsigned int doubleBlindsInterval
 	);
-	void joinEvolutionTrial(unsigned int trialId, unsigned int tournamentWorkerThreads);
+	void joinEvolutionTrial(const std::string& machineId, unsigned int trialId, unsigned int tournamentWorkerThreads);
 
 private:
-	void startTournamentWorkers(unsigned int trialId);
+	void startTournamentWorkers(unsigned int trialId, unsigned int controlGeneration);
 	void joinTournamentWorkers();
-	void createControlGeneration(unsigned int playersPerTournament, unsigned int generationSize);
+	void createControlGeneration(unsigned int trialId, unsigned int playersPerTournament, unsigned int generationSize);
 	void createInitialGeneration(unsigned int trialId, unsigned int generationSize);
 
+	std::string machineId;
 	StrategyManager* strategyManager;
-	oracle::occi::StatelessConnectionPool* connectionPool;
+	DbConnectionManager* dbConnectionManager;
 	oracle::occi::Connection* con;
 	std::vector<GaEvolverTournamentWorker*> tournamentWorkers;
 	unsigned int workerCount;

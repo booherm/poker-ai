@@ -73,26 +73,61 @@ SELECT * FROM detail WHERE total_money != 5000;
 
 
 -- monitor evolution trial
-SELECT generation,
+SELECT * FROM poker_ai_log ORDER BY log_record_number;
+
+SELECT trial_id,
+	   generation,
 	   COUNT(*) generation_count
 FROM   strategy
-GROUP BY generation
-ORDER BY generation;
+GROUP BY
+	trial_id,
+	generation
+ORDER BY
+	trial_id,
+	generation;
 
+-- tournament worker status
+WITH work_assignements AS (
+    SELECT NVL(picked_up_by, 'UNASSIGNED') worker_id,
+           SUM(CASE WHEN played = 'Y' THEN 1 ELSE 0 END) played,
+           SUM(CASE WHEN played = 'N' THEN 1 ELSE 0 END) not_played,
+           COUNT(*) total,
+           ROUND((SUM(CASE WHEN played = 'Y' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0)) * 100, 2) played_percent
+    FROM   evolution_trial_work
+    GROUP BY NVL(picked_up_by, 'UNASSIGNED')
+)
+
+SELECT worker_id,
+       played,
+       not_played,
+       total,
+       played_percent
+FROM   work_assignements
+
+UNION ALL 
+
+SELECT '_TOTAL' worker_id,
+       SUM(played) played,
+       SUM(not_played) not_played,
+       SUM(played) + SUM(not_played) total,
+       ROUND((SUM(played) / NULLIF(SUM(played) + SUM(not_played), 0)) * 100, 2) played_percent
+FROM   work_assignements
+ORDER BY worker_id;
+
+SELECT COUNT(*) FROM ev_trial_work_queue_tbl;
 SELECT COUNT(*) / 10 FROM tournament_result;
 SELECT COUNT(*) FROM strategy_fitness;
 
 -- analyze evolution
-SELECT s.generation,
-	   MIN(s.strategy_id) KEEP (DENSE_RANK FIRST ORDER BY sf.fitness_score DESC, s.strategy_id) best_strategy_id,
-	   MIN(sf.fitness_score) KEEP (DENSE_RANK FIRST ORDER BY sf.fitness_score DESC, s.strategy_id) best_fitness_score,
-	   MIN(sf.average_game_profit) KEEP (DENSE_RANK FIRST ORDER BY sf.fitness_score DESC, s.strategy_id) best_avgerage_game_profit,
-	   ROUND(AVG(sf.fitness_score), 2) average_fitness_score,
-	   ROUND(AVG(sf.average_game_profit), 2) average_average_game_profit
-FROM   strategy s,
-	   strategy_fitness sf
-WHERE  s.strategy_id = sf.strategy_id
-GROUP BY s.generation
+SELECT generation,
+	   MIN(strategy_id) KEEP (DENSE_RANK FIRST ORDER BY fitness_score DESC, strategy_id) best_strategy_id,
+	   MIN(fitness_score) KEEP (DENSE_RANK FIRST ORDER BY fitness_score DESC, strategy_id) best_fitness_score,
+	   MIN(average_game_profit) KEEP (DENSE_RANK FIRST ORDER BY fitness_score DESC, strategy_id) best_avgerage_game_profit,
+	   ROUND(AVG(fitness_score), 2) average_fitness_score,
+	   ROUND(AVG(average_game_profit), 2) average_average_game_profit
+FROM   strategy_fitness
+WHERE  trial_id = 1
+GROUP BY generation
 ORDER BY generation;
 
 
@@ -108,10 +143,22 @@ BEGIN
 	EXECUTE IMMEDIATE 'TRUNCATE TABLE evolution_trial_work';
 	EXECUTE IMMEDIATE 'TRUNCATE TABLE tournament_result';
 	DBMS_AQADM.PURGE_QUEUE_TABLE('ev_trial_work_queue_tbl', NULL, v_purge_options);
-	
+
+	DELETE FROM strategy_fitness
+	WHERE  evolution_trial_id = v_evolution_trial_id
+	   AND strategy_id IN (
+			SELECT strategy_id
+			FROM   strategy
+			WHERE  generation > (SELECT current_generation FROM evolution_trial WHERE trial_id = v_evolution_trial_id)
+	   );
+	   
+	DELETE FROM strategy
+	WHERE  generation > (SELECT current_generation FROM evolution_trial WHERE trial_id = v_evolution_trial_id);
+		
 	-- re-queue tournaments
 	pkg_ga_evolver.enqueue_tournaments(p_trial_id => v_evolution_trial_id);
-
+	COMMIT;
+	
 	-- start generation controller
 	-- start tournament workers
 

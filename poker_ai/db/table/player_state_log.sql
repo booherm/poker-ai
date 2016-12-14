@@ -2,7 +2,7 @@ CREATE TABLE player_state_log
 (
 	state_id                      NUMBER(38, 0),
 	seat_number                   NUMBER(2, 0),
-	player_id                     NUMBER(10, 0),
+	player_id                     VARCHAR2(50),
 	current_strategy_id           NUMBER(10, 0),
 	assumed_strategy_id           NUMBER(10, 0),
     hole_card_1                   NUMBER(2, 0),

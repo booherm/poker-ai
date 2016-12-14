@@ -2,12 +2,18 @@
 #include <algorithm>
 #include "Util.hpp"
 
-void TournamentController::initialize(oracle::occi::StatelessConnectionPool* connectionPool, PythonManager* pythonManager, StrategyManager* strategyManager) {
-	this->connectionPool = connectionPool;
-	con = connectionPool->getConnection();
+void TournamentController::initialize(
+	DbConnectionManager* dbConnectionManager,
+	PythonManager* pythonManager,
+	StrategyManager* strategyManager,
+	TournamentResultCollector* tournamentResultCollector
+) {
+	this->dbConnectionManager = dbConnectionManager;
+	con = dbConnectionManager->getConnection();
 	logger.initialize(con);
 	pokerState.pythonManager = pythonManager;
 	this->strategyManager = strategyManager;
+	this->tournamentResultCollector = tournamentResultCollector;
 }
 
 void TournamentController::testAutomatedTournament(
@@ -232,7 +238,7 @@ void TournamentController::getUiState(unsigned int stateId, Json::Value& uiData)
 }
 
 TournamentController::~TournamentController() {
-	connectionPool->releaseConnection(con);
+	dbConnectionManager->releaseConnection(con);
 }
 
 unsigned int TournamentController::getActivePlayerCount() const {
@@ -451,7 +457,7 @@ unsigned int TournamentController::initializeTournament(
 	playerStates.resize(playerCount);
 	for (unsigned int i = 0; i < playerCount; i++) {
 		unsigned int strategyId = strategyIds.size() == playerCount ? strategyIds[i] : 0;
-		players[i].initialize(con, &logger, &pokerState, &playerStates, i + 1, strategyManager->getStrategy(strategyId), 0, buyInAmount);
+		players[i].initialize(con, &logger, &pokerState, &playerStates, i + 1, strategyManager->getStrategy(strategyId), "", buyInAmount);
 	}
 	
 	// initialize pot controller
@@ -665,9 +671,9 @@ void TournamentController::captureStateLog() {
 void TournamentController::captureTournamentResults() {
 	if (tournamentId != 0) {
 		for (unsigned int i = 0; i < pokerState.playerCount; i++) {
-			players[i].captureTournamentResults(tournamentId, evolutionTrialId);
+			Player* player = &players[i];
+			tournamentResultCollector->pushTournamentResult(evolutionTrialId, tournamentId, player->getStrategyGeneration(), player->getStrategyId(), playerStates[i]);
 		}
-		con->commit();
 	}
 }
 
@@ -1082,4 +1088,12 @@ unsigned int TournamentController::editCard(unsigned int stateId, const std::str
 
 	return pokerState.currentStateId;
 
+}
+
+void TournamentController::updatePlayerId(unsigned int seatNumber, const std::string& playerId) {
+	playerStates[seatNumber - 1].setPlayerId(playerId);
+}
+
+void TournamentController::updatePlayerStrategyId(unsigned int seatNumber, unsigned int strategyId) {
+	players[seatNumber - 1].setStrategy(strategyManager->getStrategy(strategyId));
 }

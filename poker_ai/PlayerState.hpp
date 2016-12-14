@@ -11,7 +11,7 @@ public:
 	void setTournamentRank(unsigned int tournamentRank);
 	void setState(PokerEnums::State state);
 	void setSeatNumber(unsigned int seatNumber);
-	void setPlayerId(unsigned int playerId);
+	void setPlayerId(const std::string& playerId);
 	void setAssumedStrategyId(unsigned int assumedStrategyId);
 	void setMoney(unsigned int money);
 	void setHandShowing(bool handShowing);
@@ -86,7 +86,7 @@ public:
 
 	StateVariableCollection* stateVariables;
 	unsigned int seatNumber;
-	unsigned int playerId;
+	std::string playerId;
 	unsigned int assumedStrategyId;
 	bool handShowing;
 	bool presentedBetOpportunity;

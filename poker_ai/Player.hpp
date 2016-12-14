@@ -23,7 +23,7 @@ public:
 		std::vector<PlayerState>* playerStates,
 		unsigned int seatNumber,
 		Strategy* strategy,
-		unsigned int playerId,
+		const std::string& playerId,
 		unsigned int buyInAmount
 	);
 	void load(
@@ -40,6 +40,8 @@ public:
 	bool getPresentedBetOpportunity() const;
 	std::string getBestHandComparator() const;
 	int getMoney() const;
+	unsigned int getStrategyGeneration() const;
+	unsigned int getStrategyId() const;
 	void getUiState(Json::Value& playerStateData) const;
 	void issueWinnings(unsigned int winningsAmount, bool isMainPot, bool splittingPot);
 	void setBestHandRank(unsigned int rank);
@@ -48,13 +50,13 @@ public:
 	void setHoleCards(Deck::Card holeCard1, Deck::Card holeCard2);
 	void replaceHoleCard(unsigned int cardSlot, unsigned int cardId);
 	void setPlayerShowdownMuck();
+	void setStrategy(Strategy* strategy);
 	std::string calculateBestHand();
 	PokerEnums::State performPlayerMove(PokerEnums::PlayerMove playerMove, unsigned int playerMoveAmount);
 	void processGameResults(unsigned int tournamentRank);
 	void resetGameState();
 	void resetBettingRoundState();
 	void insertStateLog();
-	void captureTournamentResults(unsigned int tournamentId, unsigned int evolutionTrialId);
 
 private:
 	struct Hand {

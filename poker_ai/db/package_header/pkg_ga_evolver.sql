@@ -9,6 +9,7 @@ PROCEDURE upsert_evolution_trial(
 	p_max_generations           evolution_trial.max_generations%TYPE,
 	p_crossover_rate            evolution_trial.crossover_rate%TYPE,
 	p_crossover_point           evolution_trial.crossover_point%TYPE,
+	p_carry_over_count          evolution_trial.carry_over_count%TYPE,
 	p_mutation_rate             evolution_trial.mutation_rate%TYPE,
 	p_players_per_tournament    evolution_trial.players_per_tournament%TYPE,
 	p_tournament_play_count     evolution_trial.tournament_play_count%TYPE,
@@ -27,9 +28,10 @@ PROCEDURE enqueue_tournaments(
 );
 
 FUNCTION select_tournament_work (
-	p_trial_id                   evolution_trial.trial_id%TYPE,
-	p_tournament_work            OUT t_rc_generic,
-	p_tournament_work_strategies OUT t_rc_generic
+	p_worker_id        evolution_trial_work.picked_up_by%TYPE,
+	p_trial_id         evolution_trial.trial_id%TYPE,
+	p_trial_attributes OUT t_rc_generic,
+	p_tournament_work  OUT t_rc_generic
 ) RETURN INTEGER;
 
 PROCEDURE set_current_generation(
@@ -37,10 +39,17 @@ PROCEDURE set_current_generation(
 	p_current_generation evolution_trial.current_generation%TYPE
 );
 
+PROCEDURE select_generation(
+	p_trial_id   strategy.trial_id%TYPE,
+	p_generation strategy.generation%TYPE,
+	p_result_set OUT t_rc_generic
+);
+
 PROCEDURE select_parent_generation(
 	p_trial_id         evolution_trial.trial_id%TYPE,
 	p_generation       strategy.generation%TYPE,
 	p_trial_attributes OUT t_rc_generic,
+	p_carry_overs      OUT t_rc_generic,
 	p_parents          OUT t_rc_generic
 );
 
@@ -51,5 +60,20 @@ PROCEDURE mark_trial_complete(
 PROCEDURE update_strategy_fitness(
 	p_trial_id evolution_trial.trial_id%TYPE
 );
+
+FUNCTION get_control_generation(
+	p_trial_id evolution_trial.trial_id%TYPE
+) RETURN evolution_trial.control_generation%TYPE;
+
+PROCEDURE requeue_failed_work (
+	p_worker_id evolution_trial_work.picked_up_by%TYPE,
+	p_trial_id  evolution_trial.trial_id%TYPE
+);
+
+FUNCTION clean_interrupted_gen_create(
+	p_trial_id evolution_trial.trial_id%TYPE
+) RETURN evolution_trial.current_generation%TYPE;
+
+FUNCTION test_connection RETURN INTEGER;
 
 END pkg_ga_evolver;

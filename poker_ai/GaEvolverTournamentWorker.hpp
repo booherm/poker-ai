@@ -5,14 +5,16 @@
 #include <windows.h>
 #include "PythonManager.hpp"
 #include "StrategyManager.hpp"
+#include "TournamentResultCollector.hpp"
 
 class GaEvolverTournamentWorker {
 public:
 
 	GaEvolverTournamentWorker(
-		oracle::occi::StatelessConnectionPool* connectionPool,
+		DbConnectionManager* dbConnectionManager,
 		PythonManager* pythonManager,
 		unsigned int trialId,
+		unsigned int controlGeneration,
 		const std::string& workerId,
 		StrategyManager* strategyManager,
 		bool loggingEnabled
@@ -23,9 +25,11 @@ public:
 private:
 	void threadLoop();
 
-	oracle::occi::StatelessConnectionPool* connectionPool;
+	DbConnectionManager* dbConnectionManager;
+	TournamentResultCollector* tournamentResultCollector;
 	PythonManager* pythonManager;
 	unsigned int trialId;
+	unsigned int controlGeneration;
 	std::string workerId;
 	boost::thread workerThread;
 	StrategyManager* strategyManager;

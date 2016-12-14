@@ -11,7 +11,22 @@ PythonManager::PlayerMoveResult StrategyEvaluationDataProvider::executeDecisionP
 	currentPossiblePlayerMoves = possiblePlayerMoves;
 	currentBetRaiseLimits = betRaiseLimits;
 
-	return strategy->pythonManager->executeDecisionProcedure(this, strategy->compiledDecisionProcedure);
+	currentStrategyUnitId = 0;
+
+	// determine proper strategy unit id by possible moves
+	if (possiblePlayerMoves->size() == 2) {
+		if (possiblePlayerMoves->at(0) == PokerEnums::PlayerMove::CHECK && possiblePlayerMoves->at(1) == PokerEnums::PlayerMove::BET)
+			currentStrategyUnitId = 0;
+		else if (possiblePlayerMoves->at(0) == PokerEnums::PlayerMove::CHECK && possiblePlayerMoves->at(1) == PokerEnums::PlayerMove::RAISE)
+			currentStrategyUnitId = 1;
+		else // FOLD, CALL
+			currentStrategyUnitId = 2;
+	}
+	else {  // FOLD, CALL, RAISE
+		currentStrategyUnitId = 3;
+	}
+
+	return strategy->pythonManager->executeDecisionProcedure(this, strategy->strategyUnits[currentStrategyUnitId].compiledDecisionProcedure);
 }
 
 PokerEnums::PlayerMove StrategyEvaluationDataProvider::getMoveForDecisionTreeUnit(unsigned int decisionTreeUnitId) {
@@ -85,6 +100,13 @@ float StrategyEvaluationDataProvider::getExpressionValue(unsigned int expression
 
 }
 
+unsigned int StrategyEvaluationDataProvider::getStrategyGeneration() const {
+	if (strategy == nullptr)
+		return 0;
+
+	return strategy->getGeneration();
+}
+
 unsigned int StrategyEvaluationDataProvider::getStrategyId() const {
 	if (strategy == nullptr)
 		return 0;
@@ -125,7 +147,7 @@ float StrategyEvaluationDataProvider::getSubExpressionValue(unsigned int express
 
 		// value is > vsb.publicPlayerStateUpperBound, id references another expression
 
-		Strategy::ValueExpression* valueExpression = strategy->getValueExpression(expId - vsb.publicPlayerStateUpperBound);
+		Strategy::ValueExpression* valueExpression = strategy->getValueExpression(currentStrategyUnitId, expId - vsb.publicPlayerStateUpperBound);
 		std::vector<unsigned int>::iterator it;
 		std::string expressionOp = strategy->getExpressionValueOperatorText(valueExpression->valueExpressionOperator.valueExpressionOperatorId);
 

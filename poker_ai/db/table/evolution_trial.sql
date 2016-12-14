@@ -6,6 +6,7 @@ CREATE TABLE evolution_trial
 	max_generations           NUMBER(10, 0),
 	crossover_rate            NUMBER(5, 4),
 	crossover_point           NUMBER(10, 0),
+	carry_over_count          NUMBER(10, 0),
 	mutation_rate             NUMBER(5, 4),
 	players_per_tournament    NUMBER(10, 0),
 	tournament_play_count     NUMBER(10, 0),

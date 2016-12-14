@@ -16,20 +16,21 @@ class Strategy {
 public:
 	void initialize(
 		oracle::occi::Connection* con,
-		//oracle::occi::StatelessConnectionPool* connectionPool,
 		PythonManager* pythonManager,
 		bool loggingEnabled
 	);
 	void assignNewStrategyId();
 	void loadById(unsigned int loadStrategyId);
 	unsigned int generateFromRandom(unsigned int generation);
-	void generateDecisionProcedure();
-	std::vector<bool>* getChromosome();
+	void generateStrategyUnitDecisionProcedures();
+	std::vector<bool>* getChromosome(unsigned int strategyUnitId);
 	unsigned int getStrategyId() const;
 	unsigned int getGeneration() const;
 	void setGeneration(unsigned int generation);
+	void setTrialId(unsigned int trialId);
 	void save();
 	~Strategy();
+	const unsigned int strategyUnitCount = 4;
 
 private:
 	struct ValueExpressionOperand {
@@ -75,14 +76,22 @@ private:
 		AmountMultiplier rightAmountMultiplier;
 	};
 
-	void setDecisionTreeAttributes();
-	std::string getDecisionTree(unsigned int decisionTreeUnitId) const;
-	std::vector<bool> getChromosomeSection(unsigned int startIndex, unsigned int length) const;
+	struct StrategyUnit {
+		std::vector<bool> chromosome;
+		std::string decisionProcedure;
+		std::vector<DecisionTreeUnit> decisionTreeUnits;
+		PyObject* compiledDecisionProcedure;
+	};
+
+	void setDecisionTreeAttributes(unsigned int strategyUnitId);
+	void generateDecisionProcedure(unsigned int strategyUnitId);
+	std::string getDecisionTree(unsigned int strategyUnitId, unsigned int decisionTreeUnitId) const;
+	void getChromosomeSection(std::vector<bool>* chromosome, unsigned int startIndex, unsigned int length, std::vector<bool>& destination);
 	unsigned int getIdFromBitString(const std::vector<bool>& bitString) const;
 	std::string getExpressionValueOperatorText(unsigned int expressionValueOperatorId) const;
 	std::string getDecisionOperatorText(unsigned int decisionOperatorId) const;
 	double getAmountMultiplierFromId(unsigned int amountMultiplierId) const;
-	ValueExpression* getValueExpression(unsigned int expId);
+	ValueExpression* getValueExpression(unsigned int strategyUnitId, unsigned int expId);
 	std::string indent(unsigned int tabCount) const;
 
 	const unsigned int valueExpressionOperandIdBitLength = 10;
@@ -96,14 +105,11 @@ private:
 	const unsigned int chromosomeBitLength = decisionTreeUnitBitLength * decisionTreeUnitSlots; // 63 * 127 = 8001
 	const unsigned int valueExpressionSlotIdCount = 2 * decisionTreeUnitSlots; // 254
 
-	unsigned int strategyId;
+	unsigned int trialId = 0;
 	unsigned int generation;
-	std::vector<bool> chromosome;
-	std::string decisionProcedure;
-	std::vector<DecisionTreeUnit> decisionTreeUnits;
-	PyObject* compiledDecisionProcedure = nullptr;
+	unsigned int strategyId;
+	std::vector<StrategyUnit> strategyUnits;
 	PythonManager* pythonManager;
-	//oracle::occi::StatelessConnectionPool* connectionPool;
 	oracle::occi::Connection* con;
 	Logger logger;
 	Util::RandomNumberGenerator randomNumberGenerator;

@@ -128,12 +128,13 @@ TournamentStepper.initCardSelectionWindow = function(){
 		+ "<area shape='rect' coords='676,342,737,432' href='javascript: TournamentStepper.cardSelected(50);'/>"
 		+ "<area shape='rect' coords='742,342,803,432' href='javascript: TournamentStepper.cardSelected(51);'/>"
 		+ "<area shape='rect' coords='808,342,869,432' href='javascript: TournamentStepper.cardSelected(52);'/>"
+		+ "<area shape='rect' coords='910,180,978,274' href='javascript: TournamentStepper.cardSelected(0);'/>"
 		+ "</map>"
 		+ "<img src='images/cards/card_array.png' usemap='#card_array_map'/>";
 	
 	TournamentStepper.cardSelectionWindow = Ext.create("Ext.window.Window", {
 		title: "Select Card",
-		width: 900,
+		width: 1010,
 		height: 490,
 		html: cardArrayHtml
 	});
@@ -420,9 +421,12 @@ TournamentStepper.initGamePanel = function(){
 
 TournamentStepper.initSeatPanel = function(seatNumber){
 	
-	TournamentStepper["playerIdLabel_" + seatNumber] = Ext.create("Ext.form.field.Display", {
+	TournamentStepper["playerId_" + seatNumber] = Ext.create("Ext.form.field.Text", {
 		labelWidth: 100,
-		fieldLabel: "Player ID"
+		fieldLabel: "<img id='blindIndicator_" + seatNumber + "'/>&nbsp;&nbsp;Player ID",
+		maxLength: 50,
+		disabled: true,
+		listeners: {blur: function(field){PokerAi.updatePlayerId(seatNumber, field.getValue());}}
 	});
 	
 	TournamentStepper["playerMoneyLabel_" + seatNumber] = Ext.create("Ext.form.field.Display", {
@@ -456,11 +460,20 @@ TournamentStepper.initSeatPanel = function(seatNumber){
 		fieldLabel: "Total Pot Contribution"
 	});
 
-	TournamentStepper["playerStrategyId_" + seatNumber] = Ext.create("Ext.form.field.Display", {
+	TournamentStepper["playerStrategyId_" + seatNumber] = Ext.create("Ext.form.field.Number", {
 		labelWidth: 125,
-		fieldLabel: "Strategy ID"
+		fieldLabel: "Strategy ID",
+		allowBlank: true,
+		repeatTriggerClick: false,
+		width: 200,
+		minValue: 1,
+		maxValue: 500000,
+		disabled: true,
+		step: 1,
+		decimalPrecision: 0,
+		listeners: {blur: function(field) { PokerAi.updatePlayerStrategyId(seatNumber, field.getValue()); }}
 	});
-	
+
 	TournamentStepper["playerHoleCards_" + seatNumber] = Ext.create("Ext.form.field.Display", {
 		fieldLabel: "Hole Cards",
 		labelWidth: 100,
@@ -545,7 +558,7 @@ TournamentStepper.initSeatPanel = function(seatNumber){
 		title: "Seat " + seatNumber,
 		style: {borderColor: "black"},
 		items: [
-			TournamentStepper["playerIdLabel_" + seatNumber],
+			TournamentStepper["playerId_" + seatNumber],
 			TournamentStepper["playerTournamentRank_" + seatNumber],
 			
 			TournamentStepper["playerMoneyLabel_" + seatNumber],
@@ -714,8 +727,12 @@ TournamentStepper.refreshUi = function(uiData){
 				cardSlot.style.cursor = "default";
 			}
 
+			document.getElementById("blindIndicator_" + seatNumber).src = "";
+			TournamentStepper["playerId_" + seatNumber].setValue(null);
+			TournamentStepper["playerId_" + seatNumber].setDisabled(true);
 			TournamentStepper["playerHandShowingLabel_" + seatNumber].setValue(null);
 			TournamentStepper["playerStrategyId_" + seatNumber].setValue(null);
+			TournamentStepper["playerStrategyId_" + seatNumber].setDisabled(true);
 			TournamentStepper["playerMoneyLabel_" + seatNumber].setValue(null);
 			TournamentStepper["playerStateLabel_" + seatNumber].setValue("No Player");
 			TournamentStepper["playerGameRank_" + seatNumber].setValue(null);
@@ -738,9 +755,12 @@ TournamentStepper.refreshUi = function(uiData){
 		TournamentStepper["playerButtonBet_" + seatNumber].setDisabled(true);
 		TournamentStepper["playerBetAmount_" + seatNumber].setDisabled(true);
 		TournamentStepper["playerButtonBet_" + seatNumber].setText("Bet");
-			
+		
+		// player id
+		TournamentStepper["playerId_" + seatNumber].setValue(playerData.player_id);
+		document.getElementById("blindIndicator_" + seatNumber).src = "";
+
 		// set hole cards
-		TournamentStepper["playerIdLabel_" + seatNumber].setValue(playerData.player_id);
 		var holeCard1Slot = document.getElementById("seat_" + seatNumber + "_hole_card_1");
 		var holeCard2Slot = document.getElementById("seat_" + seatNumber + "_hole_card_2");
 		holeCard1Slot.style.cursor = "pointer";
@@ -769,7 +789,7 @@ TournamentStepper.refreshUi = function(uiData){
 		
 		// other generic attributes
 		TournamentStepper["playerHandShowingLabel_" + seatNumber].setValue(playerData.hand_showing);
-		TournamentStepper["playerStrategyId_" + seatNumber].setValue(playerData.strategy_id == 0 ? "0 - Random" : playerData.strategy_id);
+		TournamentStepper["playerStrategyId_" + seatNumber].setValue(playerData.strategy_id);
 		TournamentStepper["playerMoneyLabel_" + seatNumber].setValue(playerData.money);
 		TournamentStepper["playerStateLabel_" + seatNumber].setValue(playerData.state);
 		TournamentStepper["playerGameRank_" + seatNumber].setValue(playerData.game_rank);
@@ -778,8 +798,13 @@ TournamentStepper.refreshUi = function(uiData){
 
 		// player seat backround color
 		var playerColor = "lightgreen";
-		if(playerData.state == "No Player" || playerData.state == "Out of Tournament")
+		TournamentStepper["playerId_" + seatNumber].setDisabled(false);
+		TournamentStepper["playerStrategyId_" + seatNumber].setDisabled(false);
+		if(playerData.state == "No Player" || playerData.state == "Out of Tournament"){
+			TournamentStepper["playerId_" + seatNumber].setDisabled(true);
+			TournamentStepper["playerStrategyId_" + seatNumber].setDisabled(true);
 			playerColor = "gray";
+		}
 		else if (playerData.state == "Folded")
 			playerColor = "CFD1D0";
 		else if(seatNumber == uiData.gameState.turn_seat_number && uiData.gameState.betting_round_in_progress == "Yes")
@@ -846,9 +871,9 @@ TournamentStepper.refreshUi = function(uiData){
 	var sbSeatNum = uiData.gameState.small_blind_seat_number;
 	var bbSeatNum = uiData.gameState.big_blind_seat_number;
 	if(sbSeatNum != null)
-		TournamentStepper["playerIdLabel_" + sbSeatNum].setValue(TournamentStepper["playerIdLabel_" + sbSeatNum].getValue() + " - Small Blind");
+		document.getElementById("blindIndicator_" + sbSeatNum).src = "images/small_blind.png";
 	if(bbSeatNum != null)
-		TournamentStepper["playerIdLabel_" + bbSeatNum].setValue(TournamentStepper["playerIdLabel_" + bbSeatNum].getValue() + " - Big Blind");
+		document.getElementById("blindIndicator_" + bbSeatNum).src = "images/big_blind.png";
 	
 	// all state setup, re-enable step play button
 	TournamentStepper.stepPlayButton.setDisabled(false);

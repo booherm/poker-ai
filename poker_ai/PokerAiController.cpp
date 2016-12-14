@@ -1,25 +1,22 @@
 #include "PokerAiController.hpp"
-#include <occi.h>
+#include "DbConnectionManager.hpp"
 
 PokerAiController::PokerAiController() {
 
 	// init db
-	oracle::occi::Environment* env = oracle::occi::Environment::createEnvironment(oracle::occi::Environment::THREADED_MUTEXED);
-
-	oracle::occi::StatelessConnectionPool* connectionPool = env->createStatelessConnectionPool("C##POKER_AI", "poker_ai",
-		"ORACLENODE2", 50, 5, 5, oracle::occi::StatelessConnectionPool::HOMOGENEOUS);
-
-	// debug
-	//oracle::occi::StatelessConnectionPool* connectionPool = env->createStatelessConnectionPool("POKER_AI", "poker_ai",
-//		"ORACLENODE", 50, 5, 5, oracle::occi::StatelessConnectionPool::HOMOGENEOUS);
+	//std::string userId = "C##POKER_AI_DEV"; // dev
+	std::string userId = "C##POKER_AI"; // live
+	DbConnectionManager* dbConnectionManager = new DbConnectionManager("ORACLENODE2", userId, "poker_ai");
 
 	// init main components
 	pythonManager = new PythonManager;
 	strategyManager = new StrategyManager;
-	strategyManager->initialize(connectionPool, pythonManager);
+	strategyManager->initialize(dbConnectionManager, pythonManager);
+	tournamentResultCollector = new TournamentResultCollector;
+	tournamentResultCollector->initialize(dbConnectionManager);
 	tournamentController = new TournamentController;
-	tournamentController->initialize(connectionPool, pythonManager, strategyManager);
-	gaEvolverController = new GaEvolverController(connectionPool, pythonManager, strategyManager);
+	tournamentController->initialize(dbConnectionManager, pythonManager, strategyManager, tournamentResultCollector);
+	gaEvolverController = new GaEvolverController(dbConnectionManager, pythonManager, strategyManager);
 
 	// init and start ui window
 	uiWindow = new PokerAiUiWindow(tournamentController, gaEvolverController);
@@ -31,11 +28,11 @@ PokerAiController::PokerAiController() {
 	// cleanup main components
 	delete uiWindow;
 	delete tournamentController;
+	delete tournamentResultCollector;
 	delete gaEvolverController;
 	delete strategyManager;
 	delete pythonManager;
 
 	// cleanup db
-	env->terminateStatelessConnectionPool(connectionPool);
-	oracle::occi::Environment::terminateEnvironment(env);
+	delete dbConnectionManager;
 }

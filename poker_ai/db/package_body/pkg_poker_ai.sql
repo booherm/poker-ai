@@ -419,9 +419,10 @@ BEGIN
 END insert_pot_contribution_log;
 
 PROCEDURE insert_tournament_result(
+	p_trial_id                    tournament_result.trial_id%TYPE,
+	p_generation                  tournament_result.generation%TYPE,
 	p_strategy_id                 tournament_result.strategy_id%TYPE,
 	p_tournament_id               tournament_result.tournament_id%TYPE,
-	p_evolution_trial_id          tournament_result.evolution_trial_id%TYPE,
 	p_tournament_rank             tournament_result.tournament_rank%TYPE,
 	p_games_played                tournament_result.games_played%TYPE,
 	p_main_pots_won               tournament_result.main_pots_won%TYPE,
@@ -484,9 +485,10 @@ PROCEDURE insert_tournament_result(
 BEGIN
 
 	INSERT INTO tournament_result (
+		trial_id,
+		generation,
 		strategy_id,
 		tournament_id,
-		evolution_trial_id,
 		tournament_rank,
 		games_played,
 		main_pots_won,
@@ -546,9 +548,10 @@ BEGIN
 		total_money_played,
 		total_money_won
 	) VALUES (
+		p_trial_id,
+		p_generation,
 		p_strategy_id,
 		p_tournament_id,
-		p_evolution_trial_id,
 		p_tournament_rank,
 		p_games_played,
 		p_main_pots_won,
@@ -611,7 +614,7 @@ BEGIN
 	
 	UPDATE evolution_trial_work
 	SET    played = 'Y'
-	WHERE  trial_id = p_evolution_trial_id
+	WHERE  trial_id = p_trial_id
 	   AND tournament_id = p_tournament_id;
 	
 END insert_tournament_result;
@@ -841,29 +844,57 @@ BEGIN
 END get_new_strategy_id;
 
 PROCEDURE upsert_strategy (
-	p_strategy_id         strategy.strategy_id%TYPE,
-	p_generation          strategy.generation%TYPE,
-	p_strategy_chromosome strategy.strategy_chromosome%TYPE,
-	p_strategy_procedure  strategy.strategy_procedure%TYPE
+	p_trial_id              strategy.trial_id%TYPE,
+	p_generation            strategy.generation%TYPE,
+	p_strategy_id           strategy.strategy_id%TYPE,
+	p_strategy_chromosome_1 strategy.strategy_chromosome_1%TYPE,
+	p_strategy_procedure_1  strategy.strategy_procedure_1%TYPE,
+	p_strategy_chromosome_2 strategy.strategy_chromosome_2%TYPE,
+	p_strategy_procedure_2  strategy.strategy_procedure_2%TYPE,
+	p_strategy_chromosome_3 strategy.strategy_chromosome_3%TYPE,
+	p_strategy_procedure_3  strategy.strategy_procedure_3%TYPE,
+	p_strategy_chromosome_4 strategy.strategy_chromosome_4%TYPE,
+	p_strategy_procedure_4  strategy.strategy_procedure_4%TYPE
 ) IS
 BEGIN
 
 	MERGE INTO strategy s USING (SELECT dummy FROM DUAL) d ON (
-		s.strategy_id = p_strategy_id
+		s.trial_id = p_trial_id
+		AND s.generation = p_generation
+		AND s.strategy_id = p_strategy_id
 	) WHEN MATCHED THEN UPDATE SET
-		s.generation = p_generation,
-		s.strategy_chromosome = p_strategy_chromosome,
-		s.strategy_procedure = p_strategy_procedure
+		s.strategy_chromosome_1 = p_strategy_chromosome_1,
+		s.strategy_procedure_1 = p_strategy_procedure_1,
+		s.strategy_chromosome_2 = p_strategy_chromosome_2,
+		s.strategy_procedure_2 = p_strategy_procedure_2,
+		s.strategy_chromosome_3 = p_strategy_chromosome_3,
+		s.strategy_procedure_3 = p_strategy_procedure_4,
+		s.strategy_chromosome_4 = p_strategy_chromosome_4,
+		s.strategy_procedure_4 = p_strategy_procedure_4
 	WHEN NOT MATCHED THEN INSERT (
-		strategy_id,
+		trial_id,
 		generation,
-		strategy_chromosome,
-		strategy_procedure
+		strategy_id,
+		strategy_chromosome_1,
+		strategy_procedure_1,
+		strategy_chromosome_2,
+		strategy_procedure_2,
+		strategy_chromosome_3,
+		strategy_procedure_3,
+		strategy_chromosome_4,
+		strategy_procedure_4
 	) VALUES (
-		p_strategy_id,
+		p_trial_id,
 		p_generation,
-		p_strategy_chromosome,
-		p_strategy_procedure
+		p_strategy_id,
+		p_strategy_chromosome_1,
+		p_strategy_procedure_1,
+		p_strategy_chromosome_2,
+		p_strategy_procedure_2,
+		p_strategy_chromosome_3,
+		p_strategy_procedure_3,
+		p_strategy_chromosome_4,
+		p_strategy_procedure_4
 	);
 		
 END upsert_strategy;
@@ -877,8 +908,14 @@ BEGIN
 	OPEN p_result FOR
 		SELECT strategy_id,
 			   generation,
-			   strategy_chromosome,
-			   strategy_procedure
+			   strategy_chromosome_1,
+			   strategy_procedure_1,
+			   strategy_chromosome_2,
+			   strategy_procedure_2,
+			   strategy_chromosome_3,
+			   strategy_procedure_3,
+			   strategy_chromosome_4,
+			   strategy_procedure_4
 		FROM   strategy
 		WHERE  strategy_id = p_strategy_id;
 	
